@@ -1,0 +1,23 @@
+{
+  "name": "sportlink-downloader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Download data from Sportlink Club",
+  "main": "download-data-from-sportlink.js",
+  "scripts": {
+    "download": "node download-data-from-sportlink.js",
+    "prepare-laposta": "node prepare-laposta-members.js",
+    "submit-laposta": "node submit-laposta-list.js",
+    "sync-laposta": "node submit-laposta-list.js",
+    "dedupe-laposta": "node dedupe-laposta-list.js",
+    "sync-all": "npm run download && npm run prepare-laposta && npm run sync-laposta",
+    "show-laposta-member": "node show-laposta-member.js",
+    "show-sportlink-member": "node show-sportlink-member.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "latest",
+    "dotenv": "latest",
+    "otplib": "latest",
+    "playwright": "latest"
+  }
+}
