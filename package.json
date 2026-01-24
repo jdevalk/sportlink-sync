@@ -14,7 +14,8 @@
     "sync-all-verbose": "node sync-all.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
     "show-sportlink-member": "node show-sportlink-member.js",
-    "show-laposta-changes": "node show-laposta-changes.js"
+    "show-laposta-changes": "node show-laposta-changes.js",
+    "install-cron": "bash scripts/install-cron.sh"
   },
   "dependencies": {
     "better-sqlite3": "latest",
