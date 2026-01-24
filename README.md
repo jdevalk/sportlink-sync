@@ -1,6 +1,14 @@
-# Sportlink downloader
+# Sportlink Sync
 
-This script logs in to Sportlink Club and fetches member data as JSON.
+A CLI tool that synchronizes member data from Sportlink Club to Laposta email marketing lists. It downloads member data via browser automation, transforms it according to field mappings, and syncs changes to up to 4 Laposta lists.
+
+## Features
+
+- **Automated sync**: Daily cron job at 6:00 AM with email reports
+- **Change detection**: Only submits members whose data actually changed
+- **Multi-list support**: Sync to up to 4 Laposta lists
+- **Parent deduplication**: Handles parent/child member associations
+- **Summary output**: Clean, email-friendly sync reports
 
 ## What does the script do?
 
@@ -14,6 +22,10 @@ The script automatically:
 
 Requires Node 18+ (for built-in `fetch`, `FormData`, and `Blob`).
 
+For cron automation, also requires:
+- `mail` command (usually from `mailutils` or `sendmail`)
+- Cron daemon running on the system
+
 ```bash
 npm install
 ```
@@ -22,6 +34,32 @@ npm install
 
 ```bash
 npm run sync-all
+```
+
+For verbose output (shows per-member progress):
+
+```bash
+npm run sync-all-verbose
+```
+
+## Automated daily sync
+
+Set up a cron job that runs the sync daily at 6:00 AM (Amsterdam time) and emails the report:
+
+```bash
+npm run install-cron
+```
+
+This will:
+- Prompt for your operator email address
+- Install crontab entries for daily sync at 6:00 AM
+- Configure automatic retry at 8:00 AM if the first sync fails
+- Send email reports after each sync
+
+To verify installation:
+
+```bash
+crontab -l
 ```
 
 ## Download
@@ -53,6 +91,21 @@ To see what would be sent to Laposta for a given email:
 npm run show-laposta-member -- someone@example.com
 npm run show-laposta-member -- someone@example.com 2
 ```
+
+To see the full list of members pending sync (changes only, with diffs):
+
+```bash
+npm run show-laposta-changes
+npm run show-laposta-changes -- 2
+```
+
+To see all members that would be sent (including unchanged, with diffs):
+
+```bash
+npm run show-laposta-changes -- --all
+```
+
+Note: diffs are based on the last successful Laposta sync.
 
 To see what is in the latest Sportlink results for an email:
 
