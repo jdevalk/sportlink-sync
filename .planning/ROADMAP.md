@@ -39,10 +39,10 @@ Plans:
   1. Crontab entry exists that runs `npm run sync-all` daily
   2. MAILTO is configured to send cron output to operator email
   3. Sync runs automatically without manual intervention
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] TBD (determined during phase planning)
+- [ ] 02-01-PLAN.md — Cron wrapper and install scripts
 
 ## Progress
 
@@ -52,8 +52,8 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Summary Output | 2/2 | Complete | 2026-01-24 |
-| 2. Cron Automation | 0/? | Not started | - |
+| 2. Cron Automation | 0/1 | Planned | - |
 
 ---
 *Roadmap created: 2026-01-24*
-*Last updated: 2026-01-24 (Phase 1 complete)*
+*Last updated: 2026-01-24 (Phase 2 planned)*
