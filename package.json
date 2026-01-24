@@ -10,9 +10,11 @@
     "submit-laposta": "node submit-laposta-list.js",
     "sync-laposta": "node submit-laposta-list.js",
     "dedupe-laposta": "node dedupe-laposta-list.js",
-    "sync-all": "npm run download && npm run prepare-laposta && npm run sync-laposta",
+    "sync-all": "node sync-all.js",
+    "sync-all-verbose": "node sync-all.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
-    "show-sportlink-member": "node show-sportlink-member.js"
+    "show-sportlink-member": "node show-sportlink-member.js",
+    "show-laposta-changes": "node show-laposta-changes.js"
   },
   "dependencies": {
     "better-sqlite3": "latest",
