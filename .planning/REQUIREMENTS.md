@@ -7,8 +7,8 @@
 
 ### Automation
 
-- [ ] **AUTO-01**: Cron job runs `npm run sync-all` daily
-- [ ] **AUTO-02**: Crontab entry with MAILTO configured for email reports
+- [x] **AUTO-01**: Cron job runs `npm run sync-all` daily
+- [x] **AUTO-02**: Crontab entry with MAILTO configured for email reports
 
 ### Output
 
@@ -35,8 +35,8 @@
 | OUT-01 | Phase 1 | Complete |
 | OUT-02 | Phase 1 | Complete |
 | OUT-03 | Phase 1 | Complete |
-| AUTO-01 | Phase 2 | Pending |
-| AUTO-02 | Phase 2 | Pending |
+| AUTO-01 | Phase 2 | Complete |
+| AUTO-02 | Phase 2 | Complete |
 
 **Coverage:**
 - v1 requirements: 5 total
@@ -45,4 +45,4 @@
 
 ---
 *Requirements defined: 2026-01-24*
-*Last updated: 2026-01-24 after roadmap creation*
+*Last updated: 2026-01-24 after Phase 2 completion*

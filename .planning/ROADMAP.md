@@ -13,7 +13,7 @@ This roadmap enhances an existing sync pipeline with automation-ready output and
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Summary Output** - Create concise sync report format
-- [ ] **Phase 2: Cron Automation** - Schedule daily sync with email reports
+- [x] **Phase 2: Cron Automation** - Schedule daily sync with email reports
 
 ## Phase Details
 
@@ -42,7 +42,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md — Cron wrapper and install scripts
+- [x] 02-01-PLAN.md — Cron wrapper and install scripts
 
 ## Progress
 
@@ -52,8 +52,8 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Summary Output | 2/2 | Complete | 2026-01-24 |
-| 2. Cron Automation | 0/1 | Planned | - |
+| 2. Cron Automation | 1/1 | Complete | 2026-01-24 |
 
 ---
 *Roadmap created: 2026-01-24*
-*Last updated: 2026-01-24 (Phase 2 planned)*
+*Last updated: 2026-01-24 (Milestone v1 complete)*
