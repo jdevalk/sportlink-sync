@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-const fs = require('fs/promises');
 const path = require('path');
 const https = require('https');
 const {
@@ -49,9 +48,11 @@ function extractActions(payload) {
 }
 
 function parseArgs(argv) {
-  const listIndex = argv[2] ? Number.parseInt(argv[2], 10) : null;
+  const args = argv.slice(2).filter(arg => !arg.startsWith('--'));
+  const listIndex = args[0] ? Number.parseInt(args[0], 10) : null;
   const force = argv.includes('--force') || argv.includes('--all');
-  return { listIndex, force };
+  const verbose = argv.includes('--verbose');
+  return { listIndex, force, verbose };
 }
 
 function appendCustomFields(params, customFields) {
@@ -232,83 +233,200 @@ function lapostaMemberRequest(listId, member, actions) {
   });
 }
 
-async function syncList(listIndex, force) {
+/**
+ * Sync a single list to Laposta
+ * @param {number} listIndex - List index (1-4)
+ * @param {Object} options
+ * @param {Object} [options.logger] - Logger instance
+ * @param {boolean} [options.verbose] - Verbose mode
+ * @param {boolean} [options.force] - Force sync all members
+ * @returns {Promise<{index: number, listId: string|null, total: number, synced: number, added: number, updated: number, errors: Array}>}
+ */
+async function syncList(listIndex, options = {}) {
+  const { logger, verbose = false, force = false } = options;
+  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
+
   const { envKey, listId } = getListConfig(listIndex);
+
+  // Return empty stats if list not configured
   if (!listId) {
-    console.log(`Skipping list ${listIndex}: ${envKey} not found in .env.`);
-    return;
+    return {
+      index: listIndex,
+      listId: null,
+      total: 0,
+      synced: 0,
+      added: 0,
+      updated: 0,
+      errors: []
+    };
   }
 
   const actions = ['add', 'update'];
   const db = openDb();
+  const result = {
+    index: listIndex,
+    listId,
+    total: 0,
+    synced: 0,
+    added: 0,
+    updated: 0,
+    errors: []
+  };
+
   try {
+    // Fetch and cache Laposta fields
     try {
       const fields = await fetchLapostaFields(listId);
       if (fields.length > 0) {
         upsertLapostaFields(db, listId, fields);
       }
     } catch (error) {
-      console.error('Warning: could not fetch Laposta fields:', error.message);
+      // Non-fatal: continue without field caching
+      logVerbose(`Warning: could not fetch Laposta fields: ${error.message}`);
     }
 
     const members = getMembersNeedingSync(db, listIndex, force);
+    result.total = members.length;
+
     if (members.length === 0) {
-      console.log(`No changes to sync for list ${listIndex}.`);
-      return;
+      return result;
     }
 
-    const label = force ? 'members' : 'changed members';
-    console.log(`Submitting ${members.length} ${label} to Laposta list ${listIndex} (${listId})...`);
-    console.log('Submitting members one by one (non-bulk).');
-
-    const errors = [];
     for (let i = 0; i < members.length; i += 1) {
       const member = members[i];
-      console.log(`Progress list ${listIndex}: ${i + 1}/${members.length}`);
+      logVerbose(`Syncing ${i + 1}/${members.length}: ${member.email}`);
+
       try {
-        await lapostaMemberRequest(listId, member, actions);
-        updateSyncState(db, listIndex, member.email, member.source_hash);
+        const response = await lapostaMemberRequest(listId, member, actions);
+        updateSyncState(db, listIndex, member.email, member.source_hash, member.custom_fields);
+        result.synced += 1;
+
+        // Determine if this was an add or update based on API response
+        // Laposta returns member data; if it has a created_at that matches modified_at, it's new
+        const memberData = response.body?.member;
+        if (memberData) {
+          const createdAt = memberData.created;
+          const modifiedAt = memberData.modified;
+          if (createdAt === modifiedAt) {
+            result.added += 1;
+          } else {
+            result.updated += 1;
+          }
+        } else {
+          // Fallback: count as update if we can't determine
+          result.updated += 1;
+        }
       } catch (error) {
-        errors.push({
-          index: i,
+        const errorMessage = error.details?.error?.message || error.message || String(error);
+        result.errors.push({
           email: member.email,
-          error: error.details || error.message
+          message: errorMessage
         });
       }
+
+      // Rate limit: wait 2 seconds between requests (except after last)
       if (i < members.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
-    if (errors.length > 0) {
-      const errorPath = path.join(process.cwd(), `laposta-submit-errors-list${listIndex}.json`);
-      await fs.writeFile(errorPath, JSON.stringify(errors, null, 2));
-      console.error(`Completed with ${errors.length} errors.`);
-      console.error(`Error details written to: ${errorPath}`);
-    } else {
-      console.log('Completed without errors.');
-    }
+    return result;
   } finally {
     db.close();
   }
 }
 
-async function main() {
-  const { listIndex, force } = parseArgs(process.argv);
-  const listIndexes = listIndex && listIndex >= 1 && listIndex <= 4
-    ? [listIndex]
-    : [1, 2, 3, 4];
+/**
+ * Run Laposta submission
+ * @param {Object} options
+ * @param {Object} [options.logger] - Logger instance with log(), verbose(), error() methods
+ * @param {boolean} [options.verbose=false] - Verbose mode (show per-member progress)
+ * @param {boolean} [options.force=false] - Sync all members, not just changed
+ * @param {number|null} [options.listIndex=null] - Specific list (1-4) or null for all
+ * @returns {Promise<{success: boolean, lists: Array, error?: string}>}
+ */
+async function runSubmit(options = {}) {
+  const { logger, verbose = false, force = false, listIndex = null } = options;
 
-  for (const index of listIndexes) {
-    // eslint-disable-next-line no-await-in-loop
-    await syncList(index, force);
+  const logError = logger ? logger.error.bind(logger) : console.error;
+
+  try {
+    const listIndexes = listIndex && listIndex >= 1 && listIndex <= 4
+      ? [listIndex]
+      : [1, 2, 3, 4];
+
+    const lists = [];
+    for (const index of listIndexes) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await syncList(index, { logger, verbose, force });
+      lists.push(result);
+    }
+
+    // Check if any list had errors
+    const totalErrors = lists.reduce((sum, list) => sum + list.errors.length, 0);
+
+    return {
+      success: totalErrors === 0,
+      lists
+    };
+  } catch (err) {
+    const errorMsg = err.message || String(err);
+    logError('Error:', errorMsg);
+    return {
+      success: false,
+      lists: [],
+      error: errorMsg
+    };
   }
 }
 
-main().catch((err) => {
-  console.error('Error:', err.message);
-  if (err.details) {
-    console.error('Details:', JSON.stringify(err.details, null, 2));
-  }
-  process.exitCode = 1;
-});
+module.exports = { runSubmit };
+
+// CLI entry point
+if (require.main === module) {
+  const { listIndex, force, verbose } = parseArgs(process.argv);
+
+  runSubmit({ verbose, force, listIndex })
+    .then(result => {
+      if (!result.success) {
+        // Print summary of what happened
+        result.lists.forEach(list => {
+          if (list.listId) {
+            const label = force ? 'members' : 'changed members';
+            if (list.total === 0) {
+              console.log(`No changes to sync for list ${list.index}.`);
+            } else {
+              console.log(`List ${list.index}: ${list.synced}/${list.total} ${label} synced (${list.added} added, ${list.updated} updated)`);
+              if (list.errors.length > 0) {
+                console.error(`  ${list.errors.length} errors occurred`);
+              }
+            }
+          } else {
+            console.log(`Skipping list ${list.index}: not configured in .env`);
+          }
+        });
+        process.exitCode = 1;
+      } else {
+        // Print summary
+        result.lists.forEach(list => {
+          if (list.listId) {
+            const label = force ? 'members' : 'changed members';
+            if (list.total === 0) {
+              console.log(`No changes to sync for list ${list.index}.`);
+            } else {
+              console.log(`List ${list.index}: ${list.synced}/${list.total} ${label} synced (${list.added} added, ${list.updated} updated)`);
+            }
+          } else {
+            console.log(`Skipping list ${list.index}: not configured in .env`);
+          }
+        });
+      }
+    })
+    .catch((err) => {
+      console.error('Error:', err.message);
+      if (err.details) {
+        console.error('Details:', JSON.stringify(err.details, null, 2));
+      }
+      process.exitCode = 1;
+    });
+}
