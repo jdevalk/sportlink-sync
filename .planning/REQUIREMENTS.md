@@ -33,15 +33,15 @@ None planned - define in next milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EMAIL-06 | TBD | Pending |
-| EMAIL-07 | TBD | Pending |
-| EMAIL-08 | TBD | Pending |
-| INST-01 | TBD | Pending |
+| EMAIL-06 | Phase 4 | Pending |
+| EMAIL-07 | Phase 4 | Pending |
+| EMAIL-08 | Phase 4 | Pending |
+| INST-01 | Phase 4 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 4 total
-- Mapped to phases: 0
-- Unmapped: 4
+- Mapped to phases: 4
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-01-25*
