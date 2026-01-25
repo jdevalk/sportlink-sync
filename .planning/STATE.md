@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 6 of 8 (Member Sync)
-Plan: 2 of ? in current phase
-Status: In progress
-Last activity: 2026-01-25 — Completed 06-02-PLAN.md
+Plan: 3 of 3 in current phase (Wave 2 complete)
+Status: Phase complete
+Last activity: 2026-01-25 — Completed 06-03-PLAN.md
 
-Progress: [=========.] 10/13 plans (v1.0-v1.2 + Phase 5-6 partial)
+Progress: [==========] 11/13 plans (v1.0-v1.2 + Phase 5-6 complete)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
 | Milestones shipped | 3 (v1.0, v1.1, v1.2) |
-| Total phases | 5 complete, 1 in progress, 2 planned |
-| Total plans | 10 complete |
+| Total phases | 6 complete, 0 in progress, 2 planned |
+| Total plans | 11 complete |
 
 ## Accumulated Context
 
@@ -41,6 +41,9 @@ See PROJECT.md Key Decisions table (12 decisions total).
 - Dutch tussenvoegsel merged into last_name field (06-02)
 - Empty meta fields use empty string '' not null/undefined (06-02)
 - ACF repeater arrays omit empty items entirely (06-02)
+- Email matching requires client-side ACF filtering (WordPress search limitations) (06-03)
+- 2 second rate limiting between API requests (06-03)
+- Continue sync after individual errors (collect and report at end) (06-03)
 
 ### Pending Todos
 
@@ -53,8 +56,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 06-02-PLAN.md (Stadion member preparation)
-Resume with: Next plan in Phase 6 (Submit to Stadion)
+Stopped at: Completed 06-03-PLAN.md (Stadion sync execution)
+Resume with: Phase 7 - Pipeline Integration
 
 ---
-*Last updated: 2026-01-25 (Phase 6 Plan 02 complete)*
+*Last updated: 2026-01-25 (Phase 6 complete)*
