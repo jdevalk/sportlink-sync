@@ -2,11 +2,22 @@
 
 ## What This Is
 
-A CLI tool that synchronizes member data from Sportlink Club (a Dutch sports club management system) to Laposta email marketing lists. It downloads member data via browser automation, transforms it according to field mappings, syncs changes to up to 4 Laposta lists, and runs automatically on a daily schedule with email reports via Postmark.
+A CLI tool that synchronizes member data from Sportlink Club (a Dutch sports club management system) to multiple destinations: Laposta email marketing lists and Stadion (a WordPress-based member management app). It downloads member data via browser automation, transforms it according to field mappings, syncs changes to destinations, and runs automatically on a daily schedule with email reports via Postmark.
 
 ## Core Value
 
-Keep Laposta email lists automatically in sync with Sportlink member data without manual intervention.
+Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
+
+## Current Milestone: v1.3 Connect to Stadion
+
+**Goal:** Sync Sportlink member data to Stadion WordPress app via REST API.
+
+**Target features:**
+- Stadion API client with application password auth
+- Field mapping to ACF structure (contact_info, addresses repeaters)
+- Member matching by KNVB ID (Sportlink relatiecode) with email fallback
+- Parent sync as separate person records
+- Integration into existing sync-all pipeline and email reports
 
 ## Current State (v1.2 Shipped)
 
@@ -50,7 +61,16 @@ npm run install-cron  # Prompts for operator email + Postmark credentials, sets 
 
 ### Active
 
-(None — define in next milestone)
+- [ ] Sync creates/updates person in Stadion via WordPress REST API — v1.3
+- [ ] Authenticate with Stadion via application password — v1.3
+- [ ] Map Sportlink fields to Stadion ACF structure — v1.3
+- [ ] Store Sportlink relatiecode as "KNVB ID" field in Stadion — v1.3
+- [ ] Match members by KNVB ID first, email fallback — v1.3
+- [ ] Hash-based change detection for Stadion sync — v1.3
+- [ ] Sync parents as separate person records — v1.3
+- [ ] Deduplicate parents across members — v1.3
+- [ ] Add Stadion sync to sync-all pipeline — v1.3
+- [ ] Include Stadion results in email report — v1.3
 
 ### Out of Scope
 
@@ -80,8 +100,8 @@ npm run install-cron  # Prompts for operator email + Postmark credentials, sets 
 
 - **Runtime**: Node.js 18+ with Playwright browser automation
 - **Dependencies**: Requires Chromium for Sportlink scraping
-- **Network**: Needs access to club.sportlink.com, api.laposta.nl, api.postmarkapp.com
-- **Credentials**: Sportlink username/password/OTP secret, Laposta API key, and Postmark API key in `.env`
+- **Network**: Needs access to club.sportlink.com, api.laposta.nl, api.postmarkapp.com, and Stadion WordPress site
+- **Credentials**: Sportlink username/password/OTP secret, Laposta API key, Postmark API key, and Stadion application password in `.env`
 
 ## Key Decisions
 
@@ -101,4 +121,4 @@ npm run install-cron  # Prompts for operator email + Postmark credentials, sets 
 | Store credentials via upsert | BSD sed compatible, handles existing .env | ✓ Good |
 
 ---
-*Last updated: 2026-01-25 after v1.2 milestone*
+*Last updated: 2026-01-25 after v1.3 milestone definition*
