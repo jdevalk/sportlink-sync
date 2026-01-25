@@ -65,10 +65,12 @@ Plans:
   1. Parent creates as separate person record in Stadion
   2. Same parent appearing for multiple children is synced once
   3. Parent record is linked to child via relationships field
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: TBD
+- [ ] 07-01-PLAN.md — Shared parent deduplication module (lib/parent-dedupe.js)
+- [ ] 07-02-PLAN.md — Parent preparation with extraction and deduplication
+- [ ] 07-03-PLAN.md — Parent sync execution with relationship linking
 
 ### Phase 8: Pipeline Integration
 **Goal**: Stadion sync is part of automated daily pipeline with email reports
@@ -91,7 +93,7 @@ Plans:
 | 4. Email Polish | v1.2 | 2/2 | Complete | 2026-01-25 |
 | 5. Stadion Foundation | v1.3 | 1/1 | Complete | 2026-01-25 |
 | 6. Member Sync | v1.3 | 3/3 | Complete | 2026-01-25 |
-| 7. Parent Sync | v1.3 | 0/? | Not started | - |
+| 7. Parent Sync | v1.3 | 0/3 | Not started | - |
 | 8. Pipeline Integration | v1.3 | 0/? | Not started | - |
 
 ---
