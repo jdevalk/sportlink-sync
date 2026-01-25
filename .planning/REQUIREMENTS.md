@@ -81,9 +81,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STAD-10 | Phase 6 | Complete |
 | STAD-11 | Phase 6 | Complete |
 | STAD-12 | Phase 6 | Complete |
-| STAD-13 | Phase 7 | Pending |
-| STAD-14 | Phase 7 | Pending |
-| STAD-15 | Phase 7 | Pending |
+| STAD-13 | Phase 7 | Complete |
+| STAD-14 | Phase 7 | Complete |
+| STAD-15 | Phase 7 | Complete |
 | STAD-16 | Phase 8 | Pending |
 | STAD-17 | Phase 8 | Pending |
 | STAD-18 | Phase 5 | Complete |

@@ -22,7 +22,7 @@ See MILESTONES.md for completed work.
 
 - [x] **Phase 5: Stadion Foundation** - API client with auth and error handling
 - [x] **Phase 6: Member Sync** - Field mapping, matching, and change detection
-- [ ] **Phase 7: Parent Sync** - Parents as separate person records
+- [x] **Phase 7: Parent Sync** - Parents as separate person records
 - [ ] **Phase 8: Pipeline Integration** - Integrate into sync-all and email reports
 
 ## Phase Details
@@ -68,9 +68,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Shared parent deduplication module (lib/parent-dedupe.js)
-- [ ] 07-02-PLAN.md — Parent preparation with extraction and deduplication
-- [ ] 07-03-PLAN.md — Parent sync execution with relationship linking
+- [x] 07-01-PLAN.md — Shared parent deduplication module (lib/parent-dedupe.js)
+- [x] 07-02-PLAN.md — Parent preparation with extraction and deduplication
+- [x] 07-03-PLAN.md — Parent sync execution with relationship linking
 
 ### Phase 8: Pipeline Integration
 **Goal**: Stadion sync is part of automated daily pipeline with email reports
@@ -93,7 +93,7 @@ Plans:
 | 4. Email Polish | v1.2 | 2/2 | Complete | 2026-01-25 |
 | 5. Stadion Foundation | v1.3 | 1/1 | Complete | 2026-01-25 |
 | 6. Member Sync | v1.3 | 3/3 | Complete | 2026-01-25 |
-| 7. Parent Sync | v1.3 | 0/3 | Not started | - |
+| 7. Parent Sync | v1.3 | 3/3 | Complete | 2026-01-25 |
 | 8. Pipeline Integration | v1.3 | 0/? | Not started | - |
 
 ---
