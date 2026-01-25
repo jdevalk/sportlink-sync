@@ -1,11 +1,11 @@
 # Sportlink Sync
 
-CLI tool that synchronizes member data from Sportlink Club to Laposta email marketing lists.
+CLI tool that synchronizes member data from Sportlink Club to Laposta email marketing lists and Stadion WordPress.
 
 ## Quick Reference
 
 ```bash
-npm run sync-all          # Full sync pipeline (download → prepare → submit)
+npm run sync-all          # Full sync pipeline (Sportlink → Laposta + Stadion)
 npm run sync-all-verbose  # Same with detailed logging
 npm run install-cron      # Set up automated daily sync with email reports
 ```
@@ -14,10 +14,11 @@ npm run install-cron      # Set up automated daily sync with email reports
 
 ### Sync Pipeline
 
-1. **download-data-from-sportlink.js** - Browser automation (Playwright) logs into Sportlink, handles OTP, downloads member CSV
-2. **prepare-laposta-members.js** - Transforms Sportlink fields to Laposta format, handles parent/child associations, deduplication
-3. **submit-laposta-list.js** - Syncs to up to 4 Laposta lists via API, uses hash-based change detection
-4. **sync-all.js** - Orchestrates full pipeline, produces email-ready summary
+1. **download-data-from-sportlink.js** - Browser automation downloads member CSV
+2. **prepare-laposta-members.js** - Transforms Sportlink fields for Laposta
+3. **submit-laposta-list.js** - Syncs to Laposta via API (hash-based change detection)
+4. **submit-stadion-sync.js** - Syncs to Stadion WordPress (reads from SQLite, not CSV)
+5. **sync-all.js** - Orchestrates full pipeline, produces email-ready summary
 
 ### Supporting Files
 
@@ -36,6 +37,8 @@ Sportlink Club (browser) → CSV → SQLite (state) → Laposta API
                               Hash-based diff
                                       ↓
                            Only changed members sync
+                                      ↓
+                              Stadion WordPress API
 ```
 
 ## Environment Variables
@@ -54,6 +57,12 @@ LAPOSTA_LIST=             # Primary list ID
 LAPOSTA_LIST2=            # Optional additional lists
 LAPOSTA_LIST3=
 LAPOSTA_LIST4=
+
+# Stadion WordPress
+STADION_URL=              # WordPress site URL (https://...)
+STADION_USERNAME=         # WordPress username
+STADION_APP_PASSWORD=     # Application password (from WordPress profile)
+STADION_PERSON_TYPE=      # Custom post type (default: person)
 
 # Email delivery
 OPERATOR_EMAIL=           # Receives sync reports
