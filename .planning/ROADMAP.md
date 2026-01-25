@@ -16,6 +16,12 @@ Replace unreliable local `mail` command with Postmark transactional email for sy
 
 **Dependencies:** None (builds on v1.0 infrastructure)
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md - Create send-email.js script with Postmark integration
+- [ ] 03-02-PLAN.md - Integrate into cron automation and update installer
+
 **Requirements:**
 - EMAIL-01: System sends sync report via Postmark API after each sync
 - EMAIL-02: Postmark API key configured via POSTMARK_API_KEY env var
