@@ -43,10 +43,13 @@ if [ $EXIT_CODE -ne 0 ]; then
     touch /tmp/sportlink-sync-retry
 fi
 
-# Send email if MAILTO is set
-if [ -n "$MAILTO" ]; then
-    SUBJECT="Sportlink Sync Report - $(date +%Y-%m-%d)"
-    cat "$LOG_FILE" | mail -s "$SUBJECT" "$MAILTO"
+# Send email via Postmark if credentials are configured
+if [ -n "$POSTMARK_API_KEY" ] && [ -n "$POSTMARK_FROM_EMAIL" ] && [ -n "$OPERATOR_EMAIL" ]; then
+    node "$PROJECT_DIR/scripts/send-email.js" "$LOG_FILE" || \
+        echo "Warning: Failed to send email notification" >&2
+    # Note: || prevents email failure from propagating via set -e
+else
+    echo "Skipping email: Postmark credentials not configured" >&2
 fi
 
 exit $EXIT_CODE
