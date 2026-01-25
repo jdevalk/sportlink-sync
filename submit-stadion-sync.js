@@ -18,12 +18,6 @@ const {
   getParentsNotInList
 } = require('./lib/stadion-db');
 
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
-
-const PERSON_TYPE = readEnv('STADION_PERSON_TYPE', 'person');
-
 /**
  * Helper for rate limiting between API requests
  */
@@ -32,123 +26,33 @@ function sleep(ms) {
 }
 
 /**
- * Find existing person in Stadion by KNVB ID first, then email fallback
- * Email fallback uses client-side filtering of ACF contact_info field
- * @param {string} knvbId - KNVB ID (relatiecode)
- * @param {string} email - Email address
- * @param {Object} options - Logger and verbose options
- * @returns {Promise<Object|null>} - WordPress person object or null
- */
-async function findExistingPerson(knvbId, email, options) {
-  const { logger, verbose } = options;
-  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
-
-  // Try KNVB ID match first (meta query)
-  if (knvbId) {
-    try {
-      const response = await stadionRequest(
-        `wp/v2/${PERSON_TYPE}?meta_key=knvb_id&meta_value=${encodeURIComponent(knvbId)}`,
-        'GET',
-        null,
-        options
-      );
-      if (response.body && response.body.length > 0) {
-        logVerbose(`Matched by KNVB ID: ${knvbId}`);
-        return response.body[0];
-      }
-    } catch (error) {
-      logVerbose(`KNVB ID search failed: ${error.message}`);
-    }
-  }
-
-  // Fallback: email match with client-side filtering
-  // WordPress search won't find ACF contact_info fields, so we:
-  // 1. Search by email as general search term (may match title/content)
-  // 2. Fetch results and filter client-side for actual ACF email match
-  if (email) {
-    try {
-      // Use general search - will match if email appears in any indexed field
-      const response = await stadionRequest(
-        `wp/v2/${PERSON_TYPE}?search=${encodeURIComponent(email)}&per_page=20`,
-        'GET',
-        null,
-        options
-      );
-      if (response.body && response.body.length > 0) {
-        // Client-side filter: check ACF contact_info for exact email match
-        for (const person of response.body) {
-          const contactInfo = person.acf?.contact_info || [];
-          const hasEmail = contactInfo.some(c =>
-            c.type === 'email' && c.value?.toLowerCase() === email.toLowerCase()
-          );
-          if (hasEmail) {
-            logVerbose(`Matched by email (client-side filter): ${email}`);
-            return person;
-          }
-        }
-      }
-
-      // If search didn't find it, try fetching recent persons and filtering
-      // This handles case where email isn't in indexed fields
-      logVerbose(`Email not in search results, checking recent persons...`);
-      const recentResponse = await stadionRequest(
-        `wp/v2/${PERSON_TYPE}?per_page=100&orderby=modified&order=desc`,
-        'GET',
-        null,
-        options
-      );
-      if (recentResponse.body && recentResponse.body.length > 0) {
-        for (const person of recentResponse.body) {
-          const contactInfo = person.acf?.contact_info || [];
-          const hasEmail = contactInfo.some(c =>
-            c.type === 'email' && c.value?.toLowerCase() === email.toLowerCase()
-          );
-          if (hasEmail) {
-            logVerbose(`Matched by email (recent persons scan): ${email}`);
-            return person;
-          }
-        }
-      }
-    } catch (error) {
-      logVerbose(`Email search failed: ${error.message}`);
-    }
-  }
-
-  return null; // No match found
-}
-
-/**
  * Sync a single member to Stadion (create or update)
+ * Uses local stadion_id tracking - no API search needed
  * @param {Object} member - Member record from database
  * @param {Object} db - SQLite database connection
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<{action: string, id: number}>}
  */
 async function syncPerson(member, db, options) {
-  const { knvb_id, email, data, source_hash } = member;
+  const { knvb_id, data, source_hash, stadion_id } = member;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  const existing = await findExistingPerson(knvb_id, email, options);
-
-  if (existing) {
-    // UPDATE existing person
-    // Backfill KNVB ID if matched by email and missing
-    if (!existing.meta?.knvb_id && knvb_id) {
-      data.meta.knvb_id = knvb_id;
-    }
-
+  if (stadion_id) {
+    // UPDATE existing person (we know the ID from our database)
+    logVerbose(`Updating existing person: ${stadion_id}`);
     const response = await stadionRequest(
-      `wp/v2/${PERSON_TYPE}/${existing.id}`,
-      'POST', // WordPress uses POST for updates too (with ID in URL)
+      `wp/v2/people/${stadion_id}`,
+      'PUT',
       data,
       options
     );
-    updateSyncState(db, knvb_id, source_hash, existing.id);
-    return { action: 'updated', id: existing.id };
+    updateSyncState(db, knvb_id, source_hash, stadion_id);
+    return { action: 'updated', id: stadion_id };
   } else {
     // CREATE new person
+    logVerbose(`Creating new person for KNVB ID: ${knvb_id}`);
     const response = await stadionRequest(
-      `wp/v2/${PERSON_TYPE}`,
+      'wp/v2/people',
       'POST',
       data,
       options
@@ -157,70 +61,6 @@ async function syncPerson(member, db, options) {
     updateSyncState(db, knvb_id, source_hash, newId);
     return { action: 'created', id: newId };
   }
-}
-
-/**
- * Find existing parent in Stadion by email
- * Uses same email matching approach as member fallback
- * @param {string} email - Parent email address
- * @param {Object} options - Logger and verbose options
- * @returns {Promise<Object|null>} - WordPress person object or null
- */
-async function findExistingParent(email, options) {
-  const { logger, verbose } = options;
-  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
-
-  if (!email) return null;
-
-  try {
-    // Search by email
-    const response = await stadionRequest(
-      `wp/v2/${PERSON_TYPE}?search=${encodeURIComponent(email)}&per_page=20`,
-      'GET',
-      null,
-      options
-    );
-
-    if (response.body && response.body.length > 0) {
-      // Client-side filter for exact ACF email match
-      for (const person of response.body) {
-        const contactInfo = person.acf?.contact_info || [];
-        const hasEmail = contactInfo.some(c =>
-          c.type === 'email' && c.value?.toLowerCase() === email.toLowerCase()
-        );
-        if (hasEmail) {
-          logVerbose(`Parent matched by email: ${email}`);
-          return person;
-        }
-      }
-    }
-
-    // Fallback: check recent persons
-    logVerbose(`Parent email not in search results, checking recent persons...`);
-    const recentResponse = await stadionRequest(
-      `wp/v2/${PERSON_TYPE}?per_page=100&orderby=modified&order=desc`,
-      'GET',
-      null,
-      options
-    );
-
-    if (recentResponse.body && recentResponse.body.length > 0) {
-      for (const person of recentResponse.body) {
-        const contactInfo = person.acf?.contact_info || [];
-        const hasEmail = contactInfo.some(c =>
-          c.type === 'email' && c.value?.toLowerCase() === email.toLowerCase()
-        );
-        if (hasEmail) {
-          logVerbose(`Parent matched by email (recent scan): ${email}`);
-          return person;
-        }
-      }
-    }
-  } catch (error) {
-    logVerbose(`Parent email search failed: ${error.message}`);
-  }
-
-  return null;
 }
 
 /**
@@ -234,19 +74,26 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
     try {
       // Get existing child record
       const childResponse = await stadionRequest(
-        `wp/v2/${PERSON_TYPE}/${childId}`,
+        `wp/v2/people/${childId}`,
         'GET',
         null,
         options
       );
 
-      const existingParents = childResponse.body.acf?.parents || [];
-      if (!existingParents.includes(parentId)) {
-        const mergedParents = [...existingParents, parentId];
+      const existingRelationships = childResponse.body.acf?.relationships || [];
+      const hasParentLink = existingRelationships.some(r => r.related_person === parentId);
+
+      if (!hasParentLink) {
+        const newRelationship = {
+          related_person: parentId,
+          relationship_type: '', // Parent relationship type
+          relationship_label: 'Ouder'
+        };
+        const mergedRelationships = [...existingRelationships, newRelationship];
         await stadionRequest(
-          `wp/v2/${PERSON_TYPE}/${childId}`,
-          'POST',
-          { acf: { parents: mergedParents } },
+          `wp/v2/people/${childId}`,
+          'PUT',
+          { acf: { relationships: mergedRelationships } },
           options
         );
         logVerbose(`Linked parent ${parentId} to child ${childId}`);
@@ -262,7 +109,7 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
 
 /**
  * Sync a single parent to Stadion (create or update)
- * Also links parent to children via relationships field
+ * Uses local stadion_id tracking - no API search needed
  * @param {Object} parent - Parent record from preparation
  * @param {Object} db - SQLite database connection
  * @param {Map} knvbIdToStadionId - Map of KNVB ID to Stadion post ID for children
@@ -270,7 +117,7 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
  * @returns {Promise<{action: string, id: number}>}
  */
 async function syncParent(parent, db, knvbIdToStadionId, options) {
-  const { email, childKnvbIds, data, source_hash } = parent;
+  const { email, childKnvbIds, data, source_hash, stadion_id } = parent;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   // Resolve child KNVB IDs to Stadion post IDs
@@ -278,47 +125,65 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     .map(knvbId => knvbIdToStadionId.get(knvbId))
     .filter(Boolean);
 
-  const existing = await findExistingParent(email, options);
+  // Build relationships array for children
+  const childRelationships = childStadionIds.map(childId => ({
+    related_person: childId,
+    relationship_type: '',
+    relationship_label: 'Kind'
+  }));
 
-  if (existing) {
+  if (stadion_id) {
     // UPDATE existing parent
-    // Merge existing children relationships with new ones (preserve manual links)
-    const existingChildren = existing.acf?.children || [];
-    const mergedChildren = Array.from(new Set([...existingChildren, ...childStadionIds]));
+    logVerbose(`Updating existing parent: ${stadion_id}`);
 
-    // Add children to ACF data
+    // Get existing relationships to merge
+    let existingRelationships = [];
+    try {
+      const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+      existingRelationships = existing.body.acf?.relationships || [];
+    } catch (e) {
+      logVerbose(`Could not fetch existing parent: ${e.message}`);
+    }
+
+    // Merge: keep non-child relationships, add new child relationships
+    const otherRelationships = existingRelationships.filter(r =>
+      !childStadionIds.includes(r.related_person)
+    );
+    const mergedRelationships = [...otherRelationships, ...childRelationships];
+
     const updateData = {
       ...data,
       acf: {
         ...data.acf,
-        children: mergedChildren
+        relationships: mergedRelationships
       }
     };
 
-    const response = await stadionRequest(
-      `wp/v2/${PERSON_TYPE}/${existing.id}`,
-      'POST',
+    await stadionRequest(
+      `wp/v2/people/${stadion_id}`,
+      'PUT',
       updateData,
       options
     );
-    updateParentSyncState(db, email, source_hash, existing.id);
+    updateParentSyncState(db, email, source_hash, stadion_id);
 
     // Update children's parent relationship (bidirectional)
-    await updateChildrenParentLinks(existing.id, childStadionIds, options);
+    await updateChildrenParentLinks(stadion_id, childStadionIds, options);
 
-    return { action: 'updated', id: existing.id };
+    return { action: 'updated', id: stadion_id };
   } else {
     // CREATE new parent
+    logVerbose(`Creating new parent: ${email}`);
     const createData = {
       ...data,
       acf: {
         ...data.acf,
-        children: childStadionIds
+        relationships: childRelationships
       }
     };
 
     const response = await stadionRequest(
-      `wp/v2/${PERSON_TYPE}`,
+      'wp/v2/people',
       'POST',
       createData,
       options
@@ -352,7 +217,7 @@ async function deleteOrphanParents(db, currentParentEmails, options) {
     logVerbose(`Deleting orphan parent: ${parent.email}`);
     try {
       await stadionRequest(
-        `wp/v2/${PERSON_TYPE}/${parent.stadion_id}`,
+        `wp/v2/people/${parent.stadion_id}`,
         'DELETE',
         null,
         options
@@ -403,7 +268,7 @@ async function syncParents(db, knvbIdToStadionId, options = {}) {
   // Upsert to tracking database
   upsertParents(db, parents);
 
-  // Get parents needing sync
+  // Get parents needing sync (includes stadion_id from database)
   const needsSync = getParentsNeedingSync(db, force);
   result.skipped = result.total - needsSync.length;
 
@@ -462,7 +327,7 @@ async function deleteRemovedMembers(db, currentKnvbIds, options) {
     logVerbose(`Deleting from Stadion: ${member.knvb_id}`);
     try {
       await stadionRequest(
-        `wp/v2/${PERSON_TYPE}/${member.stadion_id}`,
+        `wp/v2/people/${member.stadion_id}`,
         'DELETE',
         null,
         options
@@ -526,6 +391,7 @@ async function runSync(options = {}) {
         upsertMembers(db, members);
 
         // Step 3: Get members needing sync (hash changed or force)
+        // This now includes stadion_id from database for each member
         const needsSync = getMembersNeedingSync(db, force);
         result.skipped = result.total - needsSync.length;
 
@@ -565,8 +431,6 @@ async function runSync(options = {}) {
       // Parents sync
       if (includeParents) {
         // Build KNVB ID to Stadion ID mapping from ALL tracked members
-        // IMPORTANT: Use getAllTrackedMembers() not getMembersNeedingSync() because we need
-        // ALL synced members (including those from previous runs) for parent-child linking
         const knvbIdToStadionId = new Map();
         const allMembers = getAllTrackedMembers(db);
         allMembers.forEach(m => {

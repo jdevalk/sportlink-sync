@@ -39,11 +39,11 @@ function buildParentAddress(member) {
   const city = (member.City || '').trim();
   if (!street && !city) return null;
   return {
+    address_label: '',
     street: street,
-    number: (member.AddressNumber || '').toString().trim(),
-    addition: (member.AddressNumberAppendix || '').trim(),
     postal_code: (member.ZipCode || '').trim(),
-    city: city
+    city: city,
+    country: 'Nederland'
   };
 }
 
@@ -51,13 +51,13 @@ function buildParentAddress(member) {
  * Build contact info array for parent
  * @param {string} email - Parent email
  * @param {Set} phones - Set of phone numbers
- * @returns {Array<{type: string, value: string}>}
+ * @returns {Array<{contact_type: string, contact_label: string, contact_value: string}>}
  */
 function buildParentContactInfo(email, phones) {
   const contacts = [];
-  if (email) contacts.push({ type: 'email', value: email });
+  if (email) contacts.push({ contact_type: 'email', contact_label: '', contact_value: email });
   phones.forEach(phone => {
-    if (phone) contacts.push({ type: 'phone', value: phone });
+    if (phone) contacts.push({ contact_type: 'phone', contact_label: '', contact_value: phone });
   });
   return contacts;
 }
@@ -69,22 +69,14 @@ function buildParentContactInfo(email, phones) {
  * @returns {{email: string, childKnvbIds: Array, data: Object}}
  */
 function prepareParent(email, data) {
-  const title = [data.name.first_name, data.name.last_name].filter(Boolean).join(' ');
-
   return {
     email: email,
     childKnvbIds: data.childKnvbIds,  // For relationship linking in sync phase
     data: {
-      title: title || 'Parent',
       status: 'publish',
-      meta: {
-        knvb_id: '',  // Empty - parents are not members
+      acf: {
         first_name: data.name.first_name,
         last_name: data.name.last_name,
-        gender: '',   // Not available for parents
-        is_parent: true  // Custom field to identify parents
-      },
-      acf: {
         contact_info: buildParentContactInfo(email, data.phones),
         addresses: data.address ? [data.address] : []
       }

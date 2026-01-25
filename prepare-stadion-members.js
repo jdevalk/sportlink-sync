@@ -5,11 +5,22 @@ const { openDb, getLatestSportlinkResults } = require('./laposta-db');
 /**
  * Map Sportlink gender codes to Stadion format
  * @param {string} sportlinkGender - Gender code from Sportlink (Male/Female)
- * @returns {string} - 'M', 'F', or empty string for unknown
+ * @returns {string} - 'male', 'female', or empty string for unknown
  */
 function mapGender(sportlinkGender) {
-  const mapping = { 'Male': 'M', 'Female': 'F' };
+  const mapping = { 'Male': 'male', 'Female': 'female' };
   return mapping[sportlinkGender] || '';
+}
+
+/**
+ * Extract birth year from date string
+ * @param {string} dateOfBirth - Date in YYYY-MM-DD format
+ * @returns {number|null} - Year as integer or null
+ */
+function extractBirthYear(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const year = parseInt(dateOfBirth.substring(0, 4), 10);
+  return isNaN(year) ? null : year;
 }
 
 /**
@@ -24,8 +35,8 @@ function buildName(member) {
   const fullLastName = [infix, lastName].filter(Boolean).join(' ');
 
   return {
-    first_name: firstName,   // '' if missing
-    last_name: fullLastName  // '' if missing
+    first_name: firstName,
+    last_name: fullLastName
   };
 }
 
@@ -33,7 +44,7 @@ function buildName(member) {
  * Build contact info array for ACF repeater
  * Only includes items where value is non-empty
  * @param {Object} member - Sportlink member record
- * @returns {Array<{type: string, value: string}>}
+ * @returns {Array<{contact_type: string, contact_label: string, contact_value: string}>}
  */
 function buildContactInfo(member) {
   const contacts = [];
@@ -41,18 +52,18 @@ function buildContactInfo(member) {
   const mobile = (member.Mobile || '').trim();
   const phone = (member.Telephone || '').trim();
 
-  if (email) contacts.push({ type: 'email', value: email });
-  if (mobile) contacts.push({ type: 'mobile', value: mobile });
-  if (phone) contacts.push({ type: 'phone', value: phone });
+  if (email) contacts.push({ contact_type: 'email', contact_label: '', contact_value: email });
+  if (mobile) contacts.push({ contact_type: 'mobile', contact_label: '', contact_value: mobile });
+  if (phone) contacts.push({ contact_type: 'phone', contact_label: '', contact_value: phone });
 
-  return contacts;  // May be empty array []
+  return contacts;
 }
 
 /**
  * Build addresses array for ACF repeater
  * Only includes address if at least street or city present
  * @param {Object} member - Sportlink member record
- * @returns {Array<{street: string, number: string, addition: string, postal_code: string, city: string}>}
+ * @returns {Array<{address_label: string, street: string, postal_code: string, city: string, country: string}>}
  */
 function buildAddresses(member) {
   const street = (member.StreetName || '').trim();
@@ -62,23 +73,12 @@ function buildAddresses(member) {
   if (!street && !city) return [];
 
   return [{
+    address_label: '',
     street: street,
-    number: (member.AddressNumber || '').toString().trim(),
-    addition: (member.AddressNumberAppendix || '').trim(),
     postal_code: (member.ZipCode || '').trim(),
-    city: city
+    city: city,
+    country: 'Nederland'
   }];
-}
-
-/**
- * Build important dates array for ACF repeater
- * Only includes birth date if available
- * @param {Object} member - Sportlink member record
- * @returns {Array<{type: string, date: string}>}
- */
-function buildImportantDates(member) {
-  if (!member.DateOfBirth) return [];
-  return [{ type: 'birth_date', date: member.DateOfBirth }];
 }
 
 /**
@@ -88,25 +88,27 @@ function buildImportantDates(member) {
  */
 function preparePerson(sportlinkMember) {
   const name = buildName(sportlinkMember);
-  const title = [name.first_name, name.last_name].filter(Boolean).join(' ');
+  const gender = mapGender(sportlinkMember.GenderCode);
+  const birthYear = extractBirthYear(sportlinkMember.DateOfBirth);
+
+  const acf = {
+    first_name: name.first_name,
+    last_name: name.last_name,
+    knvb_id: sportlinkMember.PublicPersonId,
+    contact_info: buildContactInfo(sportlinkMember),
+    addresses: buildAddresses(sportlinkMember)
+  };
+
+  // Only add optional fields if they have values
+  if (gender) acf.gender = gender;
+  if (birthYear) acf.birth_year = birthYear;
 
   return {
-    knvb_id: sportlinkMember.PublicPersonId, // relatiecode for matching
+    knvb_id: sportlinkMember.PublicPersonId,
     email: (sportlinkMember.Email || '').trim().toLowerCase() || null,
     data: {
-      title: title,
       status: 'publish',
-      meta: {
-        knvb_id: sportlinkMember.PublicPersonId,
-        first_name: name.first_name,    // '' if missing (not undefined)
-        last_name: name.last_name,      // '' if missing (not undefined)
-        gender: mapGender(sportlinkMember.GenderCode)  // '' if unknown
-      },
-      acf: {
-        contact_info: buildContactInfo(sportlinkMember),    // [] if none
-        addresses: buildAddresses(sportlinkMember),          // [] if none
-        important_dates: buildImportantDates(sportlinkMember) // [] if none
-      }
+      acf: acf
     }
   };
 }
@@ -119,8 +121,8 @@ function preparePerson(sportlinkMember) {
 function isValidMember(member) {
   // PublicPersonId (KNVB ID) is required for matching
   if (!member.PublicPersonId) return false;
-  // Must have at least a name
-  if (!member.FirstName && !member.LastName) return false;
+  // Must have at least a first name (required by Stadion API)
+  if (!member.FirstName) return false;
   return true;
 }
 
@@ -167,7 +169,7 @@ async function runPrepare(options = {}) {
         skippedCount++;
         const reason = !member.PublicPersonId
           ? 'missing KNVB ID'
-          : 'missing name';
+          : 'missing first name';
         logVerbose(`Skipping member at index ${index}: ${reason}`);
         return;
       }
@@ -207,7 +209,7 @@ if (require.main === module) {
         process.exitCode = 1;
       } else if (!verbose) {
         // In default mode, print summary
-        console.log(`Prepared ${result.members.length} members for Stadion sync (${result.skipped} skipped - missing KNVB ID or name)`);
+        console.log(`Prepared ${result.members.length} members for Stadion sync (${result.skipped} skipped - missing KNVB ID or first name)`);
       }
     })
     .catch(err => {
