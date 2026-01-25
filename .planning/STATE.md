@@ -70,8 +70,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Phase 8 complete (v1.3 milestone shipped)
-Resume with: Ready for production deployment and monitoring
+Stopped at: Phase 8 complete and verified, v1.3 milestone ready
+Resume with: `/gsd:audit-milestone` or `/gsd:complete-milestone`
 
 ---
-*Last updated: 2026-01-25 (v1.3 complete - dual-system sync operational)*
+*Last updated: 2026-01-25 (Phase 8 verified)*

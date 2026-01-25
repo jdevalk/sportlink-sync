@@ -5,7 +5,7 @@
 - v1.0 MVP - Phases 1-2 (shipped 2026-01-24)
 - v1.1 Postmark Email - Phase 3 (shipped 2026-01-25)
 - v1.2 Email Polish - Phase 4 (shipped 2026-01-25)
-- **v1.3 Connect to Stadion** - Phases 5-8 (in progress)
+- **v1.3 Connect to Stadion** - Phases 5-8 (shipped 2026-01-25)
 
 ## Phases
 
@@ -16,14 +16,14 @@ See MILESTONES.md for completed work.
 
 </details>
 
-### v1.3 Connect to Stadion (In Progress)
+### v1.3 Connect to Stadion (Complete)
 
 **Milestone Goal:** Sync Sportlink member data to Stadion WordPress app via REST API.
 
 - [x] **Phase 5: Stadion Foundation** - API client with auth and error handling
 - [x] **Phase 6: Member Sync** - Field mapping, matching, and change detection
 - [x] **Phase 7: Parent Sync** - Parents as separate person records
-- [ ] **Phase 8: Pipeline Integration** - Integrate into sync-all and email reports
+- [x] **Phase 8: Pipeline Integration** - Integrate into sync-all and email reports
 
 ## Phase Details
 
@@ -82,7 +82,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 08-01-PLAN.md — Integrate Stadion into sync-all pipeline and email reports
+- [x] 08-01-PLAN.md — Integrate Stadion into sync-all pipeline and email reports
 
 ## Progress
 
@@ -94,7 +94,7 @@ Plans:
 | 5. Stadion Foundation | v1.3 | 1/1 | Complete | 2026-01-25 |
 | 6. Member Sync | v1.3 | 3/3 | Complete | 2026-01-25 |
 | 7. Parent Sync | v1.3 | 3/3 | Complete | 2026-01-25 |
-| 8. Pipeline Integration | v1.3 | 0/1 | In Progress | - |
+| 8. Pipeline Integration | v1.3 | 1/1 | Complete | 2026-01-25 |
 
 ---
 *Roadmap created: 2026-01-25*
