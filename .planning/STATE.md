@@ -16,10 +16,16 @@ Last activity: 2026-01-24 — v1.0 milestone complete
 
 Progress: Milestone v1.0 complete
 
+## Accumulated Context
+
+### Pending Todos
+
+1 todo pending - see `.planning/todos/pending/`
+
 ## Session Continuity
 
-Last session: 2026-01-24
-Stopped at: v1.0 milestone archived
+Last session: 2026-01-25
+Stopped at: Debugging cron setup, added Postmark todo
 Resume file: None
 
 ---
