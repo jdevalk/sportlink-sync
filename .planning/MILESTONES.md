@@ -1,5 +1,32 @@
 # Project Milestones: Sportlink Sync
 
+## v1.1 Postmark Email Delivery (Shipped: 2026-01-25)
+
+**Delivered:** Reliable email delivery via Postmark - sync reports no longer land in spam.
+
+**Phases completed:** 3 (2 plans total)
+
+**Key accomplishments:**
+
+- Created Node.js script for sending email via Postmark API
+- Implemented environment variable validation for Postmark credentials
+- Integrated email sending into cron wrapper with graceful failure handling
+- Updated install script to prompt for Postmark credentials
+- Removed dependency on unreliable local mail command
+
+**Stats:**
+
+- 9 files created/modified
+- 2,574 lines of JavaScript + shell
+- 1 phase, 2 plans, 5 tasks
+- 4 days from v1.0 to ship
+
+**Git range:** `feat(03-01)` -> `feat(03-02)`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v1.0 MVP (Shipped: 2026-01-24)
 
 **Delivered:** Automated daily sync with email reports - cron runs sync at 6 AM Amsterdam time and emails summary to operator.

@@ -5,41 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Keep Laposta email lists automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** Milestone v1.1 - Postmark Email Delivery (complete)
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 3 - Postmark Email Delivery
-Plan: Complete (2/2 plans)
-Status: Phase verified ✓
-Last activity: 2026-01-25 - Phase 3 execution complete
+Phase: Complete through Phase 3
+Plan: N/A
+Status: Ready for next milestone
+Last activity: 2026-01-25 — v1.1 milestone complete
 
-Progress: [##########] 7/7 requirements
+Progress: [##########] v1.1 shipped
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Phase plans completed | 2/2 |
-| Requirements complete | 7/7 |
-| Milestone | v1.1 (ready for audit) |
+| Milestones shipped | 2 (v1.0, v1.1) |
+| Total phases | 3 |
+| Total plans | 5 |
 
 ## Accumulated Context
 
 ### Key Decisions
 
-| Decision | Rationale | Date |
-|----------|-----------|------|
-| Single phase for v1.1 | 7 tightly coupled requirements, no logical delivery boundary | 2026-01-25 |
-| Promise-based Postmark error handling | Per official Postmark examples, cleaner async flow | 2026-01-25 |
-| Added logs/ to gitignore | Contains generated cron output and test artifacts | 2026-01-25 |
-| Graceful email failure with \|\| pattern | Prevents set -e exit on expected failures | 2026-01-25 |
-| Store credentials in .env via upsert | Update existing or append new, BSD sed compatible | 2026-01-25 |
+See PROJECT.md Key Decisions table (12 decisions total).
 
 ### Pending Todos
 
-1 todo pending - see `.planning/todos/pending/`
-- Switch email sending to Postmark (complete - v1.1)
+None — cleared after v1.1 completion.
 
 ### Known Blockers
 
@@ -48,8 +41,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Phase 3 execution complete, verified
-Resume with: `/gsd:audit-milestone` or `/gsd:complete-milestone`
+Stopped at: v1.1 milestone complete
+Resume with: `/gsd:new-milestone` to start next version
 
 ---
-*Last updated: 2026-01-25 (phase 3 complete)*
+*Last updated: 2026-01-25 (v1.1 milestone complete)*
