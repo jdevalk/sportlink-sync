@@ -12,6 +12,8 @@
     "dedupe-laposta": "node dedupe-laposta-list.js",
     "sync-all": "node sync-all.js",
     "sync-all-verbose": "node sync-all.js --verbose",
+    "sync-stadion": "node submit-stadion-sync.js",
+    "sync-stadion-verbose": "node submit-stadion-sync.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
     "show-sportlink-member": "node show-sportlink-member.js",
     "show-laposta-changes": "node show-laposta-changes.js",
