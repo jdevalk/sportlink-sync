@@ -10,6 +10,7 @@ const {
   getMembersForList,
   computeSourceHash
 } = require('./laposta-db');
+const { normalizeEmail, isValidEmail, buildChildFullName, hasValue } = require('./lib/parent-dedupe');
 
 const DEFAULT_MAPPING = path.join(process.cwd(), 'field-mapping.json');
 const MAX_LISTS = 4;
@@ -29,12 +30,6 @@ const EXCLUDED_CUSTOM_FIELDS = new Set([
   'emailouder2'
 ]);
 
-function hasValue(value) {
-  if (value === null || value === undefined) return false;
-  if (typeof value === 'string') return value.trim() !== '';
-  return true;
-}
-
 function readEnv(name, fallback = '') {
   return process.env[name] ?? fallback;
 }
@@ -46,16 +41,6 @@ function getLatestResultsFromDb() {
   } finally {
     db.close();
   }
-}
-
-function normalizeEmail(value) {
-  if (!value) return '';
-  return String(value).trim().toLowerCase();
-}
-
-function isValidEmail(value) {
-  const email = normalizeEmail(value);
-  return email.includes('@');
 }
 
 function buildBaseCustomFields(member, mapping) {
@@ -128,14 +113,6 @@ function applyNameOverrides(customFields, overrides) {
   }
   return updated;
 }
-
-function buildChildFullName(member) {
-  const firstName = hasValue(member.FirstName) ? String(member.FirstName).trim() : '';
-  const infix = hasValue(member.Infix) ? String(member.Infix).trim() : '';
-  const lastName = hasValue(member.LastName) ? String(member.LastName).trim() : '';
-  return [firstName, infix, lastName].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-}
-
 
 function normalizeTeams(value) {
   if (!hasValue(value)) return [];
