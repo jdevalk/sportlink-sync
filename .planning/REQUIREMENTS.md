@@ -9,13 +9,13 @@ Requirements for Email Improvements milestone.
 
 ### Email Formatting
 
-- [ ] **EMAIL-06**: Sync reports are sent as HTML email with proper formatting
-- [ ] **EMAIL-07**: Email from name displays as "Sportlink SYNC"
-- [ ] **EMAIL-08**: Email body does not include npm script execution header
+- [x] **EMAIL-06**: Sync reports are sent as HTML email with proper formatting
+- [x] **EMAIL-07**: Email from name displays as "Sportlink SYNC"
+- [x] **EMAIL-08**: Email body does not include npm script execution header
 
 ### Installer
 
-- [ ] **INST-01**: Running install-cron replaces existing sportlink-sync cron entries instead of adding duplicates
+- [x] **INST-01**: Running install-cron replaces existing sportlink-sync cron entries instead of adding duplicates
 
 ## Future Requirements
 
@@ -33,10 +33,10 @@ None planned - define in next milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EMAIL-06 | Phase 4 | Pending |
-| EMAIL-07 | Phase 4 | Pending |
-| EMAIL-08 | Phase 4 | Pending |
-| INST-01 | Phase 4 | Pending |
+| EMAIL-06 | Phase 4 | Complete |
+| EMAIL-07 | Phase 4 | Complete |
+| EMAIL-08 | Phase 4 | Complete |
+| INST-01 | Phase 4 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 4 total
@@ -45,4 +45,4 @@ None planned - define in next milestone.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after initial definition*
+*Last updated: 2026-01-25 after Phase 4 completion*
