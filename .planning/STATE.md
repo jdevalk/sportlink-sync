@@ -32,7 +32,8 @@ See PROJECT.md Key Decisions table (12 decisions total).
 
 ### Pending Todos
 
-None — cleared after v1.1 completion.
+1 todo pending - see `.planning/todos/pending/`
+- install-cron should overwrite existing crons
 
 ### Known Blockers
 
