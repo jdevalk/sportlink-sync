@@ -73,7 +73,7 @@ fi
 
 # Build cron entries
 CRON_ENTRIES="
-# Sportlink Sync automation (installed $(date +%Y-%m-%d))
+# Sportlink Sync automation (updated $(date +%Y-%m-%d))
 CRON_TZ=Europe/Amsterdam
 TZ=Europe/Amsterdam
 
@@ -85,7 +85,7 @@ TZ=Europe/Amsterdam
 "
 
 # Install crontab
-(crontab -l 2>/dev/null || true; echo "$CRON_ENTRIES") | crontab -
+(crontab -l 2>/dev/null | grep -v 'sportlink-sync\|cron-wrapper.sh' || true; echo "$CRON_ENTRIES") | crontab -
 
 echo ""
 echo "Cron jobs installed successfully!"
