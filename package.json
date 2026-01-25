@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "better-sqlite3": "latest",
-    "dotenv": "latest",
+    "dotenv": "^16.4.7",
     "otplib": "latest",
     "playwright": "latest"
   }

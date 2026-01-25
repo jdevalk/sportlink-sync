@@ -1,4 +1,4 @@
-require('dotenv').config({ debug: false });
+require('dotenv').config();
 
 const { createSyncLogger } = require('./lib/logger');
 const { runDownload } = require('./download-data-from-sportlink');
