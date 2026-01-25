@@ -35,7 +35,7 @@ DATE=$(date +%Y-%m-%d_%H-%M-%S)
 LOG_FILE="$LOG_DIR/sync-$DATE.log"
 
 # Run sync with logging
-npm run sync-all 2>&1 | tee -a "$LOG_FILE"
+node "$PROJECT_DIR/sync-all.js" 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
 # On failure, touch retry flag
