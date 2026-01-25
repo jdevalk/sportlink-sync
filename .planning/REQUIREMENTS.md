@@ -69,30 +69,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STAD-01 | TBD | Pending |
-| STAD-02 | TBD | Pending |
-| STAD-03 | TBD | Pending |
-| STAD-04 | TBD | Pending |
-| STAD-05 | TBD | Pending |
-| STAD-06 | TBD | Pending |
-| STAD-07 | TBD | Pending |
-| STAD-08 | TBD | Pending |
-| STAD-09 | TBD | Pending |
-| STAD-10 | TBD | Pending |
-| STAD-11 | TBD | Pending |
-| STAD-12 | TBD | Pending |
-| STAD-13 | TBD | Pending |
-| STAD-14 | TBD | Pending |
-| STAD-15 | TBD | Pending |
-| STAD-16 | TBD | Pending |
-| STAD-17 | TBD | Pending |
-| STAD-18 | TBD | Pending |
+| STAD-01 | Phase 6 | Pending |
+| STAD-02 | Phase 6 | Pending |
+| STAD-03 | Phase 5 | Pending |
+| STAD-04 | Phase 5 | Pending |
+| STAD-05 | Phase 6 | Pending |
+| STAD-06 | Phase 6 | Pending |
+| STAD-07 | Phase 6 | Pending |
+| STAD-08 | Phase 6 | Pending |
+| STAD-09 | Phase 6 | Pending |
+| STAD-10 | Phase 6 | Pending |
+| STAD-11 | Phase 6 | Pending |
+| STAD-12 | Phase 6 | Pending |
+| STAD-13 | Phase 7 | Pending |
+| STAD-14 | Phase 7 | Pending |
+| STAD-15 | Phase 7 | Pending |
+| STAD-16 | Phase 8 | Pending |
+| STAD-17 | Phase 8 | Pending |
+| STAD-18 | Phase 5 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after initial definition*
+*Last updated: 2026-01-25 after roadmap creation*
