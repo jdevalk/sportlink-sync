@@ -32,7 +32,7 @@ See PROJECT.md Key Decisions table (12 decisions total).
 
 ### Pending Todos
 
-4 todos captured → converted to v1.2 requirements
+5 todos pending (4 converted to v1.2 requirements + 1 new)
 
 ### Known Blockers
 
