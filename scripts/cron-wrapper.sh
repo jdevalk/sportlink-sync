@@ -20,6 +20,9 @@ fi
 # Set PATH
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
+# Suppress dotenv tips/messages
+export DOTENV_CONFIG_SILENT=true
+
 # Change to project directory
 cd "$PROJECT_DIR"
 
