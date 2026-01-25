@@ -32,16 +32,118 @@ function validateEnv() {
 }
 
 /**
+ * Escape HTML entities
+ * @param {string} text - Raw text
+ * @returns {string} HTML-safe text
+ */
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
  * Format plain text content as HTML email
+ * Parses the structured sync output into semantic HTML
  * @param {string} textContent - Plain text content
  * @returns {string} HTML-formatted content
  */
 function formatAsHtml(textContent) {
-  // Escape HTML entities to prevent content from breaking HTML structure
-  const escaped = textContent
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  const lines = textContent.split('\n');
+  const htmlParts = [];
+  let inList = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines (we handle spacing with CSS)
+    if (trimmed === '') {
+      if (inList) {
+        htmlParts.push('</ul>');
+        inList = false;
+      }
+      continue;
+    }
+
+    // Major divider (========) - skip, we use CSS for section styling
+    if (/^=+$/.test(trimmed)) {
+      continue;
+    }
+
+    // Minor divider (--------) - thin horizontal rule
+    if (/^-+$/.test(trimmed)) {
+      if (inList) {
+        htmlParts.push('</ul>');
+        inList = false;
+      }
+      htmlParts.push('<hr class="minor">');
+      continue;
+    }
+
+    // Main title
+    if (trimmed === 'SPORTLINK SYNC SUMMARY') {
+      htmlParts.push(`<h1>${escapeHtml(trimmed)}</h1>`);
+      continue;
+    }
+
+    // Section headers (all caps)
+    if (/^[A-Z][A-Z\s()-]+$/.test(trimmed) && trimmed.length > 3) {
+      if (inList) {
+        htmlParts.push('</ul>');
+        inList = false;
+      }
+      htmlParts.push(`<h2>${escapeHtml(trimmed)}</h2>`);
+      continue;
+    }
+
+    // List items (starting with -)
+    if (trimmed.startsWith('- ')) {
+      if (!inList) {
+        htmlParts.push('<ul>');
+        inList = true;
+      }
+      htmlParts.push(`<li>${escapeHtml(trimmed.slice(2))}</li>`);
+      continue;
+    }
+
+    // Key-value lines (containing :)
+    if (trimmed.includes(':') && !trimmed.startsWith('Log file:')) {
+      if (inList) {
+        htmlParts.push('</ul>');
+        inList = false;
+      }
+      const colonIndex = trimmed.indexOf(':');
+      const key = trimmed.slice(0, colonIndex);
+      const value = trimmed.slice(colonIndex + 1).trim();
+      htmlParts.push(`<p><strong>${escapeHtml(key)}:</strong> ${escapeHtml(value)}</p>`);
+      continue;
+    }
+
+    // Log file line - smaller, muted
+    if (trimmed.startsWith('Log file:')) {
+      if (inList) {
+        htmlParts.push('</ul>');
+        inList = false;
+      }
+      htmlParts.push(`<p class="log-path">${escapeHtml(trimmed)}</p>`);
+      continue;
+    }
+
+    // Default: regular paragraph
+    if (inList) {
+      htmlParts.push('</ul>');
+      inList = false;
+    }
+    htmlParts.push(`<p>${escapeHtml(trimmed)}</p>`);
+  }
+
+  if (inList) {
+    htmlParts.push('</ul>');
+  }
+
+  const bodyContent = htmlParts.join('\n');
 
   return `<!DOCTYPE html>
 <html>
@@ -53,19 +155,51 @@ function formatAsHtml(textContent) {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
       padding: 20px;
-      max-width: 800px;
+      max-width: 600px;
+      color: #333;
+      line-height: 1.5;
     }
-    pre {
-      background: #f5f5f5;
-      padding: 10px;
-      overflow-x: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+    h1 {
+      font-size: 20px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      font-size: 14px;
+      color: #666;
+      margin-top: 24px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    p {
+      margin: 4px 0;
+    }
+    strong {
+      color: #000;
+    }
+    ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+    li {
+      margin: 4px 0;
+    }
+    hr.minor {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 16px 0;
+    }
+    .log-path {
+      font-size: 12px;
+      color: #999;
+      margin-top: 24px;
     }
   </style>
 </head>
 <body>
-  <pre>${escaped}</pre>
+${bodyContent}
 </body>
 </html>`;
 }
