@@ -22,7 +22,7 @@ Requirements for Postmark Email Delivery milestone.
 
 ## Future Requirements
 
-None planned — define in next milestone.
+None planned - define in next milestone.
 
 ## Out of Scope
 
@@ -36,19 +36,19 @@ None planned — define in next milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EMAIL-01 | Pending | Pending |
-| EMAIL-02 | Pending | Pending |
-| EMAIL-03 | Pending | Pending |
-| EMAIL-04 | Pending | Pending |
-| EMAIL-05 | Pending | Pending |
-| INTG-01 | Pending | Pending |
-| INTG-02 | Pending | Pending |
+| EMAIL-01 | Phase 3 | Pending |
+| EMAIL-02 | Phase 3 | Pending |
+| EMAIL-03 | Phase 3 | Pending |
+| EMAIL-04 | Phase 3 | Pending |
+| EMAIL-05 | Phase 3 | Pending |
+| INTG-01 | Phase 3 | Pending |
+| INTG-02 | Phase 3 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 7 total
-- Mapped to phases: 0
-- Unmapped: 7 ⚠️
+- Mapped to phases: 7
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after initial definition*
+*Last updated: 2026-01-25 after roadmap creation*
