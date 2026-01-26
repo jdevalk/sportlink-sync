@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-26)
 
 **Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** Phase 13 - Team Extraction and Management
+**Current focus:** Phase 14 - Work History Sync
 
 ## Current Position
 
-Phase: 13 of 15 (Team Extraction and Management)
-Plan: 1 of 1 complete
-Status: Phase complete
-Last activity: 2026-01-26 — Completed 13-01-PLAN.md
+Phase: 14 of 15 (Work History Sync)
+Plan: —
+Status: Ready to plan
+Last activity: 2026-01-26 — Phase 13 complete
 
-Progress: [█████████████░░] 86% (13 of 15 phases complete)
+Progress: [█████████████░░] 87% (13 of 15 phases complete)
 
 ## Performance Metrics
 
