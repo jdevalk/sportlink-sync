@@ -7,6 +7,7 @@
   "scripts": {
     "download": "node download-data-from-sportlink.js",
     "prepare-laposta": "node prepare-laposta-members.js",
+    "prepare-stadion": "node prepare-stadion-members.js",
     "submit-laposta": "node submit-laposta-list.js",
     "sync-laposta": "node submit-laposta-list.js",
     "dedupe-laposta": "node dedupe-laposta-list.js",
