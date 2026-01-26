@@ -53,10 +53,10 @@ Plans:
   3. Work history is_current field is set to true
   4. System tracks each member's current team assignment in SQLite
   5. When member's team changes, system updates work_history in Stadion
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 14-01: Work history creation and team change detection
+- [ ] 14-01-PLAN.md — Work history creation and team change detection
 
 #### Phase 15: Pipeline Integration
 **Goal**: Team sync integrated into daily pipeline with email reporting
@@ -87,11 +87,11 @@ Plans:
 | 11. Photo Upload/Deletion | v1.4 | 1/1 | Complete | 2026-01-26 |
 | 12. Pipeline Integration | v1.4 | 1/1 | Complete | 2026-01-26 |
 | 13. Team Extraction | v1.5 | 1/1 | Complete | 2026-01-26 |
-| 14. Work History | v1.5 | 0/1 | Not started | - |
+| 14. Work History | v1.5 | 0/1 | Planned | - |
 | 15. Pipeline Integration | v1.5 | 0/1 | Not started | - |
 
-**Total:** 15 phases (12 complete, 3 in progress)
+**Total:** 15 phases (13 complete, 2 remaining)
 
 ---
 *Roadmap created: 2026-01-25*
-*Last updated: 2026-01-26 for Phase 13 complete*
+*Last updated: 2026-01-26 for Phase 14 planned*
