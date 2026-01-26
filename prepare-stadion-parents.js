@@ -35,9 +35,17 @@ function buildParentName(member, parentIndex) {
  * @returns {Object|null} - Address object or null if no address
  */
 function buildParentAddress(member) {
-  const street = (member.StreetName || '').trim();
+  const streetName = (member.StreetName || '').trim();
+  const houseNumber = (member.AddressNumber || '').toString().trim();
+  const houseNumberAppendix = (member.AddressNumberAppendix || '').trim();
   const city = (member.City || '').trim();
-  if (!street && !city) return null;
+  if (!streetName && !city) return null;
+
+  // Combine street name with house number and appendix
+  const streetParts = [streetName, houseNumber].filter(Boolean);
+  if (houseNumberAppendix) streetParts.push(houseNumberAppendix);
+  const street = streetParts.join(' ');
+
   return {
     address_label: '',
     street: street,

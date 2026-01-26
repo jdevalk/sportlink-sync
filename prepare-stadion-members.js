@@ -66,11 +66,18 @@ function buildContactInfo(member) {
  * @returns {Array<{address_label: string, street: string, postal_code: string, city: string, country: string}>}
  */
 function buildAddresses(member) {
-  const street = (member.StreetName || '').trim();
+  const streetName = (member.StreetName || '').trim();
+  const houseNumber = (member.AddressNumber || '').toString().trim();
+  const houseNumberAppendix = (member.AddressNumberAppendix || '').trim();
   const city = (member.City || '').trim();
 
   // Omit empty address entirely
-  if (!street && !city) return [];
+  if (!streetName && !city) return [];
+
+  // Combine street name with house number and appendix
+  const streetParts = [streetName, houseNumber].filter(Boolean);
+  if (houseNumberAppendix) streetParts.push(houseNumberAppendix);
+  const street = streetParts.join(' ');
 
   return [{
     address_label: '',
@@ -94,7 +101,7 @@ function preparePerson(sportlinkMember) {
   const acf = {
     first_name: name.first_name,
     last_name: name.last_name,
-    knvb_id: sportlinkMember.PublicPersonId,
+    'knvb-id': sportlinkMember.PublicPersonId,
     contact_info: buildContactInfo(sportlinkMember),
     addresses: buildAddresses(sportlinkMember)
   };
