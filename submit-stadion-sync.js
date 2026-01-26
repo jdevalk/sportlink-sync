@@ -159,8 +159,24 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
   if (!stadion_id) {
     const existingId = await findPersonByEmail(email, options);
     if (existingId) {
-      logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
-      stadion_id = existingId;
+      // Fetch full person record to verify name match (not just email)
+      // Only treat as duplicate if BOTH name AND email match
+      try {
+        const existingPerson = await stadionRequest(`wp/v2/people/${existingId}`, 'GET', null, options);
+        const existingFirstName = (existingPerson.body.acf?.first_name || '').toLowerCase().trim();
+        const existingLastName = (existingPerson.body.acf?.last_name || '').toLowerCase().trim();
+        const parentFirstName = (data.acf.first_name || '').toLowerCase().trim();
+        const parentLastName = (data.acf.last_name || '').toLowerCase().trim();
+
+        if (existingFirstName === parentFirstName && existingLastName === parentLastName) {
+          logVerbose(`Parent ${email} already exists as person ${existingId} with matching name, will merge`);
+          stadion_id = existingId;
+        } else {
+          logVerbose(`Person ${existingId} has email ${email} but different name (${existingFirstName} ${existingLastName} vs ${parentFirstName} ${parentLastName}), will create separate parent record`);
+        }
+      } catch (error) {
+        logVerbose(`Could not fetch person ${existingId} for name verification: ${error.message}`);
+      }
     }
   }
 
