@@ -19,14 +19,14 @@ Requirements for team sync milestone. Each maps to roadmap phases.
 
 ### Work History
 
-- [ ] **TEAM-05**: System adds work_history entry to person with team reference
-- [ ] **TEAM-06**: Work history uses "Speler" as job_title
-- [ ] **TEAM-07**: Work history is_current is set to true
+- [x] **TEAM-05**: System adds work_history entry to person with team reference
+- [x] **TEAM-06**: Work history uses "Speler" as job_title
+- [x] **TEAM-07**: Work history is_current is set to true
 
 ### Change Detection
 
-- [ ] **TEAM-08**: System tracks member's current team in SQLite
-- [ ] **TEAM-09**: System updates work_history when team changes
+- [x] **TEAM-08**: System tracks member's current team in SQLite
+- [x] **TEAM-09**: System updates work_history when team changes
 
 ### Pipeline Integration
 
@@ -56,11 +56,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEAM-02 | Phase 13 | Complete |
 | TEAM-03 | Phase 13 | Complete |
 | TEAM-04 | Phase 13 | Complete |
-| TEAM-05 | Phase 14 | Pending |
-| TEAM-06 | Phase 14 | Pending |
-| TEAM-07 | Phase 14 | Pending |
-| TEAM-08 | Phase 14 | Pending |
-| TEAM-09 | Phase 14 | Pending |
+| TEAM-05 | Phase 14 | Complete |
+| TEAM-06 | Phase 14 | Complete |
+| TEAM-07 | Phase 14 | Complete |
+| TEAM-08 | Phase 14 | Complete |
+| TEAM-09 | Phase 14 | Complete |
 | TEAM-10 | Phase 15 | Pending |
 | TEAM-11 | Phase 15 | Pending |
 
@@ -76,4 +76,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-26*
-*Last updated: 2026-01-26 after roadmap creation*
+*Last updated: 2026-01-26 after Phase 14 complete*
