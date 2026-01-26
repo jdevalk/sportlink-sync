@@ -2,34 +2,24 @@
 
 ## What This Is
 
-A CLI tool that synchronizes member data from Sportlink Club (a Dutch sports club management system) to multiple destinations: Laposta email marketing lists and Stadion (a WordPress-based member management app). It downloads member data via browser automation, transforms it according to field mappings, syncs changes to both destinations, and runs automatically on a daily schedule with combined email reports via Postmark.
+A CLI tool that synchronizes member data from Sportlink Club (a Dutch sports club management system) to multiple destinations: Laposta email marketing lists and Stadion (a WordPress-based member management app). It downloads member data via browser automation, transforms it according to field mappings, syncs changes to both destinations including photos and team assignments, and runs automatically on a daily schedule with combined email reports via Postmark.
 
 ## Core Value
 
 Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
 
-## Current Milestone: v1.5 Team Sync
-
-**Goal:** Sync member teams from Sportlink to Stadion, creating teams and work history entries.
-
-**Target features:**
-- Extract team from Sportlink `UnionTeams` field (fallback to `ClubTeams`)
-- Create teams in Stadion if they don't exist
-- Add work_history entry to persons linking them to their team
-- Track team assignments for change detection
-- Include team sync statistics in email report
-
-## Previous State (v1.4 Shipped)
+## Current State (v1.5 Shipped)
 
 **Shipped:** 2026-01-26
 
-Photo sync is fully operational:
-- Photo state tracking via PersonImageDate in SQLite
-- Browser automation downloads photos from member detail pages
-- Photos saved locally in `photos/` directory
-- Photos uploaded to Stadion via REST API
-- Photo deletion when removed in Sportlink
-- Photo sync integrated into daily pipeline with email statistics
+Full sync pipeline operational:
+- Member data downloads from Sportlink via browser automation
+- Members sync to Laposta email lists with hash-based change detection
+- Members and parents sync to Stadion WordPress with relationship linking
+- Photos download from Sportlink and upload to Stadion
+- Teams extract from Sportlink and sync to Stadion
+- Work history links persons to teams with change detection
+- Daily automated pipeline with comprehensive email reports
 
 ## Requirements
 
@@ -69,14 +59,15 @@ Photo sync is fully operational:
 - ✓ Delete photos from local and Stadion when removed in Sportlink — v1.4
 - ✓ Integrate photo sync into sync-all pipeline — v1.4
 - ✓ Include photo sync statistics in email report — v1.4
+- ✓ Extract team from Sportlink UnionTeams field (fallback to ClubTeams) — v1.5
+- ✓ Create teams in Stadion if they don't exist — v1.5
+- ✓ Add work_history entry to persons with team reference and "Speler" job title — v1.5
+- ✓ Track team assignments in SQLite for change detection — v1.5
+- ✓ Include team sync statistics in email report — v1.5
 
 ### Active
 
-- [ ] Extract team from Sportlink UnionTeams field (fallback to ClubTeams)
-- [ ] Create teams in Stadion if they don't exist
-- [ ] Add work_history entry to persons with team reference and "Speler" job title
-- [ ] Track team assignments in SQLite for change detection
-- [ ] Include team sync statistics in email report
+None - awaiting next milestone planning.
 
 ### Out of Scope
 
@@ -87,11 +78,15 @@ Photo sync is fully operational:
 - Fallback to local mail — Postmark is reliable enough, no fallback needed
 - Fail sync on email failure — Email is secondary to the actual sync operation
 - Delete sync — Members removed from Sportlink stay in downstream systems
+- Multiple team memberships — Members are on one team at a time per Sportlink
+- Team history tracking — Only track current team assignment
+- Team deletion sync — Teams persist in Stadion even if empty
+- Parent team assignments — Parents don't have team data in Sportlink
 
 ## Context
 
 **Codebase:**
-- 4,393 lines of JavaScript + shell
+- 6,754 lines of JavaScript + shell
 - Node.js with Playwright for browser automation
 - SQLite for state tracking (Laposta and Stadion)
 - Shell scripts for cron automation
@@ -136,6 +131,13 @@ Photo sync is fully operational:
 | Photo state CHECK constraint | Limits photo_state column to 6 valid states, prevents invalid states | ✓ Good |
 | Empty string normalization to NULL | PersonImageDate empty strings normalized to null for SQL correctness | ✓ Good |
 | Atomic state detection in ON CONFLICT | State transitions handled entirely in SQL ON CONFLICT clause | ✓ Good |
+| COLLATE NOCASE on team_name | Prevents duplicate teams with different capitalization | ✓ Good |
+| UnionTeams priority over ClubTeams | KNVB data more authoritative than club-assigned | ✓ Good |
+| Track WordPress repeater field row indices | Enables targeting sync-created vs manual entries | ✓ Good |
+| Preserve manual WordPress entries | Only modify sync-created work_history | ✓ Good |
+| Composite unique key for work history | (knvb_id, team_name) prevents duplicates, enables change detection | ✓ Good |
+| Team sync before work history | Work history references team IDs | ✓ Good |
+| Non-critical team/work history sync | Prevents blocking Laposta or core Stadion sync | ✓ Good |
 
 ---
-*Last updated: 2026-01-26 after starting milestone v1.5*
+*Last updated: 2026-01-26 after v1.5 milestone*

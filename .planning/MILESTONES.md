@@ -1,5 +1,61 @@
 # Project Milestones: Sportlink Sync
 
+## v1.5 Team Sync (Shipped: 2026-01-26)
+
+**Delivered:** Member teams from Sportlink now sync to Stadion with work history entries linking persons to their teams.
+
+**Phases completed:** 13-15 (3 plans total)
+
+**Key accomplishments:**
+
+- Team extraction from Sportlink (UnionTeams priority, ClubTeams fallback)
+- Team sync to Stadion WordPress via REST API with hash-based change detection
+- Work history linking persons to teams via ACF repeater field with "Speler" job title
+- Team change detection with automatic history tracking (ends old, creates new)
+- Integrated into daily pipeline with team and work history stats in email reports
+- Non-critical sync pattern ensures team failures don't block other operations
+
+**Stats:**
+
+- 24 files created/modified
+- 6,754 lines of JavaScript (project total)
+- 3 phases, 3 plans
+- 5 days (2026-01-21 → 2026-01-26)
+
+**Git range:** `1deceb6` → `02aeee6`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
+## v1.4 Photo Sync (Shipped: 2026-01-26)
+
+**Delivered:** Member photos from Sportlink now sync to Stadion with full lifecycle management (download, upload, deletion).
+
+**Phases completed:** 9-12 (4 plans total)
+
+**Key accomplishments:**
+
+- Photo state tracking via PersonImageDate in SQLite
+- Browser automation downloads photos from member detail pages
+- Photos saved locally in `photos/` directory with PublicPersonId as filename
+- Photos uploaded to Stadion via REST API endpoint
+- Photo deletion when removed in Sportlink
+- Integrated into daily pipeline with photo sync statistics in email report
+
+**Stats:**
+
+- 13 files created/modified
+- 5,300+ lines of JavaScript (project total at time)
+- 4 phases, 4 plans
+- Same day development (2026-01-26)
+
+**Git range:** `feat(09-01)` → `feat(12-01)`
+
+**What's next:** Team sync milestone (v1.5)
+
+---
+
 ## v1.3 Connect to Stadion (Shipped: 2026-01-25)
 
 **Delivered:** Dual-system sync pipeline - Sportlink member data now syncs to both Laposta email lists and Stadion WordPress app via REST API.

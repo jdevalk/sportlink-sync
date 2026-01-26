@@ -2,17 +2,17 @@
 
 ## Milestones
 
-- **v1.0 MVP** — Phases 1-2 (shipped 2026-01-24)
-- **v1.1 Postmark Email** — Phase 3 (shipped 2026-01-25)
-- **v1.2 Email Polish** — Phase 4 (shipped 2026-01-25)
-- **v1.3 Connect to Stadion** — Phases 5-8 (shipped 2026-01-25)
-- **v1.4 Photo Sync** — Phases 9-12 (shipped 2026-01-26)
-- **v1.5 Team Sync** — Phases 13-15 (in progress)
+- ✅ **v1.0 MVP** — Phases 1-2 (shipped 2026-01-24)
+- ✅ **v1.1 Postmark Email** — Phase 3 (shipped 2026-01-25)
+- ✅ **v1.2 Email Polish** — Phase 4 (shipped 2026-01-25)
+- ✅ **v1.3 Connect to Stadion** — Phases 5-8 (shipped 2026-01-25)
+- ✅ **v1.4 Photo Sync** — Phases 9-12 (shipped 2026-01-26)
+- ✅ **v1.5 Team Sync** — Phases 13-15 (shipped 2026-01-26)
 
 ## Phases
 
 <details>
-<summary>v1.0-v1.4 (Phases 1-12) — SHIPPED</summary>
+<summary>✅ v1.0-v1.5 (Phases 1-15) — SHIPPED</summary>
 
 See `.planning/MILESTONES.md` for completed work.
 
@@ -21,55 +21,10 @@ Archives:
 - `.planning/milestones/v1.1-ROADMAP.md`
 - `.planning/milestones/v1.2-ROADMAP.md`
 - `.planning/milestones/v1.3-ROADMAP.md`
-- `.planning/milestones/v1.4-ROADMAP.md`
+- `.planning/milestones/v1.4-ROADMAP.md` (pending)
+- `.planning/milestones/v1.5-ROADMAP.md`
 
 </details>
-
-### v1.5 Team Sync (In Progress)
-
-**Milestone Goal:** Sync member teams from Sportlink to Stadion, creating teams and work history entries.
-
-#### Phase 13: Team Extraction and Management
-**Goal**: Extract unique team names from Sportlink and create teams in Stadion via REST API
-**Depends on**: Phase 12 (existing member sync infrastructure)
-**Requirements**: TEAM-01, TEAM-02, TEAM-03, TEAM-04
-**Success Criteria** (what must be TRUE):
-  1. System extracts team name from UnionTeams field when present
-  2. System falls back to ClubTeams field when UnionTeams is empty
-  3. System creates teams in Stadion via POST /wp/v2/teams with title field
-  4. SQLite database tracks team name to Stadion team ID mappings
-**Plans**: 1 plan
-
-Plans:
-- [x] 13-01-PLAN.md — Team extraction and Stadion team creation
-
-#### Phase 14: Work History Sync
-**Goal**: System links persons to their teams via work history entries with change detection
-**Depends on**: Phase 13 (needs teams to exist in Stadion)
-**Requirements**: TEAM-05, TEAM-06, TEAM-07, TEAM-08, TEAM-09
-**Success Criteria** (what must be TRUE):
-  1. Person records have work_history entry with team reference (post_object)
-  2. Work history job_title is set to "Speler"
-  3. Work history is_current field is set to true
-  4. System tracks each member's current team assignment in SQLite
-  5. When member's team changes, system updates work_history in Stadion
-**Plans**: 1 plan
-
-Plans:
-- [x] 14-01-PLAN.md — Work history creation and team change detection
-
-#### Phase 15: Pipeline Integration
-**Goal**: Team sync integrated into daily pipeline with email reporting
-**Depends on**: Phase 14 (complete team sync functionality)
-**Requirements**: TEAM-10, TEAM-11
-**Success Criteria** (what must be TRUE):
-  1. Team sync runs automatically as part of Stadion member sync
-  2. Email report includes team sync statistics (teams created, members linked, changes detected)
-  3. Team sync failures do not block Laposta or core Stadion member sync
-**Plans**: 1 plan
-
-Plans:
-- [x] 15-01-PLAN.md — Integrate team and work history sync into pipeline with email reporting
 
 ## Progress
 
@@ -94,4 +49,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-25*
-*Last updated: 2026-01-26 Phase 15 complete*
+*Last updated: 2026-01-26 — v1.5 milestone complete*
