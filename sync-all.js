@@ -86,6 +86,42 @@ function printSummary(logger, stats) {
   }
   logger.log('');
 
+  logger.log('TEAM SYNC');
+  logger.log(minorDivider);
+  if (stats.teams.total > 0) {
+    logger.log(`Teams synced: ${stats.teams.synced}/${stats.teams.total}`);
+    if (stats.teams.created > 0) {
+      logger.log(`  Created: ${stats.teams.created}`);
+    }
+    if (stats.teams.updated > 0) {
+      logger.log(`  Updated: ${stats.teams.updated}`);
+    }
+    if (stats.teams.skipped > 0) {
+      logger.log(`  Skipped: ${stats.teams.skipped} (unchanged)`);
+    }
+  } else {
+    logger.log('Teams synced: 0 changes');
+  }
+  logger.log('');
+
+  logger.log('WORK HISTORY SYNC');
+  logger.log(minorDivider);
+  if (stats.workHistory.total > 0) {
+    logger.log(`Members synced: ${stats.workHistory.synced}/${stats.workHistory.total}`);
+    if (stats.workHistory.created > 0) {
+      logger.log(`  Team assignments added: ${stats.workHistory.created}`);
+    }
+    if (stats.workHistory.ended > 0) {
+      logger.log(`  Team assignments ended: ${stats.workHistory.ended}`);
+    }
+    if (stats.workHistory.skipped > 0) {
+      logger.log(`  Skipped: ${stats.workHistory.skipped} (not yet in Stadion)`);
+    }
+  } else {
+    logger.log('Work history synced: 0 changes');
+  }
+  logger.log('');
+
   logger.log('PHOTO SYNC');
   logger.log(minorDivider);
   const photoDownloadText = stats.photos.download.total > 0
@@ -132,6 +168,8 @@ function printSummary(logger, stats) {
   const allErrors = [
     ...stats.errors,
     ...stats.stadion.errors,
+    ...stats.teams.errors,
+    ...stats.workHistory.errors,
     ...stats.photos.download.errors,
     ...stats.photos.upload.errors,
     ...stats.photos.delete.errors,
@@ -513,6 +551,8 @@ async function runSyncAll(options = {}) {
     return {
       success: stats.errors.length === 0 &&
                stats.stadion.errors.length === 0 &&
+               stats.teams.errors.length === 0 &&
+               stats.workHistory.errors.length === 0 &&
                stats.photos.download.errors.length === 0 &&
                stats.photos.upload.errors.length === 0 &&
                stats.photos.delete.errors.length === 0 &&
