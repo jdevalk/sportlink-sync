@@ -53,24 +53,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PHOTO-01 | — | Pending |
-| PHOTO-02 | — | Pending |
-| PHOTO-03 | — | Pending |
-| PHOTO-04 | — | Pending |
-| PHOTO-05 | — | Pending |
-| PHOTO-06 | — | Pending |
-| PHOTO-07 | — | Pending |
-| PHOTO-08 | — | Pending |
-| PHOTO-09 | — | Pending |
-| PHOTO-10 | — | Pending |
-| PHOTO-11 | — | Pending |
-| PHOTO-12 | — | Pending |
+| PHOTO-01 | Phase 10 | Pending |
+| PHOTO-02 | Phase 10 | Pending |
+| PHOTO-03 | Phase 10 | Pending |
+| PHOTO-04 | Phase 9 | Pending |
+| PHOTO-05 | Phase 9 | Pending |
+| PHOTO-06 | Phase 11 | Pending |
+| PHOTO-07 | Phase 11 | Pending |
+| PHOTO-08 | Phase 11 | Pending |
+| PHOTO-09 | Phase 11 | Pending |
+| PHOTO-10 | Phase 11 | Pending |
+| PHOTO-11 | Phase 12 | Pending |
+| PHOTO-12 | Phase 12 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 12 total
-- Mapped to phases: 0
-- Unmapped: 12
+- Mapped to phases: 12
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-26*
-*Last updated: 2026-01-26 after initial definition*
+*Last updated: 2026-01-26 after roadmap creation*
