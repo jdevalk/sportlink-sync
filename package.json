@@ -16,6 +16,8 @@
     "sync-stadion-verbose": "node submit-stadion-sync.js --verbose",
     "sync-stadion-parents": "node submit-stadion-sync.js --parents-only",
     "sync-stadion-parents-verbose": "node submit-stadion-sync.js --parents-only --verbose",
+    "sync-photos": "node upload-photos-to-stadion.js",
+    "sync-photos-verbose": "node upload-photos-to-stadion.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
     "show-sportlink-member": "node show-sportlink-member.js",
     "show-laposta-changes": "node show-laposta-changes.js",
@@ -23,6 +25,7 @@
   },
   "dependencies": {
     "better-sqlite3": "latest",
+    "form-data": "^4.0.0",
     "otplib": "latest",
     "playwright": "latest",
     "postmark": "^4.0.5",
