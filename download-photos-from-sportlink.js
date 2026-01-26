@@ -111,44 +111,79 @@ async function downloadMemberPhoto(page, context, knvbId, photosDir, logger) {
   let imgUrl = null;
 
   try {
-    // Strategy 1: Look for direct image element with photo
-    const imgElement = await page.$('img[alt*="photo" i], img[src*="person" i], img[src*="photo" i], .photo-container img, .member-photo img');
+    // Get all images on the page
+    const allImages = await page.$$eval('img', imgs =>
+      imgs.map(img => ({
+        src: img.src,
+        alt: img.alt || '',
+        width: img.width,
+        height: img.height,
+        className: img.className
+      }))
+    );
 
-    if (imgElement) {
-      imgUrl = await imgElement.getAttribute('src');
-      logger.verbose(`  Found image URL directly: ${imgUrl ? imgUrl.substring(0, 60) + '...' : 'null'}`);
+    logger.verbose(`  Found ${allImages.length} images on page`);
+
+    // Filter for member photos - typically larger images, not icons
+    // Common patterns: profile photos are usually > 50px, have specific keywords
+    const candidateImages = allImages.filter(img => {
+      const hasPhotoKeyword = img.src.includes('photo') || img.src.includes('avatar') ||
+                              img.src.includes('person') || img.src.includes('profile') ||
+                              img.alt.toLowerCase().includes('photo') ||
+                              img.alt.toLowerCase().includes('member');
+      const isLargeEnough = (img.width >= 50 && img.height >= 50) || (img.width === 0 && img.height === 0);
+      return hasPhotoKeyword || isLargeEnough;
+    });
+
+    if (candidateImages.length > 0) {
+      // Use the first candidate (or largest if multiple)
+      const chosen = candidateImages.sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
+      imgUrl = chosen.src;
+      logger.verbose(`  Selected image: ${imgUrl.substring(0, 60)}... (${chosen.width}x${chosen.height})`);
     }
 
-    // Strategy 2: If no direct image, look for clickable photo element that opens modal
+    // Strategy 2: If still no image, try looking for clickable elements
     if (!imgUrl) {
-      const photoTrigger = await page.$('a[data-target*="photo" i], button[data-target*="photo" i], .photo-thumbnail, [class*="photo"][class*="trigger"]');
+      logger.verbose('  No direct image found, trying clickable elements...');
 
-      if (photoTrigger) {
-        logger.verbose('  Found photo trigger, clicking to open modal...');
+      // Look for any clickable element that might open a photo
+      const clickableSelectors = [
+        'a[href*="photo"]',
+        'button[data-target*="photo"]',
+        '[class*="photo"][onclick]',
+        '.avatar',
+        '.profile-picture',
+        '[data-toggle="modal"]'
+      ];
 
-        // Wait for response when clicking
-        const responsePromise = page.waitForResponse(
-          resp => (resp.url().includes('image') || resp.url().includes('photo') || resp.url().includes('person')) && resp.ok(),
-          { timeout: 10000 }
-        ).catch(() => null); // Don't fail if no response matches
+      for (const selector of clickableSelectors) {
+        const element = await page.$(selector);
+        if (element) {
+          logger.verbose(`  Found clickable: ${selector}`);
 
-        await photoTrigger.click();
+          const responsePromise = page.waitForResponse(
+            resp => (resp.url().includes('image') || resp.url().includes('photo')) &&
+                    resp.request().resourceType() === 'image' && resp.ok(),
+            { timeout: 5000 }
+          ).catch(() => null);
 
-        // Wait a bit for modal to appear
-        await page.waitForTimeout(1000);
+          await element.click();
+          await page.waitForTimeout(1000);
 
-        // Try to find image in modal
-        const modalImg = await page.$('.modal img, [role="dialog"] img, [class*="modal"] img');
-        if (modalImg) {
-          imgUrl = await modalImg.getAttribute('src');
-          logger.verbose(`  Found image URL in modal: ${imgUrl ? imgUrl.substring(0, 60) + '...' : 'null'}`);
-        }
+          const response = await responsePromise;
+          if (response) {
+            imgUrl = response.url();
+            logger.verbose(`  Got image from response: ${imgUrl.substring(0, 60)}...`);
+            break;
+          }
 
-        // Check if we got a response
-        const response = await responsePromise;
-        if (response && !imgUrl) {
-          imgUrl = response.url();
-          logger.verbose(`  Got image URL from response: ${imgUrl.substring(0, 60)}...`);
+          // Check for modal image
+          const modalImg = await page.$('.modal img, [role="dialog"] img');
+          if (modalImg) {
+            imgUrl = await modalImg.getAttribute('src');
+            logger.verbose(`  Found modal image: ${imgUrl.substring(0, 60)}...`);
+            break;
+          }
         }
       }
     }
