@@ -9,6 +9,8 @@ A CLI tool that synchronizes member data from Sportlink Club to Laposta email ma
 - **Change detection**: Only submits members whose data actually changed (hash-based diff)
 - **Multi-list support**: Sync to up to 4 Laposta lists
 - **Parent deduplication**: Handles parent/child member associations
+- **Photo sync**: Downloads member photos from Sportlink and uploads to Stadion
+- **Team sync**: Extracts teams from Sportlink and syncs to Stadion with work history linking
 - **Email reports**: HTML-formatted sync summaries delivered via Postmark
 - **Summary output**: Clean, email-friendly sync reports
 
@@ -30,7 +32,12 @@ The full sync pipeline runs in this order:
 2. **prepare-laposta-members.js** - Transforms Sportlink fields for Laposta using field mappings
 3. **submit-laposta-list.js** - Syncs to Laposta via API with hash-based change detection
 4. **submit-stadion-sync.js** - Syncs to Stadion WordPress (reads from SQLite, not CSV)
-5. **sync-all.js** - Orchestrates full pipeline, produces HTML email-ready summary
+5. **download-photos-from-sportlink.js** - Browser automation downloads member photos
+6. **upload-photos-to-stadion.js** - Uploads photos to Stadion via REST API
+7. **prepare-stadion-teams.js** - Extracts team assignments from Sportlink data
+8. **submit-stadion-teams.js** - Creates/updates teams in Stadion
+9. **submit-stadion-work-history.js** - Links persons to teams via work_history field
+10. **sync-all.js** - Orchestrates full pipeline, produces HTML email-ready summary
 
 ### Data Flow
 
@@ -42,6 +49,10 @@ Sportlink Club (browser) → CSV → SQLite (state) → Laposta API
                            Only changed members sync
                                       ↓
                               Stadion WordPress API
+                                      ↓
+                              Photo download/upload
+                                      ↓
+                              Team sync + work history
                                       ↓
                               Email report (Postmark)
 ```
@@ -155,6 +166,33 @@ The Stadion sync:
 - Supports custom post types via `STADION_PERSON_TYPE`
 - Can sync all members or parent members only
 
+### Photo sync
+
+```bash
+npm run download-photos           # Download photos from Sportlink
+npm run download-photos-verbose   # Same with detailed logging
+npm run sync-photos               # Upload photos to Stadion
+npm run sync-photos-verbose       # Same with detailed logging
+```
+
+Photo sync:
+- Downloads member photos from Sportlink when PersonImageDate indicates presence
+- Tracks photo state changes (added, updated, removed)
+- Uploads photos to Stadion WordPress via REST API
+- Deletes photos from Stadion when removed in Sportlink
+
+### Team sync
+
+Team sync is integrated into `sync-all` and runs automatically. Teams are extracted from:
+- UnionTeams field (KNVB-assigned teams, preferred)
+- ClubTeams field (club-assigned teams, fallback)
+
+The sync:
+- Creates teams in Stadion if they don't exist
+- Links persons to teams via work_history ACF repeater field
+- Tracks team assignments for change detection
+- Only sync-created work_history entries are modified (manual entries preserved)
+
 ### Inspection tools
 
 To see what would be sent to Laposta for a given email:
@@ -234,6 +272,8 @@ SQLite database `laposta-sync.sqlite` tracks:
 - Sync state per list
 - Last sync timestamps
 - Member data for Stadion sync
+- Photo state and PersonImageDate for change detection
+- Team assignments and work history indices
 
 ## Development
 
@@ -244,6 +284,8 @@ npm run download         # Just download from Sportlink
 npm run prepare-laposta  # Just prepare members
 npm run sync-laposta     # Just submit to Laposta
 npm run sync-stadion     # Just submit to Stadion
+npm run download-photos  # Download photos from Sportlink
+npm run sync-photos      # Upload photos to Stadion
 ```
 
 ### Inspect data
