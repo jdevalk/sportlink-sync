@@ -187,10 +187,14 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     // Get existing data to merge relationships
     let existingRelationships = [];
     let existingVisibility = 'private';
+    let existingFirstName = '';
+    let existingLastName = '';
     try {
       const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
       existingRelationships = existing.body.acf?.relationships || [];
       existingVisibility = existing.body.acf?._visibility || 'private';
+      existingFirstName = existing.body.acf?.first_name || '';
+      existingLastName = existing.body.acf?.last_name || '';
     } catch (e) {
       logVerbose(`Could not fetch existing person: ${e.message}`);
     }
@@ -204,9 +208,11 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     );
     const mergedRelationships = [...existingRelationships, ...newChildRelationships];
 
-    // Only update relationships, preserve everything else
+    // Only update relationships, preserve everything else (but include required fields)
     const updateData = {
       acf: {
+        first_name: existingFirstName,
+        last_name: existingLastName,
         relationships: mergedRelationships,
         _visibility: existingVisibility
       }
