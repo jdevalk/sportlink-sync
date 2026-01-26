@@ -62,10 +62,10 @@ Plans:
   2. Photo uploaded to Stadion via `POST /stadion/v1/people/{id}/photo` endpoint
   3. When photo removed in Sportlink, local file deleted from `photos/` directory
   4. When photo removed in Sportlink, photo deleted from Stadion via API
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 11-01: TBD
+- [ ] 11-01-PLAN.md — Create photo sync script with upload and deletion
 
 #### Phase 12: Pipeline Integration
 **Goal**: Photo sync integrated into daily sync-all pipeline with email reporting
@@ -93,11 +93,11 @@ Plans:
 | 8. Pipeline Integration | v1.3 | 1/1 | Complete | 2026-01-25 |
 | 9. Photo State Tracking | v1.4 | 1/1 | Complete | 2026-01-26 |
 | 10. Photo Download | v1.4 | 1/1 | Complete | 2026-01-26 |
-| 11. Photo Upload/Deletion | v1.4 | 0/? | Not started | - |
+| 11. Photo Upload/Deletion | v1.4 | 0/1 | Planned | - |
 | 12. Pipeline Integration | v1.4 | 0/? | Not started | - |
 
 **Total:** 12 phases (10 complete, 2 remaining in v1.4)
 
 ---
 *Roadmap created: 2026-01-25*
-*Last updated: 2026-01-26 after Phase 10 complete*
+*Last updated: 2026-01-26 after Phase 11 planning*
