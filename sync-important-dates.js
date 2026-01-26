@@ -10,8 +10,7 @@ const {
   deleteImportantDate,
   getAllTrackedMembers
 } = require('./lib/stadion-db');
-const fs = require('fs');
-const path = require('path');
+const { openDb: openLapostaDb, getLatestSportlinkResults } = require('./laposta-db');
 
 /**
  * Helper for rate limiting between API requests
@@ -21,41 +20,37 @@ function sleep(ms) {
 }
 
 /**
- * Load birthdays from Sportlink CSV and upsert to database
- * @param {Object} db - Database connection
+ * Load birthdays from Sportlink SQLite database and upsert to tracking table
+ * @param {Object} db - Stadion database connection
  * @param {Object} options - Logger options
  * @returns {number} Count of members with birthdays
  */
-function loadBirthdaysFromCsv(db, options = {}) {
+function loadBirthdaysFromSqlite(db, options = {}) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  const csvPath = path.join(process.cwd(), 'sportlink-members.csv');
-  if (!fs.existsSync(csvPath)) {
-    throw new Error('sportlink-members.csv not found. Run download first.');
+  // Open Laposta DB to get Sportlink results
+  const lapostaDb = openLapostaDb();
+  let sportlinkData;
+  try {
+    const resultsJson = getLatestSportlinkResults(lapostaDb);
+    if (!resultsJson) {
+      throw new Error('No Sportlink results found in SQLite. Run download first.');
+    }
+    sportlinkData = JSON.parse(resultsJson);
+  } finally {
+    lapostaDb.close();
   }
 
-  const csvContent = fs.readFileSync(csvPath, 'utf-8');
-  const lines = csvContent.split('\n').filter(line => line.trim());
-
-  if (lines.length < 2) {
+  const members = Array.isArray(sportlinkData.Members) ? sportlinkData.Members : [];
+  if (members.length === 0) {
     return 0;
-  }
-
-  // Parse header
-  const header = lines[0].split(';').map(h => h.trim().replace(/^"|"$/g, ''));
-  const dateOfBirthIndex = header.indexOf('DateOfBirth');
-  const publicPersonIdIndex = header.indexOf('PublicPersonId');
-
-  if (dateOfBirthIndex === -1 || publicPersonIdIndex === -1) {
-    throw new Error('Required columns not found in CSV');
   }
 
   let birthdayCount = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(';').map(v => v.trim().replace(/^"|"$/g, ''));
-    const knvbId = values[publicPersonIdIndex];
-    const dateOfBirth = values[dateOfBirthIndex];
+  for (const member of members) {
+    const knvbId = member.PublicPersonId;
+    const dateOfBirth = member.DateOfBirth;
 
     if (knvbId && dateOfBirth && dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
       upsertImportantDate(db, knvbId, 'birth_date', dateOfBirth);
@@ -63,7 +58,7 @@ function loadBirthdaysFromCsv(db, options = {}) {
     }
   }
 
-  logVerbose(`Loaded ${birthdayCount} birthdays from CSV`);
+  logVerbose(`Loaded ${birthdayCount} birthdays from SQLite`);
   return birthdayCount;
 }
 
@@ -155,8 +150,8 @@ async function runSync(options = {}) {
 
   const db = openDb();
   try {
-    // Step 1: Load birthdays from CSV and upsert to tracking table
-    result.total = loadBirthdaysFromCsv(db, options);
+    // Step 1: Load birthdays from SQLite and upsert to tracking table
+    result.total = loadBirthdaysFromSqlite(db, options);
 
     // Step 2: Get dates needing sync (members must have stadion_id)
     const needsSync = getImportantDatesNeedingSync(db, force);
