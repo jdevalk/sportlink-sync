@@ -52,23 +52,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEAM-01 | TBD | Pending |
-| TEAM-02 | TBD | Pending |
-| TEAM-03 | TBD | Pending |
-| TEAM-04 | TBD | Pending |
-| TEAM-05 | TBD | Pending |
-| TEAM-06 | TBD | Pending |
-| TEAM-07 | TBD | Pending |
-| TEAM-08 | TBD | Pending |
-| TEAM-09 | TBD | Pending |
-| TEAM-10 | TBD | Pending |
-| TEAM-11 | TBD | Pending |
+| TEAM-01 | Phase 13 | Pending |
+| TEAM-02 | Phase 13 | Pending |
+| TEAM-03 | Phase 13 | Pending |
+| TEAM-04 | Phase 13 | Pending |
+| TEAM-05 | Phase 14 | Pending |
+| TEAM-06 | Phase 14 | Pending |
+| TEAM-07 | Phase 14 | Pending |
+| TEAM-08 | Phase 14 | Pending |
+| TEAM-09 | Phase 14 | Pending |
+| TEAM-10 | Phase 15 | Pending |
+| TEAM-11 | Phase 15 | Pending |
 
 **Coverage:**
 - v1.5 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11
+- Unmapped: 0 ✓
+
+**Phase Distribution:**
+- Phase 13 (Team Extraction and Management): 4 requirements
+- Phase 14 (Work History Sync): 5 requirements
+- Phase 15 (Pipeline Integration): 2 requirements
 
 ---
 *Requirements defined: 2026-01-26*
-*Last updated: 2026-01-26 after initial definition*
+*Last updated: 2026-01-26 after roadmap creation*
