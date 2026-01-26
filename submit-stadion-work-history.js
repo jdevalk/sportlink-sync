@@ -13,28 +13,42 @@ const {
 } = require('./lib/stadion-db');
 
 /**
+ * Check if a team name is valid (not a single-digit placeholder)
+ * @param {string} teamName - Team name to validate
+ * @returns {boolean} - True if valid team name
+ */
+function isValidTeamName(teamName) {
+  if (!teamName) return false;
+  // Reject single-digit numbers (common placeholder/invalid values in Sportlink)
+  if (/^\d$/.test(teamName)) return false;
+  return true;
+}
+
+/**
  * Extract teams for a member from Sportlink data.
  * Priority: UnionTeams first, ClubTeams fallback.
+ * Splits comma-separated values and filters invalid names.
  * Returns array of team names (member can be in multiple teams).
  * @param {Object} sportlinkMember - Sportlink member record
  * @returns {Array<string>} - Team names
  */
 function extractMemberTeams(sportlinkMember) {
-  const teams = [];
+  const teamSet = new Set();
 
   // UnionTeams (priority)
   const unionTeam = (sportlinkMember.UnionTeams || '').trim();
   if (unionTeam) {
-    teams.push(unionTeam);
+    // Split comma-separated and filter invalid
+    unionTeam.split(',').map(t => t.trim()).filter(isValidTeamName).forEach(t => teamSet.add(t));
   }
 
-  // ClubTeams (fallback)
+  // ClubTeams (additional, not fallback - member can be in both)
   const clubTeam = (sportlinkMember.ClubTeams || '').trim();
-  if (clubTeam && clubTeam !== unionTeam) {
-    teams.push(clubTeam);
+  if (clubTeam) {
+    clubTeam.split(',').map(t => t.trim()).filter(isValidTeamName).forEach(t => teamSet.add(t));
   }
 
-  return teams;
+  return Array.from(teamSet);
 }
 
 /**
