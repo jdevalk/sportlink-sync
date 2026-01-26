@@ -190,25 +190,58 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
     logVerbose(`Added work_history for team ${teamName} (index ${newIndex})`);
   }
 
-  // Handle unchanged teams when force is true (update job_title)
+  // Handle unchanged teams when force is true (update or create)
   if (force) {
     const trackedHistory = getMemberWorkHistory(db, knvb_id);
     for (const teamName of changes.unchanged) {
+      const teamStadionId = teamMap.get(teamName);
+      if (!teamStadionId) {
+        logVerbose(`Warning: Team "${teamName}" not found in Stadion, skipping`);
+        continue;
+      }
+
       const tracked = trackedHistory.find(h => h.team_name === teamName);
+
       if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id !== undefined) {
+        // We have a tracked index - update that entry
         const index = tracked.stadion_work_history_id;
         if (index < newWorkHistory.length) {
-          const teamStadionId = teamMap.get(teamName);
-          if (teamStadionId) {
-            newWorkHistory[index] = {
-              ...newWorkHistory[index],
-              job_title: jobTitle,
-              post_object: teamStadionId
-            };
-            updatedCount++;
-            modified = true;
-            logVerbose(`Updated work_history for team ${teamName} (index ${index}) with job_title: ${jobTitle}`);
-          }
+          newWorkHistory[index] = {
+            ...newWorkHistory[index],
+            job_title: jobTitle,
+            post_object: teamStadionId
+          };
+          updatedCount++;
+          modified = true;
+          logVerbose(`Updated work_history for team ${teamName} (index ${index}) with job_title: ${jobTitle}`);
+        }
+      } else {
+        // No tracked index - find existing entry by team or create new
+        const existingIndex = newWorkHistory.findIndex(e => e.post_object === teamStadionId);
+        if (existingIndex >= 0) {
+          // Update existing WordPress entry
+          newWorkHistory[existingIndex] = {
+            ...newWorkHistory[existingIndex],
+            job_title: jobTitle
+          };
+          // Update tracking with the found index
+          const sourceHash = require('./lib/stadion-db').computeWorkHistoryHash(knvb_id, teamName);
+          updateWorkHistorySyncState(db, knvb_id, teamName, sourceHash, existingIndex);
+          updatedCount++;
+          modified = true;
+          logVerbose(`Updated existing work_history for team ${teamName} (index ${existingIndex}) with job_title: ${jobTitle}`);
+        } else {
+          // Create new entry
+          const isBackfill = !trackedHistory.some(h => h.last_synced_at);
+          const entry = buildWorkHistoryEntry(teamStadionId, isBackfill, jobTitle);
+          const newIndex = newWorkHistory.length;
+          newWorkHistory.push(entry);
+          // Update tracking
+          const sourceHash = require('./lib/stadion-db').computeWorkHistoryHash(knvb_id, teamName);
+          updateWorkHistorySyncState(db, knvb_id, teamName, sourceHash, newIndex);
+          addedCount++;
+          modified = true;
+          logVerbose(`Created work_history for team ${teamName} (index ${newIndex}) with job_title: ${jobTitle}`);
         }
       }
     }
