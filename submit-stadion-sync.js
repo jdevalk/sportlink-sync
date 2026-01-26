@@ -79,8 +79,8 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
       if (!hasParentLink) {
         const newRelationship = {
           related_person: parentId,
-          relationship_type: '', // Parent relationship type
-          relationship_label: 'Ouder'
+          relationship_type: [8], // Parent relationship type term ID
+          relationship_label: ''
         };
         const mergedRelationships = [...existingRelationships, newRelationship];
         await stadionRequest(
@@ -119,8 +119,8 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
   // Build relationships array for children
   const childRelationships = childStadionIds.map(childId => ({
     related_person: childId,
-    relationship_type: '',
-    relationship_label: 'Kind'
+    relationship_type: [9], // Child relationship type term ID
+    relationship_label: ''
   }));
 
   if (stadion_id) {
