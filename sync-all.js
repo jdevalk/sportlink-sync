@@ -7,6 +7,7 @@ const { runSubmit } = require('./submit-laposta-list');
 const { runSync: runStadionSync } = require('./submit-stadion-sync');
 const { runPhotoDownload } = require('./download-photos-from-sportlink');
 const { runPhotoSync } = require('./upload-photos-to-stadion');
+const { runSync: runBirthdaySync } = require('./sync-important-dates');
 const { openDb } = require('./lib/stadion-db');
 
 /**
@@ -109,12 +110,30 @@ function printSummary(logger, stats) {
   logger.log(`Coverage: ${stats.photos.coverage.members_with_photos} of ${stats.photos.coverage.total_members} members have photos`);
   logger.log('');
 
+  logger.log('BIRTHDAY SYNC');
+  logger.log(minorDivider);
+  const birthdaySyncText = stats.birthdays.total > 0
+    ? `${stats.birthdays.synced}/${stats.birthdays.total}`
+    : '0 changes';
+  logger.log(`Birthdays synced: ${birthdaySyncText}`);
+  if (stats.birthdays.created > 0) {
+    logger.log(`  Created: ${stats.birthdays.created}`);
+  }
+  if (stats.birthdays.updated > 0) {
+    logger.log(`  Updated: ${stats.birthdays.updated}`);
+  }
+  if (stats.birthdays.deleted > 0) {
+    logger.log(`  Deleted: ${stats.birthdays.deleted}`);
+  }
+  logger.log('');
+
   const allErrors = [
     ...stats.errors,
     ...stats.stadion.errors,
     ...stats.photos.download.errors,
     ...stats.photos.upload.errors,
-    ...stats.photos.delete.errors
+    ...stats.photos.delete.errors,
+    ...stats.birthdays.errors
   ];
   if (allErrors.length > 0) {
     logger.log(`ERRORS (${allErrors.length})`);
@@ -186,6 +205,15 @@ async function runSyncAll(options = {}) {
         members_with_photos: 0,
         total_members: 0
       }
+    },
+    birthdays: {
+      total: 0,
+      synced: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      deleted: 0,
+      errors: []
     }
   };
 
@@ -377,6 +405,32 @@ async function runSyncAll(options = {}) {
       logger.verbose(`Could not calculate photo coverage: ${err.message}`);
     }
 
+    // Step 7: Birthday Sync (NON-CRITICAL)
+    logger.verbose('Syncing birthdays to Stadion...');
+    try {
+      const birthdayResult = await runBirthdaySync({ logger, verbose, force });
+
+      stats.birthdays = {
+        total: birthdayResult.total,
+        synced: birthdayResult.synced,
+        created: birthdayResult.created,
+        updated: birthdayResult.updated,
+        skipped: birthdayResult.skipped,
+        deleted: birthdayResult.deleted,
+        errors: (birthdayResult.errors || []).map(e => ({
+          knvb_id: e.knvb_id,
+          message: e.message,
+          system: 'birthday-sync'
+        }))
+      };
+    } catch (err) {
+      logger.error(`Birthday sync failed: ${err.message}`);
+      stats.birthdays.errors.push({
+        message: `Birthday sync failed: ${err.message}`,
+        system: 'birthday-sync'
+      });
+    }
+
     // Complete timing
     const endTime = Date.now();
     stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
@@ -395,7 +449,8 @@ async function runSyncAll(options = {}) {
                stats.stadion.errors.length === 0 &&
                stats.photos.download.errors.length === 0 &&
                stats.photos.upload.errors.length === 0 &&
-               stats.photos.delete.errors.length === 0,
+               stats.photos.delete.errors.length === 0 &&
+               stats.birthdays.errors.length === 0,
       stats
     };
   } catch (err) {

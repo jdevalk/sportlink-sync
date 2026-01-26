@@ -82,25 +82,6 @@ function buildAddresses(member) {
 }
 
 /**
- * Build important dates array for ACF repeater
- * Only includes birth date if present
- * @param {Object} member - Sportlink member record
- * @returns {Array<{important_date_type: string, important_date_label: string, important_date: string}>}
- */
-function buildImportantDates(member) {
-  const dateOfBirth = (member.DateOfBirth || '').trim();
-
-  // Omit if no birth date
-  if (!dateOfBirth) return [];
-
-  return [{
-    important_date_type: 'birth_date',
-    important_date_label: '',
-    important_date: dateOfBirth
-  }];
-}
-
-/**
  * Transform a Sportlink member to Stadion person format
  * @param {Object} sportlinkMember - Raw Sportlink member record
  * @returns {{knvb_id: string, email: string|null, data: Object}}
@@ -115,8 +96,7 @@ function preparePerson(sportlinkMember) {
     last_name: name.last_name,
     knvb_id: sportlinkMember.PublicPersonId,
     contact_info: buildContactInfo(sportlinkMember),
-    addresses: buildAddresses(sportlinkMember),
-    important_dates: buildImportantDates(sportlinkMember)
+    addresses: buildAddresses(sportlinkMember)
   };
 
   // Only add optional fields if they have values

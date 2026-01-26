@@ -20,6 +20,8 @@
     "download-photos-verbose": "node download-photos-from-sportlink.js --verbose",
     "sync-photos": "node upload-photos-to-stadion.js",
     "sync-photos-verbose": "node upload-photos-to-stadion.js --verbose",
+    "sync-birthdays": "node sync-important-dates.js",
+    "sync-birthdays-verbose": "node sync-important-dates.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
     "show-sportlink-member": "node show-sportlink-member.js",
     "show-laposta-changes": "node show-laposta-changes.js",
