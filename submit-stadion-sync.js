@@ -274,7 +274,11 @@ async function syncParents(db, knvbIdToStadionId, options = {}) {
       if (syncResult.action === 'created') result.created++;
       if (syncResult.action === 'updated') result.updated++;
     } catch (error) {
-      result.errors.push({ email: parent.email, message: error.message });
+      console.error(`ERROR for parent ${parent.email}:`, error.message);
+      if (error.details) {
+        console.error('Error details:', JSON.stringify(error.details, null, 2));
+      }
+      result.errors.push({ email: parent.email, message: error.message, details: error.details });
     }
   }
 
