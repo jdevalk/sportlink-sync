@@ -33,27 +33,49 @@ async function syncPerson(member, db, options) {
 
   if (stadion_id) {
     // UPDATE existing person (we know the ID from our database)
+    const endpoint = `wp/v2/people/${stadion_id}`;
     logVerbose(`Updating existing person: ${stadion_id}`);
-    const response = await stadionRequest(
-      `wp/v2/people/${stadion_id}`,
-      'PUT',
-      data,
-      options
-    );
-    updateSyncState(db, knvb_id, source_hash, stadion_id);
-    return { action: 'updated', id: stadion_id };
+    logVerbose(`  PUT ${endpoint}`);
+    try {
+      const response = await stadionRequest(endpoint, 'PUT', data, options);
+      updateSyncState(db, knvb_id, source_hash, stadion_id);
+      return { action: 'updated', id: stadion_id };
+    } catch (error) {
+      console.error(`API Error updating person "${knvb_id}" (ID: ${stadion_id}):`);
+      console.error(`  Status: ${error.message}`);
+      if (error.details) {
+        console.error(`  Code: ${error.details.code || 'unknown'}`);
+        console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
+        if (error.details.data) {
+          console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+        }
+      }
+      console.error(`  Payload: ${JSON.stringify(data, null, 2)}`);
+      throw error;
+    }
   } else {
     // CREATE new person
+    const endpoint = 'wp/v2/people';
     logVerbose(`Creating new person for KNVB ID: ${knvb_id}`);
-    const response = await stadionRequest(
-      'wp/v2/people',
-      'POST',
-      data,
-      options
-    );
-    const newId = response.body.id;
-    updateSyncState(db, knvb_id, source_hash, newId);
-    return { action: 'created', id: newId };
+    logVerbose(`  POST ${endpoint}`);
+    try {
+      const response = await stadionRequest(endpoint, 'POST', data, options);
+      const newId = response.body.id;
+      updateSyncState(db, knvb_id, source_hash, newId);
+      return { action: 'created', id: newId };
+    } catch (error) {
+      console.error(`API Error creating person "${knvb_id}":`);
+      console.error(`  Status: ${error.message}`);
+      if (error.details) {
+        console.error(`  Code: ${error.details.code || 'unknown'}`);
+        console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
+        if (error.details.data) {
+          console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+        }
+      }
+      console.error(`  Payload: ${JSON.stringify(data, null, 2)}`);
+      throw error;
+    }
   }
 }
 
