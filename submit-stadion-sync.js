@@ -15,6 +15,7 @@ const {
   getParentsNeedingSync,
   updateParentSyncState,
   deleteParent,
+  resetParentStadionIds,
   getParentsNotInList
 } = require('./lib/stadion-db');
 
@@ -108,31 +109,22 @@ async function findPersonByEmail(email, options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   try {
-    // Use Stadion search endpoint to find person by email
+    // Use dedicated email lookup endpoint
     const response = await stadionRequest(
-      `stadion/v1/search?q=${encodeURIComponent(email)}&type=person&per_page=5`,
+      `stadion/v1/people/find-by-email?email=${encodeURIComponent(email)}`,
       'GET',
       null,
       options
     );
 
-    // Check if any results match the email exactly
-    const results = response.body || [];
-    for (const person of results) {
-      // Check contact_info for matching email
-      const contactInfo = person.acf?.contact_info || [];
-      const hasMatchingEmail = contactInfo.some(c =>
-        c.contact_type === 'email' &&
-        c.contact_value?.toLowerCase() === email.toLowerCase()
-      );
-      if (hasMatchingEmail) {
-        logVerbose(`Found existing person ${person.id} with email ${email}`);
-        return person.id;
-      }
+    const personId = response.body?.id;
+    if (personId) {
+      logVerbose(`Found existing person ${personId} with email ${email}`);
+      return personId;
     }
     return null;
   } catch (error) {
-    logVerbose(`Email search failed: ${error.message}`);
+    logVerbose(`Email lookup failed: ${error.message}`);
     return null;
   }
 }
@@ -502,6 +494,18 @@ if (require.main === module) {
   const force = process.argv.includes('--force');
   const parentsOnly = process.argv.includes('--parents-only');
   const skipParents = process.argv.includes('--skip-parents');
+  const resetParents = process.argv.includes('--reset-parents');
+
+  // Handle --reset-parents: clear parent tracking so they'll be re-discovered by email
+  if (resetParents) {
+    const db = openDb();
+    const count = resetParentStadionIds(db);
+    db.close();
+    console.log(`Reset ${count} parent tracking record(s). They will be re-discovered by email on next sync.`);
+    if (!parentsOnly && !process.argv.includes('--sync')) {
+      process.exit(0);
+    }
+  }
 
   const options = {
     verbose,
