@@ -43,6 +43,12 @@ function mimeToExtension(contentType) {
   return MIME_TO_EXT[baseType] || 'jpg';
 }
 
+function extractUrlFromCss(value) {
+  if (!value) return null;
+  const match = String(value).match(/url\(["']?(.*?)["']?\)/i);
+  return match ? match[1] : null;
+}
+
 /**
  * Ensure photos directory exists
  */
@@ -100,7 +106,7 @@ async function loginToSportlink(page, logger) {
  * Download photo for a single member
  */
 async function downloadMemberPhoto(page, context, knvbId, photosDir, logger) {
-  const memberUrl = `https://club.sportlink.com/member/detail/${knvbId}`;
+  const memberUrl = `https://club.sportlink.com/member/member-details/${knvbId}/general`;
 
   logger.verbose(`  Navigating to ${memberUrl}...`);
   await page.goto(memberUrl, { waitUntil: 'domcontentloaded' });
@@ -111,79 +117,54 @@ async function downloadMemberPhoto(page, context, knvbId, photosDir, logger) {
   let imgUrl = null;
 
   try {
-    // Get all images on the page
-    const allImages = await page.$$eval('img', imgs =>
-      imgs.map(img => ({
-        src: img.src,
-        alt: img.alt || '',
-        width: img.width,
-        height: img.height,
-        className: img.className
-      }))
-    );
-
-    logger.verbose(`  Found ${allImages.length} images on page`);
-
-    // Filter for member photos - typically larger images, not icons
-    // Common patterns: profile photos are usually > 50px, have specific keywords
-    const candidateImages = allImages.filter(img => {
-      const hasPhotoKeyword = img.src.includes('photo') || img.src.includes('avatar') ||
-                              img.src.includes('person') || img.src.includes('profile') ||
-                              img.alt.toLowerCase().includes('photo') ||
-                              img.alt.toLowerCase().includes('member');
-      const isLargeEnough = (img.width >= 50 && img.height >= 50) || (img.width === 0 && img.height === 0);
-      return hasPhotoKeyword || isLargeEnough;
-    });
-
-    if (candidateImages.length > 0) {
-      // Use the first candidate (or largest if multiple)
-      const chosen = candidateImages.sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
-      imgUrl = chosen.src;
-      logger.verbose(`  Selected image: ${imgUrl.substring(0, 60)}... (${chosen.width}x${chosen.height})`);
+    // Strategy 0: Click header to open modal, then use avatar container
+    const headerSelector = '#photoUploadDetailPageHeader';
+    const avatarSelector = 'div.Avatarsc__StyledAvatar-sc-fbjb43-1';
+    const avatarImgSelector = `${avatarSelector} img`;
+    const header = await page.waitForSelector(headerSelector, { timeout: 5000 }).catch(() => null);
+    if (!header) {
+      logger.verbose('  Photo header not found.');
+      const debugDir = path.join(process.cwd(), 'debug');
+      await fs.mkdir(debugDir, { recursive: true });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const screenshotPath = path.join(debugDir, `photo-missing-${knvbId}-${timestamp}.png`);
+      const htmlPath = path.join(debugDir, `photo-missing-${knvbId}-${timestamp}.html`);
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      const html = await page.content();
+      await fs.writeFile(htmlPath, html, 'utf8');
+      logger.verbose(`  Saved debug screenshot: ${screenshotPath}`);
+      logger.verbose(`  Saved debug HTML: ${htmlPath}`);
+    } else {
+      logger.verbose('  Found photo header.');
     }
 
-    // Strategy 2: If still no image, try looking for clickable elements
-    if (!imgUrl) {
-      logger.verbose('  No direct image found, trying clickable elements...');
+    const headerAvatarImg = await page.waitForSelector(avatarImgSelector, { timeout: 5000 }).catch(() => null);
+    if (headerAvatarImg) {
+      imgUrl = await headerAvatarImg.getAttribute('src');
+      logger.verbose(`  Found header avatar img: ${imgUrl?.substring(0, 60) || ''}...`);
+    } else {
+      const headerAvatarContainer = await page.waitForSelector(avatarSelector, { timeout: 2000 }).catch(() => null);
+      if (headerAvatarContainer) {
+        const backgroundImage = await headerAvatarContainer.evaluate((node) => getComputedStyle(node).backgroundImage);
+        imgUrl = extractUrlFromCss(backgroundImage);
+        if (imgUrl) {
+          logger.verbose(`  Found header avatar background: ${imgUrl.substring(0, 60)}...`);
+        }
+      }
+    }
 
-      // Look for any clickable element that might open a photo
-      const clickableSelectors = [
-        'a[href*="photo"]',
-        'button[data-target*="photo"]',
-        '[class*="photo"][onclick]',
-        '.avatar',
-        '.profile-picture',
-        '[data-toggle="modal"]'
-      ];
+    if (!imgUrl && header) {
+      const iconSelector = `${headerSelector} span.ICON-CAMERA, ${headerSelector} [data-testid="iconCustom03Xsy"]`;
+      const icon = await page.$(iconSelector);
+      if (icon) {
+        logger.verbose('  Clicking photo header icon to open modal...');
+        await icon.click();
+        await page.waitForTimeout(500);
 
-      for (const selector of clickableSelectors) {
-        const element = await page.$(selector);
-        if (element) {
-          logger.verbose(`  Found clickable: ${selector}`);
-
-          const responsePromise = page.waitForResponse(
-            resp => (resp.url().includes('image') || resp.url().includes('photo')) &&
-                    resp.request().resourceType() === 'image' && resp.ok(),
-            { timeout: 5000 }
-          ).catch(() => null);
-
-          await element.click();
-          await page.waitForTimeout(1000);
-
-          const response = await responsePromise;
-          if (response) {
-            imgUrl = response.url();
-            logger.verbose(`  Got image from response: ${imgUrl.substring(0, 60)}...`);
-            break;
-          }
-
-          // Check for modal image
-          const modalImg = await page.$('.modal img, [role="dialog"] img');
-          if (modalImg) {
-            imgUrl = await modalImg.getAttribute('src');
-            logger.verbose(`  Found modal image: ${imgUrl.substring(0, 60)}...`);
-            break;
-          }
+        const modalAvatar = await page.waitForSelector(avatarImgSelector, { timeout: 5000 }).catch(() => null);
+        if (modalAvatar) {
+          imgUrl = await modalAvatar.getAttribute('src');
+          logger.verbose(`  Found modal avatar img: ${imgUrl?.substring(0, 60) || ''}...`);
         }
       }
     }
