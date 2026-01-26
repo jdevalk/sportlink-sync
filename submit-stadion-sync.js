@@ -99,8 +99,47 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
 }
 
 /**
+ * Search for an existing person in Stadion by email address
+ * @param {string} email - Email to search for
+ * @param {Object} options - Logger and verbose options
+ * @returns {Promise<number|null>} - Stadion person ID if found, null otherwise
+ */
+async function findPersonByEmail(email, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  try {
+    // Use Stadion search endpoint to find person by email
+    const response = await stadionRequest(
+      `stadion/v1/search?q=${encodeURIComponent(email)}&type=person&per_page=5`,
+      'GET',
+      null,
+      options
+    );
+
+    // Check if any results match the email exactly
+    const results = response.body || [];
+    for (const person of results) {
+      // Check contact_info for matching email
+      const contactInfo = person.acf?.contact_info || [];
+      const hasMatchingEmail = contactInfo.some(c =>
+        c.contact_type === 'email' &&
+        c.contact_value?.toLowerCase() === email.toLowerCase()
+      );
+      if (hasMatchingEmail) {
+        logVerbose(`Found existing person ${person.id} with email ${email}`);
+        return person.id;
+      }
+    }
+    return null;
+  } catch (error) {
+    logVerbose(`Email search failed: ${error.message}`);
+    return null;
+  }
+}
+
+/**
  * Sync a single parent to Stadion (create or update)
- * Uses local stadion_id tracking - no API search needed
+ * Checks for existing person by email before creating new
  * @param {Object} parent - Parent record from preparation
  * @param {Object} db - SQLite database connection
  * @param {Map} knvbIdToStadionId - Map of KNVB ID to Stadion post ID for children
@@ -108,7 +147,8 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
  * @returns {Promise<{action: string, id: number}>}
  */
 async function syncParent(parent, db, knvbIdToStadionId, options) {
-  const { email, childKnvbIds, data, source_hash, stadion_id } = parent;
+  const { email, childKnvbIds, data, source_hash } = parent;
+  let { stadion_id } = parent;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   // Resolve child KNVB IDs to Stadion post IDs
@@ -123,30 +163,44 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     relationship_label: ''
   }));
 
-  if (stadion_id) {
-    // UPDATE existing parent
-    logVerbose(`Updating existing parent: ${stadion_id}`);
+  // If no stadion_id yet, check if person already exists by email (e.g., they're also a member)
+  if (!stadion_id) {
+    const existingId = await findPersonByEmail(email, options);
+    if (existingId) {
+      logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
+      stadion_id = existingId;
+    }
+  }
 
-    // Get existing relationships to merge
+  if (stadion_id) {
+    // UPDATE existing person - only add child relationships, don't overwrite other data
+    logVerbose(`Updating existing person: ${stadion_id}`);
+
+    // Get existing data to merge relationships
     let existingRelationships = [];
+    let existingVisibility = 'private';
     try {
       const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
       existingRelationships = existing.body.acf?.relationships || [];
+      existingVisibility = existing.body.acf?._visibility || 'private';
     } catch (e) {
-      logVerbose(`Could not fetch existing parent: ${e.message}`);
+      logVerbose(`Could not fetch existing person: ${e.message}`);
     }
 
-    // Merge: keep non-child relationships, add new child relationships
-    const otherRelationships = existingRelationships.filter(r =>
-      !childStadionIds.includes(r.related_person)
+    // Merge: keep all existing relationships, add new child relationships (avoid duplicates)
+    const existingChildIds = existingRelationships
+      .filter(r => Array.isArray(r.relationship_type) && r.relationship_type.includes(9))
+      .map(r => r.related_person);
+    const newChildRelationships = childRelationships.filter(r =>
+      !existingChildIds.includes(r.related_person)
     );
-    const mergedRelationships = [...otherRelationships, ...childRelationships];
+    const mergedRelationships = [...existingRelationships, ...newChildRelationships];
 
+    // Only update relationships, preserve everything else
     const updateData = {
-      ...data,
       acf: {
-        ...data.acf,
-        relationships: mergedRelationships
+        relationships: mergedRelationships,
+        _visibility: existingVisibility
       }
     };
 
