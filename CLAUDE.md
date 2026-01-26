@@ -133,6 +133,16 @@ npm run show-laposta-member     # Single member lookup
 npm run show-sportlink-member   # Sportlink data lookup
 ```
 
+## Related Documentation
+
+Stadion API documentation is at `~/Code/stadion/docs/`. Key files:
+- `api-leden-crud.md` - Person API (fields, work_history, relationships)
+- `api-teams.md` - Team API
+- `api-custom-fields.md` - Custom field definitions
+- `data-model.md` - Data model overview
+
+Always check these docs for correct field names and formats before guessing.
+
 ## Tech Stack
 
 - Node.js 18+
