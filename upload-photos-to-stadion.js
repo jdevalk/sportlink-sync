@@ -94,7 +94,7 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
 
     // Create form data with photo file
     const form = new FormData();
-    form.append('photo', require('fs').createReadStream(photoPath));
+    form.append('file', require('fs').createReadStream(photoPath));
 
     const requestOptions = {
       hostname: parsedUrl.hostname,
