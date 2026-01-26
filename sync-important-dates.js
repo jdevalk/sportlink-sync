@@ -75,6 +75,8 @@ async function createImportantDate(stadionPersonId, dateValue, options = {}) {
     'POST',
     {
       status: 'publish',
+      title: 'Birthday',
+      date_type: [{ slug: 'birthday' }],
       acf: {
         date_value: dateValue,
         related_people: [stadionPersonId],
