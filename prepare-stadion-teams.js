@@ -3,6 +3,17 @@ require('varlock/auto-load');
 const { openDb, getLatestSportlinkResults } = require('./laposta-db');
 
 /**
+ * Check if a team name is valid (not a single-digit placeholder)
+ * @param {string} teamName - Team name to validate
+ * @returns {boolean} - True if valid team name
+ */
+function isValidTeamName(teamName) {
+  // Reject single-digit numbers (common placeholder/invalid values in Sportlink)
+  if (/^\d$/.test(teamName)) return false;
+  return true;
+}
+
+/**
  * Extract team name from member record
  * Priority: UnionTeams first, ClubTeams fallback
  * @param {Object} member - Sportlink member record
@@ -11,10 +22,12 @@ const { openDb, getLatestSportlinkResults } = require('./laposta-db');
 function extractTeamName(member) {
   // Priority: UnionTeams first, ClubTeams fallback
   const unionTeam = (member.UnionTeams || '').trim();
-  if (unionTeam) return unionTeam;
+  if (unionTeam && isValidTeamName(unionTeam)) return unionTeam;
 
   const clubTeam = (member.ClubTeams || '').trim();
-  return clubTeam || null;
+  if (clubTeam && isValidTeamName(clubTeam)) return clubTeam;
+
+  return null;
 }
 
 /**
@@ -59,7 +72,13 @@ async function runPrepare(options = {}) {
     members.forEach((member, index) => {
       const teamName = extractTeamName(member);
       if (teamName) {
-        teamSet.add(teamName);
+        // Split comma-separated team names and add each individually
+        const teams = teamName.split(',').map(t => t.trim()).filter(t => t && isValidTeamName(t));
+        if (teams.length > 0) {
+          teams.forEach(team => teamSet.add(team));
+        } else {
+          skippedCount++;
+        }
       } else {
         skippedCount++;
       }
