@@ -20,7 +20,7 @@ Progress: [====================] 19/19 plans (100%)
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 5 (v1.0, v1.1, v1.2, v1.3, v1.4) |
+| Milestones shipped | 4 (v1.0, v1.1, v1.2, v1.3) |
 | Total phases | 12 complete |
 | Total plans | 19 complete |
 
@@ -41,8 +41,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Phase 12 complete - v1.4 Photo Sync milestone shipped
-Resume file: None
+Stopped at: v1.4 milestone complete, all phases verified
+Resume with: `/gsd:audit-milestone` or `/gsd:complete-milestone`
 
 ---
-*Last updated: 2026-01-26 (Phase 12 complete - v1.4 milestone shipped)*
+*Last updated: 2026-01-26 (Phase 12 complete, v1.4 milestone ready for audit)*

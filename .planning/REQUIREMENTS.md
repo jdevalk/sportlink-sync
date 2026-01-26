@@ -31,8 +31,8 @@ Requirements for photo sync milestone. Each maps to roadmap phases.
 
 ### Pipeline Integration
 
-- [ ] **PHOTO-11**: Photo sync runs as part of sync-all pipeline
-- [ ] **PHOTO-12**: Email report includes photo sync statistics (downloaded, uploaded, deleted, errors)
+- [x] **PHOTO-11**: Photo sync runs as part of sync-all pipeline
+- [x] **PHOTO-12**: Email report includes photo sync statistics (downloaded, uploaded, deleted, errors)
 
 ## Future Requirements
 
@@ -63,8 +63,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PHOTO-08 | Phase 11 | Complete |
 | PHOTO-09 | Phase 11 | Complete |
 | PHOTO-10 | Phase 11 | Complete |
-| PHOTO-11 | Phase 12 | Pending |
-| PHOTO-12 | Phase 12 | Pending |
+| PHOTO-11 | Phase 12 | Complete |
+| PHOTO-12 | Phase 12 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 12 total
@@ -73,4 +73,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-26*
-*Last updated: 2026-01-26 after Phase 11 complete*
+*Last updated: 2026-01-26 after Phase 12 complete*
