@@ -126,13 +126,17 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   const changes = detectTeamChanges(db, knvb_id, currentTeams);
   logVerbose(`Member ${knvb_id}: ${changes.added.length} added, ${changes.removed.length} removed, ${changes.unchanged.length} unchanged`);
 
-  // Fetch existing work_history from WordPress
+  // Fetch existing data from WordPress
   let existingWorkHistory = [];
+  let existingFirstName = '';
+  let existingLastName = '';
   try {
     const response = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
     existingWorkHistory = response.body.acf?.work_history || [];
+    existingFirstName = response.body.acf?.first_name || '';
+    existingLastName = response.body.acf?.last_name || '';
   } catch (error) {
-    logVerbose(`Could not fetch existing work_history for ${knvb_id}: ${error.message}`);
+    logVerbose(`Could not fetch existing data for ${knvb_id}: ${error.message}`);
   }
 
   let addedCount = 0;
@@ -253,7 +257,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
       await stadionRequest(
         `wp/v2/people/${stadion_id}`,
         'PUT',
-        { acf: { work_history: newWorkHistory } },
+        { acf: { first_name: existingFirstName, last_name: existingLastName, work_history: newWorkHistory } },
         options
       );
     } catch (error) {
