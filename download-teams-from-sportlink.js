@@ -153,19 +153,16 @@ async function runTeamDownload(options = {}) {
         const playersResponsePromise = page.waitForResponse(
           resp => resp.url().includes('/navajo/entity/common/clubweb/team/UnionTeamPlayers') &&
                   resp.request().method() === 'POST',
-          { timeout: 30000 }
+          { timeout: 10000 }
         ).catch(() => null);
 
         const nonPlayersResponsePromise = page.waitForResponse(
           resp => resp.url().includes('/navajo/entity/common/clubweb/team/UnionTeamNonPlayers') &&
                   resp.request().method() === 'POST',
-          { timeout: 30000 }
+          { timeout: 10000 }
         ).catch(() => null);
 
-        await page.goto(teamMembersUrl, { waitUntil: 'domcontentloaded' });
-
-        // Wait a bit for API calls to complete
-        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.goto(teamMembersUrl, { waitUntil: 'commit' });
 
         // Process players response
         const playersResponse = await playersResponsePromise;
@@ -219,8 +216,6 @@ async function runTeamDownload(options = {}) {
           }
         }
 
-        // Small delay between teams to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       // Step 3: Store to database
