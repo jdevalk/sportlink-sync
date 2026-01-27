@@ -82,8 +82,8 @@ function formatAsHtml(textContent) {
       continue;
     }
 
-    // Main title
-    if (trimmed === 'SPORTLINK SYNC SUMMARY') {
+    // Main title (various sync summaries)
+    if (/^(SPORTLINK|PEOPLE|PHOTO|TEAM) SYNC SUMMARY$/.test(trimmed)) {
       htmlParts.push(`<h1>${escapeHtml(trimmed)}</h1>`);
       continue;
     }
@@ -225,16 +225,18 @@ function readLogFile(filePath) {
 /**
  * Send email via Postmark
  * @param {string} logContent - Content to send in email body
+ * @param {string} [syncType] - Optional sync type for subject line
  */
-function sendEmail(logContent) {
+function sendEmail(logContent, syncType) {
   const client = new postmark.ServerClient(process.env.POSTMARK_API_KEY);
 
   const today = new Date().toISOString().split('T')[0];
+  const typeLabel = syncType ? ` (${syncType})` : '';
 
   client.sendEmail({
     From: `Sportlink SYNC <${process.env.POSTMARK_FROM_EMAIL}>`,
     To: process.env.OPERATOR_EMAIL,
-    Subject: `Sportlink Sync Report - ${today}`,
+    Subject: `Sportlink Sync Report${typeLabel} - ${today}`,
     HtmlBody: formatAsHtml(logContent),
     TextBody: logContent
   })
@@ -254,11 +256,16 @@ function sendEmail(logContent) {
 function main() {
   // Check for log file argument
   const logFilePath = process.argv[2];
+  const syncType = process.argv[3]; // Optional: people, photos, teams, all
 
   if (!logFilePath) {
-    console.error('Usage: node send-email.js <log-file-path>');
+    console.error('Usage: node send-email.js <log-file-path> [sync-type]');
     console.error('');
     console.error('Sends the contents of a log file via Postmark email.');
+    console.error('');
+    console.error('Arguments:');
+    console.error('  log-file-path  - Path to log file to send');
+    console.error('  sync-type      - Optional: people, photos, teams, or all');
     console.error('');
     console.error('Required environment variables:');
     console.error('  POSTMARK_API_KEY      - Postmark Server API Token');
@@ -279,7 +286,7 @@ function main() {
   }
 
   // Send email
-  sendEmail(logContent);
+  sendEmail(logContent, syncType);
 }
 
 main();
