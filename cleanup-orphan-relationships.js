@@ -22,7 +22,18 @@ async function stadionRequest(endpoint, method = 'GET', body = null) {
 
   const response = await fetch(url, options);
   if (!response.ok) {
-    throw new Error(`${method} ${endpoint} failed: ${response.status}`);
+    let errorDetails = '';
+    try {
+      const errorBody = await response.json();
+      errorDetails = JSON.stringify(errorBody);
+    } catch (e) {
+      try {
+        errorDetails = await response.text();
+      } catch (e2) {
+        errorDetails = 'Could not read error body';
+      }
+    }
+    throw new Error(`${method} ${endpoint} failed: ${response.status} - ${errorDetails}`);
   }
   return response.json();
 }
@@ -121,18 +132,22 @@ async function runCleanup(options = {}) {
 
     for (const person of toFix) {
       try {
-        await stadionRequest(`wp/v2/people/${person.id}`, 'PUT', {
+        const payload = {
           acf: {
             relationships: person.validRelations
           }
-        });
+        };
+        await stadionRequest(`wp/v2/people/${person.id}`, 'PUT', payload);
         fixed++;
         if (fixed % 20 === 0) {
           console.log(`  Fixed ${fixed}/${toFix.length}...`);
         }
       } catch (error) {
         errors++;
-        console.error(`  Failed to fix ID ${person.id}: ${error.message}`);
+        console.error(`  Failed to fix ID ${person.id} ("${person.fullName}"): ${error.message}`);
+        if (verbose) {
+          console.error(`    Payload: ${JSON.stringify(person.validRelations)}`);
+        }
       }
     }
     console.log(`Done. Fixed: ${fixed}, Errors: ${errors}`);
