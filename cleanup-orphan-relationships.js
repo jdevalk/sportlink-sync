@@ -132,8 +132,12 @@ async function runCleanup(options = {}) {
 
     for (const person of toFix) {
       try {
+        // Fetch current person to get required fields
+        const current = await stadionRequest(`wp/v2/people/${person.id}`);
         const payload = {
           acf: {
+            first_name: current.acf?.first_name || '',
+            last_name: current.acf?.last_name || '',
             relationships: person.validRelations
           }
         };
