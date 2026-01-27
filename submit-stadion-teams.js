@@ -18,7 +18,8 @@ const {
  * @returns {Promise<{action: string, id: number}>}
  */
 async function syncTeam(team, db, options) {
-  const { team_name, source_hash, stadion_id, last_synced_hash } = team;
+  const { team_name, source_hash, last_synced_hash } = team;
+  let { stadion_id } = team;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   if (stadion_id) {
@@ -38,19 +39,29 @@ async function syncTeam(team, db, options) {
       updateTeamSyncState(db, team_name, source_hash, stadion_id);
       return { action: 'updated', id: stadion_id };
     } catch (error) {
-      console.error(`API Error updating team "${team_name}" (ID: ${stadion_id}):`);
-      console.error(`  Status: ${error.message}`);
-      if (error.details) {
-        console.error(`  Code: ${error.details.code || 'unknown'}`);
-        console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
-        if (error.details.data) {
-          console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+      // Check if team was deleted in WordPress (404 with rest_post_invalid_id)
+      if (error.details?.code === 'rest_post_invalid_id' || error.details?.data?.status === 404) {
+        logVerbose(`Team ${team_name} (ID: ${stadion_id}) no longer exists in WordPress, recreating...`);
+        // Clear the stadion_id so we fall through to create
+        stadion_id = null;
+        updateTeamSyncState(db, team_name, null, null);
+      } else {
+        console.error(`API Error updating team "${team_name}" (ID: ${stadion_id}):`);
+        console.error(`  Status: ${error.message}`);
+        if (error.details) {
+          console.error(`  Code: ${error.details.code || 'unknown'}`);
+          console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
+          if (error.details.data) {
+            console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+          }
         }
+        throw error;
       }
-      throw error;
     }
-  } else {
-    // CREATE new team
+  }
+
+  // CREATE new team (or recreate if deleted from WordPress)
+  if (!stadion_id) {
     const payload = { title: team_name, status: 'publish' };
     const endpoint = 'wp/v2/teams';
     logVerbose(`Creating new team: ${team_name}`);
