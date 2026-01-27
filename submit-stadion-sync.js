@@ -216,12 +216,14 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     let existingVisibility = 'private';
     let existingFirstName = '';
     let existingLastName = '';
+    let existingKnvbId = null;
     try {
       const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
       existingRelationships = existing.body.acf?.relationships || [];
       existingVisibility = existing.body.acf?._visibility || 'private';
       existingFirstName = existing.body.acf?.first_name || '';
       existingLastName = existing.body.acf?.last_name || '';
+      existingKnvbId = existing.body.acf?.['knvb-id'] || null;
     } catch (e) {
       logVerbose(`Could not fetch existing person: ${e.message}`);
     }
@@ -235,11 +237,21 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     );
     const mergedRelationships = [...existingRelationships, ...newChildRelationships];
 
-    // Only update relationships, preserve everything else (but include required fields)
+    // Determine name to use:
+    // - If person has KNVB ID, they're a member - preserve their properly-split name
+    // - If no KNVB ID, they're a pure parent - update name from Sportlink
+    const isMember = !!existingKnvbId;
+    const firstName = isMember ? existingFirstName : (data.acf.first_name || existingFirstName);
+    const lastName = isMember ? existingLastName : (data.acf.last_name || existingLastName);
+
+    if (!isMember) {
+      logVerbose(`Pure parent - updating name from Sportlink: "${firstName} ${lastName}"`);
+    }
+
     const updateData = {
       acf: {
-        first_name: existingFirstName,
-        last_name: existingLastName,
+        first_name: firstName,
+        last_name: lastName,
         relationships: mergedRelationships,
         _visibility: existingVisibility
       }
