@@ -4,10 +4,11 @@ const { openDb, getLatestSportlinkResults } = require('./laposta-db');
 const { normalizeEmail, isValidEmail, buildChildFullName, hasValue } = require('./lib/parent-dedupe');
 
 /**
- * Build parent name with fallback to "Ouder/verzorger van {child}"
+ * Build parent name from Sportlink NameParent field
+ * Returns null if no name is available (skip this parent)
  * @param {Object} member - Sportlink member record
  * @param {number} parentIndex - 1 or 2
- * @returns {{first_name: string, last_name: string}}
+ * @returns {{first_name: string, last_name: string}|null}
  */
 function buildParentName(member, parentIndex) {
   const nameField = parentIndex === 1 ? 'NameParent1' : 'NameParent2';
@@ -17,16 +18,8 @@ function buildParentName(member, parentIndex) {
     return { first_name: String(parentName).trim(), last_name: '' };
   }
 
-  // Fallback: "Ouder/verzorger van {child first name}"
-  const childFirstName = hasValue(member.FirstName) ? String(member.FirstName).trim() : '';
-  const childInfix = hasValue(member.Infix) ? String(member.Infix).trim() : '';
-  const childLastName = hasValue(member.LastName) ? String(member.LastName).trim() : '';
-  const fullChildLastName = [childInfix, childLastName].filter(Boolean).join(' ');
-
-  return {
-    first_name: `Ouder/verzorger van ${childFirstName}`.trim(),
-    last_name: fullChildLastName
-  };
+  // No name available - skip this parent (don't create placeholder records)
+  return null;
 }
 
 /**
@@ -147,8 +140,13 @@ async function runPrepare(options = {}) {
 
         if (!parentDataMap.has(normalized)) {
           // First time seeing this parent - capture name and address
+          const name = buildParentName(member, parentIndex);
+
+          // Skip parents without a name in Sportlink
+          if (!name) return;
+
           parentDataMap.set(normalized, {
-            name: buildParentName(member, parentIndex),
+            name: name,
             phones: new Set(),
             address: buildParentAddress(member), // Copy from child
             childKnvbIds: []
