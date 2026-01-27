@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { createSyncLogger } = require('./lib/logger');
 const { runDownload } = require('./download-data-from-sportlink');
+const { runTeamDownload } = require('./download-teams-from-sportlink');
 const { runPrepare } = require('./prepare-laposta-members');
 const { runSubmit } = require('./submit-laposta-list');
 const { runSync: runStadionSync } = require('./submit-stadion-sync');
@@ -83,6 +84,16 @@ function printSummary(logger, stats) {
   logger.log(`Skipped: ${stats.stadion.skipped} (unchanged)`);
   if (stats.stadion.deleted > 0) {
     logger.log(`Deleted: ${stats.stadion.deleted}`);
+  }
+  logger.log('');
+
+  logger.log('TEAM DOWNLOAD');
+  logger.log(minorDivider);
+  if (stats.teamDownload.teamCount > 0) {
+    logger.log(`Teams downloaded: ${stats.teamDownload.teamCount}`);
+    logger.log(`Team members downloaded: ${stats.teamDownload.memberCount}`);
+  } else {
+    logger.log('Teams downloaded: 0');
   }
   logger.log('');
 
@@ -168,6 +179,7 @@ function printSummary(logger, stats) {
   const allErrors = [
     ...stats.errors,
     ...stats.stadion.errors,
+    ...stats.teamDownload.errors,
     ...stats.teams.errors,
     ...stats.workHistory.errors,
     ...stats.photos.download.errors,
@@ -253,6 +265,11 @@ async function runSyncAll(options = {}) {
       updated: 0,
       skipped: 0,
       deleted: 0,
+      errors: []
+    },
+    teamDownload: {
+      teamCount: 0,
+      memberCount: 0,
       errors: []
     },
     teams: {
@@ -384,6 +401,26 @@ async function runSyncAll(options = {}) {
       stats.stadion.errors.push({
         message: `Stadion sync failed: ${err.message}`,
         system: 'stadion'
+      });
+    }
+
+    // Step 4a: Download Teams from Sportlink (NON-CRITICAL)
+    logger.verbose('Downloading teams from Sportlink...');
+    try {
+      const teamDownloadResult = await runTeamDownload({ logger, verbose });
+      stats.teamDownload.teamCount = teamDownloadResult.teamCount || 0;
+      stats.teamDownload.memberCount = teamDownloadResult.memberCount || 0;
+      if (!teamDownloadResult.success) {
+        stats.teamDownload.errors.push({
+          message: teamDownloadResult.error || 'Unknown error',
+          system: 'team-download'
+        });
+      }
+    } catch (err) {
+      logger.error(`Team download failed: ${err.message}`);
+      stats.teamDownload.errors.push({
+        message: `Team download failed: ${err.message}`,
+        system: 'team-download'
       });
     }
 
@@ -551,6 +588,7 @@ async function runSyncAll(options = {}) {
     return {
       success: stats.errors.length === 0 &&
                stats.stadion.errors.length === 0 &&
+               stats.teamDownload.errors.length === 0 &&
                stats.teams.errors.length === 0 &&
                stats.workHistory.errors.length === 0 &&
                stats.photos.download.errors.length === 0 &&

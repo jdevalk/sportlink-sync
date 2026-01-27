@@ -9,7 +9,8 @@ const {
   getWorkHistoryNeedingSync,
   getMemberWorkHistory,
   updateWorkHistorySyncState,
-  deleteWorkHistory
+  deleteWorkHistory,
+  getTeamMemberRole
 } = require('./lib/stadion-db');
 
 /**
@@ -62,12 +63,31 @@ function formatDateForACF(date) {
 }
 
 /**
- * Determine job title based on KernelGameActivities.
+ * Determine job title based on KernelGameActivities (fallback only).
  * @param {string} kernelGameActivities - Value from Sportlink
  * @returns {string} - 'Speler' or 'Staflid'
  */
-function determineJobTitle(kernelGameActivities) {
+function determineJobTitleFallback(kernelGameActivities) {
   return kernelGameActivities === 'Veld -  Algemeen' ? 'Speler' : 'Staflid';
+}
+
+/**
+ * Get job title for a team assignment.
+ * First looks up role from sportlink_team_members table, falls back to KernelGameActivities.
+ * @param {Object} db - Stadion database connection
+ * @param {string} knvbId - Member KNVB ID
+ * @param {string} teamName - Team name to lookup role for
+ * @param {string} fallbackKernelGameActivities - Fallback value from Sportlink
+ * @returns {string} - Role description or 'Speler'/'Staflid'
+ */
+function getJobTitleForTeam(db, knvbId, teamName, fallbackKernelGameActivities) {
+  // Try to get role from team members table
+  const roleFromTeam = getTeamMemberRole(db, knvbId, teamName);
+  if (roleFromTeam) {
+    return roleFromTeam;
+  }
+  // Fallback for members not in team data
+  return determineJobTitleFallback(fallbackKernelGameActivities);
 }
 
 /**
@@ -120,11 +140,11 @@ function detectTeamChanges(db, knvbId, currentTeams) {
  * @param {Object} db - Stadion SQLite database
  * @param {Map} teamMap - Map<team_name, stadion_id>
  * @param {Object} options - Logger and verbose options
- * @param {string} jobTitle - Job title ('Speler' or 'Staflid')
+ * @param {string} fallbackKernelGameActivities - Fallback KernelGameActivities for job title
  * @param {boolean} force - Force update even unchanged entries
  * @returns {Promise<{action: string, added: number, ended: number, updated: number}>}
  */
-async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, options, jobTitle = 'Speler', force = false) {
+async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, options, fallbackKernelGameActivities = '', force = false) {
   const { knvb_id, stadion_id } = member;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
@@ -193,7 +213,9 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
 
     // Check if this is initial sync (backfill) or new team
     const isBackfill = !getMemberWorkHistory(db, knvb_id).some(h => h.last_synced_at);
+    const jobTitle = getJobTitleForTeam(db, knvb_id, teamName, fallbackKernelGameActivities);
     const entry = buildWorkHistoryEntry(teamStadionId, isBackfill, jobTitle);
+    logVerbose(`  Using job title: ${jobTitle} for team ${teamName}`);
     const newIndex = newWorkHistory.length;
     newWorkHistory.push(entry);
 
@@ -216,6 +238,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
         continue;
       }
 
+      const jobTitle = getJobTitleForTeam(db, knvb_id, teamName, fallbackKernelGameActivities);
       const tracked = trackedHistory.find(h => h.team_name === teamName);
 
       if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id !== undefined) {
@@ -338,7 +361,7 @@ async function runSync(options = {}) {
 
       // Build work history records for all members
       const workHistoryRecords = [];
-      const memberTeams = new Map(); // Map<knvb_id, { teams: [], jobTitle: string }>
+      const memberTeams = new Map(); // Map<knvb_id, { teams: [], kernelGameActivities: string }>
 
       for (const member of members) {
         const knvbId = member.PublicPersonId;
@@ -347,8 +370,8 @@ async function runSync(options = {}) {
         const teams = extractMemberTeams(member);
         if (teams.length === 0) continue;
 
-        const jobTitle = determineJobTitle(member.KernelGameActivities || '');
-        memberTeams.set(knvbId, { teams, jobTitle });
+        const kernelGameActivities = member.KernelGameActivities || '';
+        memberTeams.set(knvbId, { teams, kernelGameActivities });
 
         for (const teamName of teams) {
           workHistoryRecords.push({
@@ -391,10 +414,10 @@ async function runSync(options = {}) {
       // Sync each member
       for (let i = 0; i < membersToSync.length; i++) {
         const member = membersToSync[i];
-        const memberData = memberTeams.get(member.knvb_id) || { teams: [], jobTitle: 'Speler' };
+        const memberData = memberTeams.get(member.knvb_id) || { teams: [], kernelGameActivities: '' };
         const currentTeams = memberData.teams;
-        const jobTitle = memberData.jobTitle;
-        logVerbose(`Syncing ${i + 1}/${result.total}: ${member.knvb_id} (${jobTitle})`);
+        const kernelGameActivities = memberData.kernelGameActivities;
+        logVerbose(`Syncing ${i + 1}/${result.total}: ${member.knvb_id}`);
 
         try {
           const syncResult = await syncWorkHistoryForMember(
@@ -403,7 +426,7 @@ async function runSync(options = {}) {
             stadionDb,
             teamMap,
             options,
-            jobTitle,
+            kernelGameActivities,
             force
           );
           if (syncResult.action === 'updated') {
