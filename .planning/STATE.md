@@ -43,7 +43,7 @@ See PROJECT.md Key Decisions table (28 decisions total).
 
 ### Pending Todos
 
-1 todo pending — Review with `/gsd:check-todos`
+None — Add with `/gsd:add-todo`
 
 ### Known Blockers
 
