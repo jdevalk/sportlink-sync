@@ -85,7 +85,24 @@ async function loginToNikki(page, logger) {
       throw new Error('Missing NIKKI_OTP_SECRET - 2FA required but no secret configured');
     }
     logger.verbose('Generating OTP code...');
-    const otpCode = await otplib.generate({ secret: otpSecret });
+    let otpCode = null;
+    try {
+      otpCode = await otplib.generate({ secret: otpSecret });
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      if (!message.includes('Secret must be at least 16 bytes')) {
+        throw error;
+      }
+      const totp = otplib.totp && typeof otplib.totp.clone === 'function'
+        ? otplib.totp.clone()
+        : otplib.totp;
+      if (!totp || typeof totp.generate !== 'function') {
+        throw error;
+      }
+      totp.options = { ...totp.options, encoding: 'ascii' };
+      otpCode = totp.generate(otpSecret);
+      logger.verbose('Using ASCII-encoded OTP secret.');
+    }
     if (!otpCode) {
       throw new Error('OTP generation failed');
     }
