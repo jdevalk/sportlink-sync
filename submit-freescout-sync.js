@@ -132,7 +132,7 @@ async function updateCustomerFields(freescoutId, customFields, options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   const payload = {
-    customer_fields: buildCustomFieldsPayload(customFields)
+    customerFields: buildCustomFieldsPayload(customFields)
   };
 
   logVerbose(`Updating custom fields for customer ${freescoutId}`);
