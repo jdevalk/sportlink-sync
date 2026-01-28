@@ -12,35 +12,37 @@
 ## Current Position
 
 **Phase:** 17 - MemberHeader Data Capture
-**Plan:** None (awaiting `/gsd:plan-phase 17`)
-**Status:** Planning
+**Plan:** 01 of 1 complete
+**Status:** Phase complete
+**Last activity:** 2026-01-28 - Completed 17-01-PLAN.md
 
 **Progress:**
 ```
-[░░░░░░░░░░░░░░░░░░░░] 0% (0/3 phases)
-Phase 17: MemberHeader Data Capture     [░░░░░] Pending
+[███████░░░░░░░░░░░░░] 33% (1/3 phases)
+Phase 17: MemberHeader Data Capture     [█████] Complete
 Phase 18: Financial Block Sync          [░░░░░] Pending
 Phase 19: Photo API Optimization        [░░░░░] Pending
 ```
 
-**Next Action:** Plan Phase 17 (MemberHeader Data Capture)
+**Next Action:** Plan Phase 18 (Financial Block Sync)
 
 ## Performance Metrics
 
 **Milestone v1.7:**
 - Phases planned: 3
-- Phases completed: 0
+- Phases completed: 1
 - Requirements: 12 total
 - Coverage: 12/12 (100%)
 - Started: 2026-01-28
 - Target completion: TBD
 
 **Phase 17:**
-- Plans created: 0
-- Plans completed: 0
-- Tasks completed: 0
-- Requirements: 4 (DATA-01, DATA-02, DATA-03, DATA-04)
-- Status: Not started
+- Plans created: 1
+- Plans completed: 1
+- Tasks completed: 2
+- Requirements: 4 (DATA-01, DATA-02, DATA-03, DATA-04) - All complete
+- Status: Complete
+- Duration: 1min 56s
 
 ## Accumulated Context
 
@@ -51,6 +53,9 @@ Phase 19: Photo API Optimization        [░░░░░] Pending
 | Use MemberHeader API instead of new requests | Already fetched during `/other` page visit, no additional overhead | 2026-01-28 |
 | Three-phase structure (Data → Financial → Photo) | Data capture is foundation, other phases can proceed independently after | 2026-01-28 |
 | Phase numbering starts at 17 | Continues from v1.6 FreeScout (last phase was 16) | 2026-01-28 |
+| Use INTEGER for has_financial_block | SQLite has no native boolean type, store as 0/1 integer | 2026-01-28 |
+| Capture MemberHeader during existing /other page visit | Avoid extra overhead by capturing in parallel with MemberFreeFields | 2026-01-28 |
+| Include all 6 fields in hash computation | Ensures proper change detection for both old and new fields | 2026-01-28 |
 
 ### Open Questions
 
@@ -62,15 +67,21 @@ Phase 19: Photo API Optimization        [░░░░░] Pending
 
 ### TODOs
 
-- [ ] Plan Phase 17 (MemberHeader Data Capture)
-- [ ] Identify MemberHeader API response structure in browser network tab
-- [ ] Determine SQLite schema changes for new fields
+- [x] Plan Phase 17 (MemberHeader Data Capture)
+- [x] Identify MemberHeader API response structure in browser network tab
+- [x] Determine SQLite schema changes for new fields
 - [ ] Plan Phase 18 (Financial Block Sync) after Phase 17 completion
 - [ ] Plan Phase 19 (Photo API Optimization) after Phase 17 completion
 
 ### Recent Changes
 
-**2026-01-28:**
+**2026-01-28 (Phase 17-01 completion):**
+- Added has_financial_block, photo_url, photo_date columns to sportlink_member_free_fields
+- Implemented parallel MemberHeader API capture during /other page visit
+- Financial block status and photo metadata now captured for all members with functions/committees
+- Phase 17 complete (1/3 phases done, 33% milestone progress)
+
+**2026-01-28 (earlier):**
 - Created roadmap for v1.7 MemberHeader API milestone
 - Defined 3 phases covering 12 requirements
 - Validated 100% requirement coverage
@@ -132,4 +143,5 @@ Phase 19: Photo API Optimization        [░░░░░] Pending
 ---
 
 *State tracking started: 2026-01-28*
-*Last session: Roadmap creation for v1.7 MemberHeader API*
+*Last session: 2026-01-28 16:12 UTC - Completed Phase 17 Plan 01*
+*Resume file: None*
