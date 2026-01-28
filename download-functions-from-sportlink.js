@@ -281,6 +281,15 @@ async function runFunctionsDownload(options = {}) {
           const data = await fetchMemberFunctions(page, member.knvb_id, logger);
 
           if (data) {
+            // Debug: log the raw data structure
+            const funcData = data?.MemberFunctions;
+            const commData = data?.MemberCommittees;
+            logger.verbose(`    MemberFunctions keys: ${funcData ? Object.keys(funcData).join(', ') : 'null'}`);
+            logger.verbose(`    MemberCommittees keys: ${commData ? Object.keys(commData).join(', ') : 'null'}`);
+            if (funcData?.Function) {
+              logger.verbose(`    Function array length: ${funcData.Function.length}`);
+            }
+
             const parsed = parseFunctionsResponse(data, member.knvb_id);
 
             if (parsed.functions.length > 0 || parsed.committees.length > 0) {
