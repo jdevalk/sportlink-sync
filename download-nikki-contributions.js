@@ -110,6 +110,7 @@ async function loginToNikki(page, logger) {
     await otpField.fill(otpCode);
   }
 
+  await page.waitForTimeout(3000);
   await page.click('button[type="submit"]');
 
   logger.verbose('Waiting for login to complete...');
@@ -138,6 +139,22 @@ async function loginToNikki(page, logger) {
   } else {
     logger.verbose('PHPSESSID cookie not found after login.');
   }
+
+  const loginFormVisible = await page.$('input[name="username"], input[name="password"]');
+  if (loginFormVisible) {
+    logger.verbose('Login form still visible after submit.');
+    const debugDir = path.join(process.cwd(), 'debug');
+    await fs.mkdir(debugDir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const screenshotPath = path.join(debugDir, `nikki-login-failed-${timestamp}.png`);
+    const htmlPath = path.join(debugDir, `nikki-login-failed-${timestamp}.html`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    const html = await page.content();
+    await fs.writeFile(htmlPath, html, 'utf8');
+    logger.verbose(`  Saved debug screenshot: ${screenshotPath}`);
+    logger.verbose(`  Saved debug HTML: ${htmlPath}`);
+    throw new Error('Login failed: login form still visible');
+  }
 }
 
 /**
@@ -145,6 +162,7 @@ async function loginToNikki(page, logger) {
  */
 async function scrapeContributions(page, logger) {
   logger.verbose('Navigating to /leden page...');
+  await page.waitForTimeout(1000);
   const response = await page.goto('https://mijn.nikki-online.nl/leden', { waitUntil: 'domcontentloaded' });
   if (response) {
     logger.verbose(`  /leden response: ${response.status()} ${response.url()}`);
