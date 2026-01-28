@@ -245,77 +245,36 @@ async function scrapeContributions(page, logger) {
     logger.verbose(`  /leden HTML size unavailable: ${error.message}`);
   }
 
-  // Wait for datatable to load
-  logger.verbose('Waiting for member table...');
-  let tableContext = page;
-  let tableHandle = null;
-  try {
-    tableHandle = await page.waitForSelector('table', { state: 'attached', timeout: 60000 });
-  } catch (error) {
-    const frames = page.frames();
-    for (const frame of frames) {
-      if (frame === page.mainFrame()) continue;
-      const handle = await frame.$('table');
-      if (handle) {
-        tableContext = frame;
-        tableHandle = handle;
-        break;
-      }
-    }
-  }
-  if (!tableHandle) {
-    logger.verbose(`  Table not found. Current URL: ${page.url()}`);
-    const debugDir = path.join(process.cwd(), 'debug');
-    await fs.mkdir(debugDir, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const screenshotPath = path.join(debugDir, `nikki-table-missing-${timestamp}.png`);
-    const htmlPath = path.join(debugDir, `nikki-table-missing-${timestamp}.html`);
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    const html = await page.content();
-    await fs.writeFile(htmlPath, html, 'utf8');
-    logger.verbose(`  Saved debug screenshot: ${screenshotPath}`);
-    logger.verbose(`  Saved debug HTML: ${htmlPath}`);
-    throw new Error('Table not found');
-  }
-
-  await tableContext.waitForSelector('table tbody tr', { timeout: 30000 }).catch(() => null);
-
-  // Give table time to fully populate
-  await page.waitForTimeout(2000);
-
-  // Scrape all rows from the table
-  logger.verbose('Scraping table data...');
-  const contributions = await page.evaluate(() => {
-    const rows = document.querySelectorAll('#datatable tbody tr');
-    const data = [];
-
-    rows.forEach((row) => {
-      const cells = row.querySelectorAll('td');
-      if (cells.length >= 8) {
-        // Columns: Jaar, Naam, Adres, Lidnr., Team, Nikki ID, Saldo, Status
-        const jaar = cells[0]?.textContent?.trim();
-        // cells[1] = Naam (not needed)
-        // cells[2] = Adres (not needed)
-        const lidnr = cells[3]?.textContent?.trim();
-        // cells[4] = Team (not needed)
-        const nikkiId = cells[5]?.textContent?.trim();
-        const saldo = cells[6]?.textContent?.trim();
-        const status = cells[7]?.textContent?.trim();
-
-        if (jaar && lidnr && nikkiId) {
-          data.push({
-            year: jaar,
-            knvb_id: lidnr,
-            nikki_id: nikkiId,
-            saldo_raw: saldo,
-            status: status
-          });
-        }
-      }
-    });
-
-    return data;
-  });
+  logger.verbose('Scraping table data from response HTML...');
+  const html = response ? await response.text() : await page.content();
+  const rows = await page.evaluate((rawHtml) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, 'text/html');
+    const table = doc.querySelector('#datatable') || doc.querySelector('table');
+    if (!table) return [];
+    const rowNodes = table.querySelectorAll('tbody tr');
+    return Array.from(rowNodes).map((row) => (
+      Array.from(row.querySelectorAll('td')).map(cell => cell.textContent?.trim() || '')
+    ));
+  }, html);
+  const contributions = rows
+    .map((cells) => {
+      if (!cells || cells.length < 8) return null;
+      const jaar = cells[0];
+      const lidnr = cells[3];
+      const nikkiId = cells[5];
+      const saldo = cells[6];
+      const status = cells[7];
+      if (!jaar || !lidnr || !nikkiId) return null;
+      return {
+        year: jaar,
+        knvb_id: lidnr,
+        nikki_id: nikkiId,
+        saldo_raw: saldo,
+        status: status
+      };
+    })
+    .filter(Boolean);
 
   logger.verbose(`Scraped ${contributions.length} rows from table`);
   return contributions;
@@ -346,6 +305,18 @@ async function runNikkiDownload(options = {}) {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+    });
+    await context.route('**/*', (route) => {
+      const url = route.request().url();
+      if (
+        url === 'https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js' ||
+        url === 'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js' ||
+        url === 'https://mijn.nikki-online.nl/js/main.js'
+      ) {
+        route.abort();
+        return;
+      }
+      route.continue();
     });
     const page = await context.newPage();
     const runtimeUserAgent = await page.evaluate(() => navigator.userAgent);
