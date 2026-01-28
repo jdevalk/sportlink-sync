@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { freescoutRequest, checkCredentials } = require('./lib/freescout-client');
+const { freescoutRequestWithRetry: freescoutRequest, checkCredentials } = require('./lib/freescout-client');
 const { runPrepare } = require('./prepare-freescout-customers');
 const {
   openDb,
