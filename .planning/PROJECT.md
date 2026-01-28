@@ -8,28 +8,21 @@ A CLI tool that synchronizes member data from Sportlink Club (a Dutch sports clu
 
 Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
 
-## Current Milestone: v1.7 MemberHeader API
-
-**Goal:** Use MemberHeader API response to capture financial block status and optimize photo sync by replacing browser DOM scraping with direct API photo URLs.
-
-**Target features:**
-- Capture `HasFinancialTransferBlockOwnClub` from MemberHeader and sync to Stadion `financiele-blokkade` field
-- Replace browser-based photo download with direct `Photo.Url` from MemberHeader API
-- Use `Photo.PhotoDate` for change detection (skip re-upload if unchanged)
-
-## Current State (v1.6 Shipped)
+## Current State (v1.7 Shipped)
 
 **Shipped:** 2026-01-28
 
-Full sync pipeline operational:
+Full sync pipeline operational with photo optimization:
 - Member data downloads from Sportlink via browser automation
 - Members sync to Laposta email lists with hash-based change detection
 - Members and parents sync to Stadion WordPress with relationship linking
-- Photos download from Sportlink and upload to Stadion
+- Financial block status syncs to Stadion with activity audit trail
+- Photos download via HTTP (from MemberHeader API URLs) and upload to Stadion hourly
+- Photo change detection uses Photo.PhotoDate for accuracy
 - Teams extract from Sportlink and sync to Stadion
 - Work history links persons to teams with change detection
 - FreeScout customer sync from Stadion and Nikki databases
-- Daily automated pipeline with comprehensive email reports
+- Four automated pipelines (people/photos hourly, nikki daily, teams/functions weekly)
 
 ## Requirements
 
@@ -74,14 +67,15 @@ Full sync pipeline operational:
 - ✓ Add work_history entry to persons with team reference and "Speler" job title — v1.5
 - ✓ Track team assignments in SQLite for change detection — v1.5
 - ✓ Include team sync statistics in email report — v1.5
+- ✓ Capture MemberHeader API response when fetching free fields — v1.7
+- ✓ Extract HasFinancialTransferBlockOwnClub and sync to Stadion financiele-blokkade field — v1.7
+- ✓ Extract Photo.Url and Photo.PhotoDate from MemberHeader response — v1.7
+- ✓ Replace browser DOM photo scraping with direct URL fetch — v1.7
+- ✓ Use PhotoDate for change detection to skip unchanged photos — v1.7
 
 ### Active
 
-- [ ] Capture MemberHeader API response when fetching free fields
-- [ ] Extract `HasFinancialTransferBlockOwnClub` and sync to Stadion `financiele-blokkade` field
-- [ ] Extract `Photo.Url` and `Photo.PhotoDate` from MemberHeader response
-- [ ] Replace browser DOM photo scraping with direct URL fetch
-- [ ] Use PhotoDate for change detection to skip unchanged photos
+(None - ready for next milestone planning)
 
 ### Out of Scope
 
@@ -100,7 +94,7 @@ Full sync pipeline operational:
 ## Context
 
 **Codebase:**
-- 6,754 lines of JavaScript + shell
+- ~15,000 lines of JavaScript + shell
 - Node.js with Playwright for browser automation
 - SQLite for state tracking (Laposta and Stadion)
 - Shell scripts for cron automation
@@ -152,6 +146,13 @@ Full sync pipeline operational:
 | Composite unique key for work history | (knvb_id, team_name) prevents duplicates, enables change detection | ✓ Good |
 | Team sync before work history | Work history references team IDs | ✓ Good |
 | Non-critical team/work history sync | Prevents blocking Laposta or core Stadion sync | ✓ Good |
+| MemberHeader API capture during /other page | Already fetched, no additional overhead | ✓ Good |
+| INTEGER for has_financial_block | SQLite has no native boolean type | ✓ Good |
+| Activity logging as non-blocking | Field sync is critical, activity is nice-to-have | ✓ Good |
+| Store photo_url/photo_date in stadion_members | Avoids JOIN complexity, direct access | ✓ Good |
+| HTTP photo fetch with 3-retry backoff | Resilience for transient network failures | ✓ Good |
+| Photo sync integrated into people pipeline | Hourly vs daily, simpler cron (4 vs 5 jobs) | ✓ Good |
+| Delete obsolete browser photo scripts | Clean architecture, ~400 lines removed | ✓ Good |
 
 ---
-*Last updated: 2026-01-28 after v1.7 milestone start*
+*Last updated: 2026-01-28 after v1.7 milestone*

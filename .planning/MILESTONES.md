@@ -1,5 +1,33 @@
 # Project Milestones: Sportlink Sync
 
+## v1.7 MemberHeader API (Shipped: 2026-01-28)
+
+**Delivered:** Financial block tracking and optimized photo sync via MemberHeader API, replacing browser-based photo download with direct HTTP fetch.
+
+**Phases completed:** 17-19 (6 plans total)
+
+**Key accomplishments:**
+
+- MemberHeader API capture during existing `/other` page visit (zero overhead)
+- Financial block status syncs to Stadion `financiele-blokkade` field with activity audit trail
+- HTTP-based photo download replaces browser automation (faster, more reliable)
+- Photo change detection using `Photo.PhotoDate` (more accurate than PersonImageDate)
+- Simplified cron architecture (4 jobs instead of 5, photos merged into hourly people sync)
+- ~400 lines of browser automation code removed
+
+**Stats:**
+
+- 35 files created/modified
+- 14,961 lines of JavaScript (project total)
+- 3 phases, 6 plans, ~17 tasks
+- Same day development (2026-01-28)
+
+**Git range:** `f7dd2a7` → `4d0e079`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v1.5 Team Sync (Shipped: 2026-01-26)
 
 **Delivered:** Member teams from Sportlink now sync to Stadion with work history entries linking persons to their teams.
