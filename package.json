@@ -47,6 +47,8 @@
     "show-nikki": "node show-nikki-contributions.js",
     "sync-nikki-stadion": "node sync-nikki-to-stadion.js",
     "sync-nikki-stadion-verbose": "node sync-nikki-to-stadion.js --verbose",
+    "sync-nikki": "node sync-nikki.js",
+    "sync-nikki-verbose": "node sync-nikki.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
     "show-sportlink-member": "node show-sportlink-member.js",
     "show-laposta-changes": "node show-laposta-changes.js",
