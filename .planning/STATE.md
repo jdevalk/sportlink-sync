@@ -7,34 +7,34 @@
 
 **Core Value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention
 
-**Current Focus:** Use MemberHeader API response to capture financial block status and optimize photo sync by replacing browser DOM scraping with direct API photo URLs
+**Current Focus:** Milestone v1.7 complete - MemberHeader API data capture, financial block sync, and photo API optimization
 
 ## Current Position
 
 **Phase:** 19 - Photo API Optimization
-**Plan:** 02 of 3 complete
-**Status:** In progress
-**Last activity:** 2026-01-28 - Completed 19-02-PLAN.md
+**Plan:** 03 of 3 complete
+**Status:** Complete
+**Last activity:** 2026-01-28 - Completed 19-03-PLAN.md
 
 **Progress:**
 ```
-[██████████████████░░] 89% (2.67/3 phases)
+[████████████████████] 100% (3/3 phases)
 Phase 17: MemberHeader Data Capture     [█████] Complete
 Phase 18: Financial Block Sync          [█████] Complete
-Phase 19: Photo API Optimization        [████░] Plan 02 complete (HTTP download)
+Phase 19: Photo API Optimization        [█████] Complete
 ```
 
-**Next Action:** Execute Phase 19 Plan 03 (pipeline integration)
+**Milestone v1.7 complete!**
 
 ## Performance Metrics
 
 **Milestone v1.7:**
 - Phases planned: 3
-- Phases completed: 2
+- Phases completed: 3
 - Requirements: 12 total
 - Coverage: 12/12 (100%)
 - Started: 2026-01-28
-- Target completion: TBD
+- Completed: 2026-01-28
 
 **Phase 17:**
 - Plans created: 1
@@ -54,11 +54,11 @@ Phase 19: Photo API Optimization        [████░] Plan 02 complete (HTTP
 
 **Phase 19:**
 - Plans created: 3
-- Plans completed: 2
-- Tasks completed: 4
-- Requirements: 5 (PHOTO-01 through PHOTO-05)
-- Status: In progress
-- Duration: 3min (Plan 01) + 1min 20s (Plan 02)
+- Plans completed: 3
+- Tasks completed: 7
+- Requirements: 5 (PHOTO-01 through PHOTO-05) - All complete
+- Status: Complete
+- Duration: 3min (Plan 01) + 1min 20s (Plan 02) + 2min (Plan 03)
 
 ## Accumulated Context
 
@@ -67,7 +67,7 @@ Phase 19: Photo API Optimization        [████░] Plan 02 complete (HTTP
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Use MemberHeader API instead of new requests | Already fetched during `/other` page visit, no additional overhead | 2026-01-28 |
-| Three-phase structure (Data → Financial → Photo) | Data capture is foundation, other phases can proceed independently after | 2026-01-28 |
+| Three-phase structure (Data -> Financial -> Photo) | Data capture is foundation, other phases can proceed independently after | 2026-01-28 |
 | Phase numbering starts at 17 | Continues from v1.6 FreeScout (last phase was 16) | 2026-01-28 |
 | Use INTEGER for has_financial_block | SQLite has no native boolean type, store as 0/1 integer | 2026-01-28 |
 | Capture MemberHeader during existing /other page visit | Avoid extra overhead by capturing in parallel with MemberFreeFields | 2026-01-28 |
@@ -81,6 +81,8 @@ Phase 19: Photo API Optimization        [████░] Plan 02 complete (HTTP
 | 3 retry attempts with exponential backoff | Resilience for transient network failures without excessive delays | 2026-01-28 |
 | 10 second timeout per request | Prevents hanging on slow responses | 2026-01-28 |
 | 100 byte minimum size validation | Catches empty or invalid image responses | 2026-01-28 |
+| Integrate photo sync into people pipeline | Hourly photo sync instead of daily, simpler cron configuration | 2026-01-28 |
+| Alias photos to people in sync.sh | Backwards compatibility for existing scripts while using integrated pipeline | 2026-01-28 |
 
 ### Open Questions
 
@@ -99,9 +101,16 @@ Phase 19: Photo API Optimization        [████░] Plan 02 complete (HTTP
 - [x] Execute Phase 18-01 (Financial Block Sync)
 - [x] Execute Phase 19-01 (Photo Schema Migration)
 - [x] Execute Phase 19-02 (HTTP Photo Download)
-- [ ] Execute Phase 19-03 (Pipeline Integration)
+- [x] Execute Phase 19-03 (Pipeline Integration)
 
 ### Recent Changes
+
+**2026-01-28 (Phase 19-03 completion):**
+- Integrated photo download and upload into sync-people.js
+- Updated sync.sh to alias photos to people sync
+- Removed separate photo cron job from install-cron.sh
+- Photos now sync hourly instead of daily
+- Milestone v1.7 complete!
 
 **2026-01-28 (Phase 19-02 completion):**
 - Added getMembersNeedingPhotoDownload() to stadion-db.js
@@ -140,39 +149,35 @@ Phase 19: Photo API Optimization        [████░] Plan 02 complete (HTTP
 
 ### What We Know
 
-**Milestone v1.7 scope:**
+**Milestone v1.7 delivered:**
 - Extract financial block status and photo metadata from MemberHeader API
 - Sync financial block status to Stadion `financiele-blokkade` field
 - Replace browser-based photo download with direct URL fetch
 - Use Photo.PhotoDate for smarter change detection
+- Photos now sync hourly as part of people pipeline
 
-**Phase 19 scope:**
-- Plan 01: Schema migration for photo_url/photo_date in stadion_members (COMPLETE)
-- Plan 02: HTTP fetch for photo download (replaces browser automation) (COMPLETE)
-- Plan 03: Pipeline integration, remove old scripts, update cron
-
-**Dependencies:**
-- Phase 19-01 is foundation for 19-02 and 19-03
-- Phase 19-02 provides download-photos-from-api.js for 19-03
+**Key files:**
+- `sync-people.js` - Integrated pipeline (members, parents, birthdays, photos)
+- `download-photos-from-api.js` - HTTP-based photo download
+- `upload-photos-to-stadion.js` - Photo upload/delete to Stadion
+- `scripts/sync.sh` - Photos aliased to people
+- `scripts/install-cron.sh` - 4 cron jobs (photos merged into hourly)
 
 ### What We're Tracking
 
-**For Phase 19-03:**
-- Pipeline integration (add photo steps to sync-people.js)
-- Script deletion (download-photos-from-sportlink.js, sync-photos.js)
-- Cron update (remove daily photo sync job)
+Milestone v1.7 complete. Ready for next milestone planning.
 
 ### Context for Next Session
 
-**When executing Phase 19-03:**
-- download-photos-from-api.js ready for integration
-- getMembersNeedingPhotoDownload() available in stadion-db.js
-- Need to integrate into sync-people.js after member sync
-- Remove old browser-based scripts
-- Update cron to remove separate photo sync job
+**Milestone v1.7 complete:**
+- All 3 phases executed successfully
+- All 12 requirements covered
+- Photos now sync hourly instead of daily
+- Browser automation replaced with HTTP fetch for photos
+- Financial block syncs to Stadion with activity logging
 
 ---
 
 *State tracking started: 2026-01-28*
-*Last session: 2026-01-28 20:24 UTC - Completed Phase 19 Plan 02*
+*Last session: 2026-01-28 20:28 UTC - Completed Phase 19 Plan 03 (Milestone complete)*
 *Resume file: None*
