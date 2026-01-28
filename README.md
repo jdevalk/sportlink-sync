@@ -4,13 +4,15 @@ A CLI tool that synchronizes member data from Sportlink Club to Laposta email ma
 
 ## Features
 
-- **Dual-system sync**: Syncs to both Laposta email lists AND Stadion WordPress
-- **Automated sync**: Daily cron job at 6:00 AM with email reports via Postmark
+- **Multi-system sync**: Syncs to Laposta email lists, Stadion WordPress, and FreeScout helpdesk
+- **Automated scheduling**: Hourly, daily, and weekly cron jobs with email reports via Postmark
 - **Change detection**: Only submits members whose data actually changed (hash-based diff)
 - **Multi-list support**: Sync to up to 4 Laposta lists
 - **Parent deduplication**: Handles parent/child member associations
 - **Photo sync**: Downloads member photos from Sportlink and uploads to Stadion
 - **Team sync**: Extracts teams from Sportlink and syncs to Stadion with work history linking
+- **Nikki integration**: Downloads contribution data and updates Stadion member ACF fields
+- **FreeScout customer sync**: Syncs Stadion members to FreeScout helpdesk as customers
 - **Email reports**: HTML-formatted sync summaries delivered via Postmark
 - **Summary output**: Clean, email-friendly sync reports
 
@@ -20,11 +22,12 @@ A CLI tool that synchronizes member data from Sportlink Club to Laposta email ma
 # Individual sync pipelines (recommended)
 scripts/sync.sh people    # Hourly sync: members → Laposta + Stadion
 scripts/sync.sh photos    # Daily sync: photo download + upload
+scripts/sync.sh nikki     # Daily sync: Nikki contributions → Stadion
 scripts/sync.sh teams     # Weekly sync: team extraction + work history
 scripts/sync.sh functions # Weekly sync: commissies + work history
 
 # Full sync (all pipelines)
-scripts/sync.sh all       # Run all syncs sequentially
+scripts/sync.sh all       # Run all syncs sequentially (includes FreeScout)
 npm run sync-all          # Alternative to sync.sh all
 
 # Automated scheduling
@@ -35,7 +38,7 @@ npm run install-cron      # Set up automated sync schedules with email reports
 
 ### Sync Pipelines
 
-The sync is split into four independent pipelines, each with its own schedule:
+The sync is split into five independent pipelines, each with its own schedule:
 
 **1. People Pipeline (hourly via scripts/sync.sh people):**
 - download-data-from-sportlink.js - Browser automation downloads member data
@@ -50,24 +53,29 @@ The sync is split into four independent pipelines, each with its own schedule:
 - upload-photos-to-stadion.js - Uploads photos to Stadion via REST API
 - Produces email-ready HTML summary
 
-**3. Team Pipeline (weekly via scripts/sync.sh teams):**
+**3. Nikki Pipeline (daily via scripts/sync.sh nikki):**
+- download-nikki-contributions.js - Downloads contribution data from Nikki
+- sync-nikki-to-stadion.js - Updates Stadion person ACF fields with contribution status
+- Produces email-ready HTML summary
+
+**4. Team Pipeline (weekly via scripts/sync.sh teams):**
 - download-teams-from-sportlink.js - Extracts team data from Sportlink
 - submit-stadion-teams.js - Creates/updates teams in Stadion
 - submit-stadion-work-history.js - Links persons to teams via work_history
 - Produces email-ready HTML summary
 
-**4. Functions Pipeline (weekly via scripts/sync.sh functions):**
+**5. Functions Pipeline (weekly via scripts/sync.sh functions):**
 - download-functions-from-sportlink.js - Extracts commissie/function data
 - submit-stadion-commissies.js - Creates/updates commissies in Stadion
 - submit-stadion-commissie-work-history.js - Links persons to commissies
 - Produces email-ready HTML summary
 
 **Full Sync (scripts/sync.sh all or npm run sync-all):**
-Runs all four pipelines sequentially. Used for manual full syncs or initial setup.
+Runs all five pipelines sequentially plus FreeScout customer sync. Used for manual full syncs or initial setup.
 
 ### Data Flow
 
-Four independent pipelines running on different schedules:
+Five independent pipelines running on different schedules:
 
 ```
 People Pipeline (hourly):
@@ -84,6 +92,11 @@ Sportlink Club → downloads/ → Stadion WordPress API (media)
                            ↓
                   Email report (Postmark)
 
+Nikki Pipeline (daily):
+Nikki API → nikki-sync.sqlite → Stadion WordPress API (ACF fields)
+                              ↓
+                     Email report (Postmark)
+
 Team Pipeline (weekly):
 Sportlink members → team extraction → Stadion Teams API
                                    ↓
@@ -97,6 +110,9 @@ Sportlink members → function extraction → Stadion Commissies API
                            Stadion work_history field
                                        ↓
                            Email report (Postmark)
+
+FreeScout Pipeline (runs with full sync):
+Stadion members → freescout-sync.sqlite → FreeScout API (customers)
 ```
 
 ### Supporting Files
@@ -142,6 +158,14 @@ STADION_PERSON_TYPE=      # Custom post type (default: person)
 OPERATOR_EMAIL=           # Receives sync reports
 POSTMARK_API_KEY=         # Postmark server API token
 POSTMARK_FROM_EMAIL=      # Verified sender address
+
+# FreeScout (optional)
+FREESCOUT_API_KEY=        # FreeScout API key
+FREESCOUT_URL=            # FreeScout instance URL
+
+# Nikki (optional)
+NIKKI_API_KEY=            # Nikki API key
+NIKKI_URL=                # Nikki API URL
 
 # Optional
 DEBUG_LOG=false
@@ -295,11 +319,12 @@ npm run install-cron
 
 This will:
 - Prompt for your operator email address and Postmark credentials
-- Install four crontab entries with different schedules:
+- Install five crontab entries with different schedules:
   - **People sync:** Hourly (members, parents, birthdays)
   - **Photo sync:** Daily at 6:00 AM Amsterdam time
+  - **Nikki sync:** Daily at 7:00 AM Amsterdam time (after photos)
   - **Team sync:** Weekly on Sunday at 6:00 AM
-  - **Functions sync:** Weekly on Sunday at 7:00 AM
+  - **Functions sync:** Weekly on Sunday at 7:00 AM (after teams)
 - Send HTML email reports via Postmark after each sync
 - Use flock to prevent overlapping executions (per sync type)
 
@@ -325,13 +350,33 @@ After each sync (manual or cron), an HTML email report is sent via Postmark cont
 
 ## Database
 
-SQLite database `laposta-sync.sqlite` tracks:
+Four SQLite databases track sync state (on the server only):
+
+**`laposta-sync.sqlite`** - Laposta sync tracking:
 - Member hashes for change detection
 - Sync state per list
 - Last sync timestamps
 - Member data for Stadion sync
 - Photo state and PersonImageDate for change detection
 - Team assignments and work history indices
+
+**`stadion-sync.sqlite`** - Stadion WordPress sync tracking:
+- `stadion_members` - Maps `knvb_id` → `stadion_id` (WordPress post ID)
+- `stadion_parents` - Maps parent `email` → `stadion_id`
+- `stadion_teams`, `stadion_commissies` - Team/committee mappings
+- `stadion_work_history` - Team membership history
+
+**`freescout-sync.sqlite`** - FreeScout customer sync tracking:
+- Maps `knvb_id` → `freescout_id` (FreeScout customer ID)
+- Tracks sync state and last update times
+- Supports hash-based change detection
+
+**`nikki-sync.sqlite`** - Nikki contribution sync tracking:
+- Contribution data from Nikki
+- Sync state for Stadion ACF field updates
+- Last sync timestamps
+
+The database mappings (especially `stadion_id`) are critical: without them, sync creates new entries instead of updating existing ones.
 
 ## Development
 
