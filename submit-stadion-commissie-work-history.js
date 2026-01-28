@@ -49,14 +49,13 @@ function convertDateForACF(dateStr) {
  * @param {boolean} isActive - Is current
  * @param {string} startDate - Start date (Sportlink format)
  * @param {string} endDate - End date (Sportlink format)
- * @param {boolean} isBackfill - Is this a backfilled entry
  * @returns {Object} - ACF work_history entry
  */
-function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate, endDate, isBackfill) {
+function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate, endDate) {
   return {
     job_title: jobTitle || 'Lid',
     is_current: isActive,
-    start_date: isBackfill ? '' : convertDateForACF(startDate),
+    start_date: convertDateForACF(startDate),
     end_date: isActive ? '' : convertDateForACF(endDate),
     team: commissieStadionId  // Note: This will work once Stadion's work_history.team field accepts commissie post type
   };
@@ -163,15 +162,12 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
       continue;
     }
 
-    // Check if this is initial sync (backfill) or new commissie
-    const isBackfill = !getMemberCommissieWorkHistory(db, knvb_id).some(h => h.last_synced_at);
     const entry = buildWorkHistoryEntry(
       commissieStadionId,
       commissie.role_name || 'Lid',
       commissie.is_active !== false,
       commissie.relation_start,
-      commissie.relation_end,
-      isBackfill
+      commissie.relation_end
     );
     const newIndex = newWorkHistory.length;
     newWorkHistory.push(entry);
