@@ -203,6 +203,22 @@ async function syncCustomer(customer, db, options) {
         return { action: 'updated', id: existingId };
       }
     }
+
+    // Handle 400 "email already exists" - FreeScout thinks email exists but API can't find it
+    // This happens when email exists in conversations but not as a customer email
+    if (error.status === 400 && error.details?._embedded?.errors?.some(e => e.message?.includes('already exist'))) {
+      const existingId = await findCustomerByEmail(email, options);
+      if (existingId) {
+        logVerbose(`Found customer ${existingId} after 400 error, linking`);
+        await updateCustomer(existingId, customer, options);
+        await updateCustomerFields(existingId, customFields, options);
+        updateSyncState(db, knvb_id, source_hash, existingId);
+        return { action: 'updated', id: existingId };
+      }
+      // Can't find customer - email exists in FreeScout system but not as searchable customer
+      throw new Error(`Email exists in FreeScout but customer not found via API - may need manual linking in FreeScout`);
+    }
+
     throw error;
   }
 }
