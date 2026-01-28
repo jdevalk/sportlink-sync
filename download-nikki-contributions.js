@@ -78,35 +78,21 @@ async function loginToNikki(page, logger) {
   logger.verbose('Filling login credentials...');
   await page.fill('input[name="username"]', username);
   await page.fill('input[name="password"]', password);
-  await page.click('button[type="submit"]');
 
-  // Wait for either OTP field or successful login
-  logger.verbose('Waiting for OTP field or login completion...');
-
-  try {
-    // Try to detect OTP field
-    await page.waitForSelector('input[name="otp"]', { timeout: 10000 });
-
+  const otpField = await page.$('input[name="otp"]');
+  if (otpField) {
     if (!otpSecret) {
       throw new Error('Missing NIKKI_OTP_SECRET - 2FA required but no secret configured');
     }
-
     logger.verbose('Generating OTP code...');
     const otpCode = otplib.authenticator.generate(otpSecret);
     if (!otpCode) {
       throw new Error('OTP generation failed');
     }
-
-    await page.fill('input[name="otp"]', otpCode);
-    await page.click('button[type="submit"]');
-  } catch (error) {
-    // If OTP field not found, login might have succeeded without 2FA
-    if (!error.message.includes('NIKKI_OTP_SECRET')) {
-      logger.verbose('No OTP required, proceeding...');
-    } else {
-      throw error;
-    }
+    await otpField.fill(otpCode);
   }
+
+  await page.click('button[type="submit"]');
 
   logger.verbose('Waiting for login to complete...');
   await page.waitForLoadState('networkidle');
