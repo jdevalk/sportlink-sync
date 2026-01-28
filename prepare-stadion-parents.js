@@ -79,8 +79,7 @@ function prepareParent(email, data) {
         first_name: data.name.first_name,
         last_name: data.name.last_name,
         contact_info: buildParentContactInfo(email, data.phones),
-        addresses: data.address ? [data.address] : [],
-        _visibility: 'private'
+        addresses: data.address ? [data.address] : []
       }
     }
   };

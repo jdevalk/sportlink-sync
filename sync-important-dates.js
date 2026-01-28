@@ -96,8 +96,7 @@ async function createImportantDate(stadionPersonId, dateValue, birthdayTermId, o
         related_people: [stadionPersonId],
         year_unknown: false,
         is_recurring: true,
-        custom_label: '',
-        _visibility: 'private'
+        custom_label: ''
       }
     },
     options

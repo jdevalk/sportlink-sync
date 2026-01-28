@@ -62,10 +62,7 @@ async function syncCommissie(commissie, db, options) {
     // UPDATE existing commissie
     const payload = {
       title: commissie_name,
-      status: 'publish',
-      acf: {
-        _visibility: 'private'
-      }
+      status: 'publish'
     };
     const endpoint = `wp/v2/commissies/${stadion_id}`;
     logVerbose(`Updating existing commissie: ${stadion_id} - ${commissie_name}`);
@@ -97,10 +94,7 @@ async function syncCommissie(commissie, db, options) {
     const payload = {
       title: commissie_name,
       status: 'publish',
-      content: '',
-      acf: {
-        _visibility: 'private'
-      }
+      content: ''
     };
     const endpoint = 'wp/v2/commissies';
     logVerbose(`Creating new commissie: ${commissie_name}`);
