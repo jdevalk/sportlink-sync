@@ -1,6 +1,8 @@
 require('varlock/auto-load');
 
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 const otplib = require('otplib');
 const { chromium } = require('playwright');
 const {
@@ -144,6 +146,10 @@ async function scrapeContributions(page, logger) {
     logger.verbose(`  /leden title: ${title}`);
   } catch (error) {
     logger.verbose(`  /leden title unavailable: ${error.message}`);
+  }
+  const onLoginPage = await page.$('input[name="username"], input[name="password"]');
+  if (onLoginPage) {
+    logger.verbose('  /leden appears to show login form.');
   }
   try {
     const htmlLength = await page.evaluate(() => document.documentElement?.outerHTML?.length || 0);
