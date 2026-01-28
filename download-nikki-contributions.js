@@ -45,6 +45,66 @@ function generateAsciiTotp(secret, digits = 6, step = 30) {
   return otp;
 }
 
+function decodeBase32(input) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = String(input).toUpperCase().replace(/=+$/g, '').replace(/[^A-Z2-7]/g, '');
+  let bits = 0;
+  let value = 0;
+  const bytes = [];
+  for (const char of clean) {
+    const idx = alphabet.indexOf(char);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+function parseOtpAuthUrl(value) {
+  if (!value || !value.startsWith('otpauth://')) return null;
+  let url = null;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  const secret = url.searchParams.get('secret') || '';
+  const issuer = url.searchParams.get('issuer') || '';
+  const algorithm = (url.searchParams.get('algorithm') || 'SHA1').toUpperCase();
+  const digits = Number.parseInt(url.searchParams.get('digits') || '6', 10);
+  const period = Number.parseInt(url.searchParams.get('period') || '30', 10);
+  return { secret, issuer, algorithm, digits, period };
+}
+
+function generateTotpFromSecret(secretValue) {
+  const parsed = parseOtpAuthUrl(secretValue);
+  if (parsed) {
+    const key = decodeBase32(parsed.secret);
+    return generateTotpWithKey(key, parsed.digits, parsed.period, parsed.algorithm);
+  }
+  return generateAsciiTotp(secretValue);
+}
+
+function generateTotpWithKey(key, digits = 6, step = 30, algorithm = 'SHA1') {
+  const counter = Math.floor(Date.now() / 1000 / step);
+  const buffer = Buffer.alloc(8);
+  buffer.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
+  buffer.writeUInt32BE(counter % 0x100000000, 4);
+  const algo = String(algorithm || 'SHA1').toLowerCase();
+  const hmac = crypto.createHmac(algo, key).update(buffer).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code = ((hmac[offset] & 0x7f) << 24)
+    | ((hmac[offset + 1] & 0xff) << 16)
+    | ((hmac[offset + 2] & 0xff) << 8)
+    | (hmac[offset + 3] & 0xff);
+  const otp = (code % (10 ** digits)).toString().padStart(digits, '0');
+  return otp;
+}
+
 /**
  * Parse European currency format to number.
  * "€ 1.234,56" → 1234.56
@@ -103,7 +163,7 @@ async function loginToNikki(page, logger) {
       throw new Error('Missing NIKKI_OTP_SECRET - 2FA required but no secret configured');
     }
     logger.verbose('Generating OTP code...');
-    const otpCode = generateAsciiTotp(otpSecret);
+    const otpCode = generateTotpFromSecret(otpSecret);
     if (!otpCode) {
       throw new Error('OTP generation failed');
     }
