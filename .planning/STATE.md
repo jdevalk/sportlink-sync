@@ -12,19 +12,19 @@
 ## Current Position
 
 **Phase:** 19 - Photo API Optimization
-**Plan:** 01 of 3 complete
+**Plan:** 02 of 3 complete
 **Status:** In progress
-**Last activity:** 2026-01-28 - Completed 19-01-PLAN.md
+**Last activity:** 2026-01-28 - Completed 19-02-PLAN.md
 
 **Progress:**
 ```
-[████████████████░░░░] 78% (2.33/3 phases)
+[██████████████████░░] 89% (2.67/3 phases)
 Phase 17: MemberHeader Data Capture     [█████] Complete
 Phase 18: Financial Block Sync          [█████] Complete
-Phase 19: Photo API Optimization        [██░░░] Plan 01 complete (schema)
+Phase 19: Photo API Optimization        [████░] Plan 02 complete (HTTP download)
 ```
 
-**Next Action:** Execute Phase 19 Plan 02 (HTTP photo download) or Plan 03 (pipeline integration)
+**Next Action:** Execute Phase 19 Plan 03 (pipeline integration)
 
 ## Performance Metrics
 
@@ -54,11 +54,11 @@ Phase 19: Photo API Optimization        [██░░░] Plan 01 complete (sche
 
 **Phase 19:**
 - Plans created: 3
-- Plans completed: 1
-- Tasks completed: 2
+- Plans completed: 2
+- Tasks completed: 4
 - Requirements: 5 (PHOTO-01 through PHOTO-05)
 - Status: In progress
-- Duration: 3min (Plan 01)
+- Duration: 3min (Plan 01) + 1min 20s (Plan 02)
 
 ## Accumulated Context
 
@@ -78,6 +78,9 @@ Phase 19: Photo API Optimization        [██░░░] Plan 01 complete (sche
 | Store photo_url/photo_date in stadion_members | Avoids JOIN complexity, keeps all photo state in one table | 2026-01-28 |
 | Hybrid photo change detection | Use photo_url/photo_date when available, fallback to person_image_date | 2026-01-28 |
 | Photo data flows through prepare step | Architectural choice: prepare-stadion-members.js (not download) has access to free_fields data | 2026-01-28 |
+| 3 retry attempts with exponential backoff | Resilience for transient network failures without excessive delays | 2026-01-28 |
+| 10 second timeout per request | Prevents hanging on slow responses | 2026-01-28 |
+| 100 byte minimum size validation | Catches empty or invalid image responses | 2026-01-28 |
 
 ### Open Questions
 
@@ -95,10 +98,17 @@ Phase 19: Photo API Optimization        [██░░░] Plan 01 complete (sche
 - [x] Plan Phase 18 (Financial Block Sync) after Phase 17 completion
 - [x] Execute Phase 18-01 (Financial Block Sync)
 - [x] Execute Phase 19-01 (Photo Schema Migration)
-- [ ] Execute Phase 19-02 (HTTP Photo Download)
+- [x] Execute Phase 19-02 (HTTP Photo Download)
 - [ ] Execute Phase 19-03 (Pipeline Integration)
 
 ### Recent Changes
+
+**2026-01-28 (Phase 19-02 completion):**
+- Added getMembersNeedingPhotoDownload() to stadion-db.js
+- Created download-photos-from-api.js with HTTP fetch (no Playwright)
+- Retry logic with 3 attempts and exponential backoff
+- Image validation (100 byte minimum)
+- Phase 19 Plan 02 complete (HTTP download ready)
 
 **2026-01-28 (Phase 19-01 completion):**
 - Added photo_url and photo_date columns to stadion_members table
@@ -138,20 +148,14 @@ Phase 19: Photo API Optimization        [██░░░] Plan 01 complete (sche
 
 **Phase 19 scope:**
 - Plan 01: Schema migration for photo_url/photo_date in stadion_members (COMPLETE)
-- Plan 02: HTTP fetch for photo download (replaces browser automation)
+- Plan 02: HTTP fetch for photo download (replaces browser automation) (COMPLETE)
 - Plan 03: Pipeline integration, remove old scripts, update cron
 
 **Dependencies:**
 - Phase 19-01 is foundation for 19-02 and 19-03
-- Phase 19-02 and 19-03 can be executed sequentially
+- Phase 19-02 provides download-photos-from-api.js for 19-03
 
 ### What We're Tracking
-
-**For Phase 19-02:**
-- HTTP fetch implementation for photo download
-- Use photo_url directly instead of DOM scraping
-- Error handling for 404s, timeouts
-- Rate limiting considerations
 
 **For Phase 19-03:**
 - Pipeline integration (add photo steps to sync-people.js)
@@ -160,14 +164,15 @@ Phase 19: Photo API Optimization        [██░░░] Plan 01 complete (sche
 
 ### Context for Next Session
 
-**When executing Phase 19-02:**
-- photo_url and photo_date now available in stadion_members
-- ~500 members have photo_url from MemberHeader API
-- ~200 members use person_image_date fallback (no photo_url)
-- HTTP fetch replaces browser DOM scraping
+**When executing Phase 19-03:**
+- download-photos-from-api.js ready for integration
+- getMembersNeedingPhotoDownload() available in stadion-db.js
+- Need to integrate into sync-people.js after member sync
+- Remove old browser-based scripts
+- Update cron to remove separate photo sync job
 
 ---
 
 *State tracking started: 2026-01-28*
-*Last session: 2026-01-28 20:20 UTC - Completed Phase 19 Plan 01*
+*Last session: 2026-01-28 20:24 UTC - Completed Phase 19 Plan 02*
 *Resume file: None*
