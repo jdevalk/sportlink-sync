@@ -15,6 +15,8 @@ const { runSync: runBirthdaySync } = require('./sync-important-dates');
 const { runFunctionsDownload } = require('./download-functions-from-sportlink');
 const { runSync: runCommissieSync } = require('./submit-stadion-commissies');
 const { runSync: runCommissieWorkHistorySync } = require('./submit-stadion-commissie-work-history');
+const { runSubmit: runFreescoutSubmit } = require('./submit-freescout-sync');
+const { checkCredentials: checkFreescoutCredentials } = require('./lib/freescout-client');
 const { openDb } = require('./lib/stadion-db');
 
 /**
@@ -213,6 +215,28 @@ function printSummary(logger, stats) {
   }
   logger.log('');
 
+  logger.log('FREESCOUT SYNC');
+  logger.log(minorDivider);
+  if (stats.freescout.total > 0) {
+    const freescoutSyncText = `${stats.freescout.synced}/${stats.freescout.total}`;
+    logger.log(`Customers synced: ${freescoutSyncText}`);
+    if (stats.freescout.created > 0) {
+      logger.log(`  Created: ${stats.freescout.created}`);
+    }
+    if (stats.freescout.updated > 0) {
+      logger.log(`  Updated: ${stats.freescout.updated}`);
+    }
+    if (stats.freescout.skipped > 0) {
+      logger.log(`  Skipped: ${stats.freescout.skipped} (unchanged)`);
+    }
+    if (stats.freescout.deleted > 0) {
+      logger.log(`  Deleted: ${stats.freescout.deleted}`);
+    }
+  } else {
+    logger.log('Customers synced: skipped (not configured)');
+  }
+  logger.log('');
+
   const allErrors = [
     ...stats.errors,
     ...stats.stadion.errors,
@@ -224,7 +248,8 @@ function printSummary(logger, stats) {
     ...stats.photos.download.errors,
     ...stats.photos.upload.errors,
     ...stats.photos.delete.errors,
-    ...stats.birthdays.errors
+    ...stats.birthdays.errors,
+    ...stats.freescout.errors
   ];
   if (allErrors.length > 0) {
     logger.log(`ERRORS (${allErrors.length})`);
@@ -344,6 +369,15 @@ async function runSyncAll(options = {}) {
       created: 0,
       ended: 0,
       skipped: 0,
+      errors: []
+    },
+    freescout: {
+      total: 0,
+      synced: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      deleted: 0,
       errors: []
     }
   };
@@ -709,6 +743,38 @@ async function runSyncAll(options = {}) {
       });
     }
 
+    // Step 8: FreeScout Sync (NON-CRITICAL, only if credentials configured)
+    const freescoutCreds = checkFreescoutCredentials();
+    if (freescoutCreds.configured) {
+      logger.verbose('Syncing to FreeScout...');
+      try {
+        const freescoutResult = await runFreescoutSubmit({ logger, verbose, force });
+
+        stats.freescout = {
+          total: freescoutResult.total,
+          synced: freescoutResult.synced,
+          created: freescoutResult.created,
+          updated: freescoutResult.updated,
+          skipped: freescoutResult.skipped,
+          deleted: freescoutResult.deleted,
+          errors: (freescoutResult.errors || []).map(e => ({
+            knvb_id: e.knvb_id,
+            email: e.email,
+            message: e.message,
+            system: 'freescout'
+          }))
+        };
+      } catch (err) {
+        logger.error(`FreeScout sync failed: ${err.message}`);
+        stats.freescout.errors.push({
+          message: `FreeScout sync failed: ${err.message}`,
+          system: 'freescout'
+        });
+      }
+    } else {
+      logger.verbose('FreeScout sync skipped (credentials not configured)');
+    }
+
     // Complete timing
     const endTime = Date.now();
     stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
@@ -733,7 +799,8 @@ async function runSyncAll(options = {}) {
                stats.photos.download.errors.length === 0 &&
                stats.photos.upload.errors.length === 0 &&
                stats.photos.delete.errors.length === 0 &&
-               stats.birthdays.errors.length === 0,
+               stats.birthdays.errors.length === 0 &&
+               stats.freescout.errors.length === 0,
       stats
     };
   } catch (err) {
