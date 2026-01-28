@@ -61,10 +61,10 @@ Plans:
 - Extends existing Stadion sync flow (submit-stadion-sync.js)
 - Non-critical sync (failures don't block other operations)
 
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (created by /gsd:plan-phase 18)
+- [ ] 18-01-PLAN.md - Sync financial block to Stadion ACF field with activity logging
 
 ---
 
