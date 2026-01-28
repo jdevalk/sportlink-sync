@@ -9,7 +9,9 @@ const {
   upsertMemberCommittees,
   upsertCommissies,
   clearMemberFunctions,
-  clearMemberCommittees
+  clearMemberCommittees,
+  upsertMemberFreeFields,
+  clearMemberFreeFields
 } = require('./lib/stadion-db');
 const { createSyncLogger } = require('./lib/logger');
 
@@ -128,6 +130,140 @@ function parseFunctionsResponse(data, knvbId) {
 }
 
 /**
+ * Parse MemberFreeFields API response
+ * Extracts Remarks3 (FreeScout ID) and Remarks8 (VOG datum)
+ * @param {Object} data - MemberFreeFields API response
+ * @param {string} knvbId - Member KNVB ID
+ * @returns {{freescout_id: number|null, vog_datum: string|null}}
+ */
+function parseFreeFieldsResponse(data, knvbId) {
+  const freeFields = data?.FreeFields || {};
+
+  // Remarks3 = FreeScout ID (number)
+  const remarks3 = freeFields.Remarks3?.Value;
+  const freescoutId = remarks3 ? parseInt(remarks3, 10) : null;
+
+  // Remarks8 = VOG datum (date string, format may vary)
+  const remarks8 = freeFields.Remarks8?.Value;
+  // Normalize date to YYYY-MM-DD if present
+  let vogDatum = null;
+  if (remarks8) {
+    // Try to parse date - Sportlink may use various formats
+    // Common formats: YYYY-MM-DD, DD-MM-YYYY
+    if (/^\d{4}-\d{2}-\d{2}$/.test(remarks8)) {
+      vogDatum = remarks8;
+    } else if (/^\d{2}-\d{2}-\d{4}$/.test(remarks8)) {
+      // Convert DD-MM-YYYY to YYYY-MM-DD
+      const [day, month, year] = remarks8.split('-');
+      vogDatum = `${year}-${month}-${day}`;
+    } else {
+      // Store as-is if unknown format
+      vogDatum = remarks8;
+    }
+  }
+
+  return {
+    knvb_id: knvbId,
+    freescout_id: isNaN(freescoutId) ? null : freescoutId,
+    vog_datum: vogDatum
+  };
+}
+
+/**
+ * Parse MemberHeader API response
+ * Extracts financial block status and photo metadata
+ * @param {Object} data - MemberHeader API response
+ * @param {string} knvbId - Member KNVB ID
+ * @returns {{has_financial_block: number, photo_url: string|null, photo_date: string|null}}
+ */
+function parseMemberHeaderResponse(data, knvbId) {
+  // Handle null/missing Photo object gracefully
+  const photoUrl = data?.Photo?.Url || null;
+  const photoDate = data?.Photo?.PhotoDate || null;
+
+  // Boolean to integer for SQLite (true -> 1, false/null -> 0)
+  const hasFinancialBlock = data?.HasFinancialTransferBlockOwnClub === true ? 1 : 0;
+
+  return {
+    has_financial_block: hasFinancialBlock,
+    photo_url: photoUrl,
+    photo_date: photoDate
+  };
+}
+
+/**
+ * Fetch member data from the /other tab (both FreeFields and MemberHeader APIs)
+ * @param {Object} page - Playwright page object
+ * @param {string} knvbId - Member KNVB ID
+ * @param {Object} logger - Logger instance
+ * @returns {Promise<{knvb_id: string, freescout_id: number|null, vog_datum: string|null, has_financial_block: number, photo_url: string|null, photo_date: string|null}|null>}
+ */
+async function fetchMemberDataFromOtherPage(page, knvbId, logger) {
+  const otherUrl = `https://club.sportlink.com/member/member-details/${knvbId}/other`;
+
+  // Set up promises BEFORE navigation (existing pattern)
+  const freeFieldsPromise = page.waitForResponse(
+    resp => resp.url().includes('/remarks/MemberFreeFields?'),
+    { timeout: 15000 }
+  ).catch(() => null);
+
+  // NEW: Add MemberHeader promise in parallel
+  const memberHeaderPromise = page.waitForResponse(
+    resp => resp.url().includes('/member/MemberHeader?'),
+    { timeout: 15000 }
+  ).catch(() => null);
+
+  logger.verbose(`  Navigating to ${otherUrl}...`);
+  await page.goto(otherUrl, { waitUntil: 'networkidle' });
+
+  // Await both responses
+  const [freeFieldsResponse, memberHeaderResponse] = await Promise.all([
+    freeFieldsPromise,
+    memberHeaderPromise
+  ]);
+
+  // Parse FreeFields response
+  let freeFieldsData = null;
+  if (freeFieldsResponse && freeFieldsResponse.ok()) {
+    try {
+      freeFieldsData = await freeFieldsResponse.json();
+    } catch (err) {
+      logger.verbose(`  Error parsing MemberFreeFields: ${err.message}`);
+    }
+  }
+
+  // Parse MemberHeader response
+  let memberHeaderData = null;
+  if (memberHeaderResponse && memberHeaderResponse.ok()) {
+    try {
+      memberHeaderData = await memberHeaderResponse.json();
+    } catch (err) {
+      logger.verbose(`  Error parsing MemberHeader: ${err.message}`);
+    }
+  }
+
+  // Merge both data sources
+  if (!freeFieldsData && !memberHeaderData) {
+    logger.verbose(`  No API responses captured`);
+    return null;
+  }
+
+  const freeFieldsResult = freeFieldsData ? parseFreeFieldsResponse(freeFieldsData, knvbId) : { knvb_id: knvbId, freescout_id: null, vog_datum: null };
+  const memberHeaderResult = memberHeaderData ? parseMemberHeaderResponse(memberHeaderData, knvbId) : { has_financial_block: 0, photo_url: null, photo_date: null };
+
+  logger.verbose(`  Financial block: ${memberHeaderResult.has_financial_block}, Photo: ${memberHeaderResult.photo_url ? 'yes' : 'no'}`);
+
+  return {
+    knvb_id: knvbId,
+    freescout_id: freeFieldsResult.freescout_id,
+    vog_datum: freeFieldsResult.vog_datum,
+    has_financial_block: memberHeaderResult.has_financial_block,
+    photo_url: memberHeaderResult.photo_url,
+    photo_date: memberHeaderResult.photo_date
+  };
+}
+
+/**
  * Fetch functions for a single member
  * Captures both MemberFunctions and MemberCommittees API responses
  */
@@ -204,6 +340,7 @@ async function runFunctionsDownload(options = {}) {
     downloaded: 0,
     functionsCount: 0,
     committeesCount: 0,
+    freeFieldsCount: 0,
     skipped: 0,
     errors: []
   };
@@ -224,6 +361,7 @@ async function runFunctionsDownload(options = {}) {
     // Clear existing data for fresh import
     clearMemberFunctions(db);
     clearMemberCommittees(db);
+    clearMemberFreeFields(db);
 
     const debugEnabled = parseBool(readEnv('DEBUG_LOG', 'false'));
     const browser = await chromium.launch({ headless: true });
@@ -240,6 +378,7 @@ async function runFunctionsDownload(options = {}) {
 
     const allFunctions = [];
     const allCommittees = [];
+    const allFreeFields = [];
     const uniqueCommitteeNames = new Set();
 
     try {
@@ -265,6 +404,15 @@ async function runFunctionsDownload(options = {}) {
 
               result.downloaded++;
               logger.verbose(`  Found ${parsed.functions.length} functions, ${parsed.committees.length} committees`);
+
+              // Fetch free fields and MemberHeader data from /other tab for members with functions/committees
+              // These members may have VOG certificates, FreeScout IDs, financial blocks, and photos
+              logger.verbose(`  Fetching member data from /other page...`);
+              const memberData = await fetchMemberDataFromOtherPage(page, member.knvb_id, logger);
+              if (memberData && (memberData.freescout_id || memberData.vog_datum || memberData.has_financial_block || memberData.photo_url)) {
+                allFreeFields.push(memberData);
+                logger.verbose(`  Found FreeScout ID: ${memberData.freescout_id || 'none'}, VOG datum: ${memberData.vog_datum || 'none'}`);
+              }
             } else {
               result.skipped++;
               logger.verbose(`  No functions or committees found`);
@@ -299,6 +447,11 @@ async function runFunctionsDownload(options = {}) {
       result.committeesCount = allCommittees.length;
     }
 
+    if (allFreeFields.length > 0) {
+      upsertMemberFreeFields(db, allFreeFields);
+      result.freeFieldsCount = allFreeFields.length;
+    }
+
     // Create commissie records from unique committee names
     // Plus add "Verenigingsbreed" for club-level functions
     const commissies = [
@@ -318,6 +471,7 @@ async function runFunctionsDownload(options = {}) {
     logger.log(`  Functions found: ${result.functionsCount}`);
     logger.log(`  Committee memberships found: ${result.committeesCount}`);
     logger.log(`  Unique commissies: ${commissies.length}`);
+    logger.log(`  Free fields (VOG/FreeScout): ${result.freeFieldsCount}`);
 
     if (result.errors.length > 0) {
       logger.log(`  Errors: ${result.errors.length}`);
