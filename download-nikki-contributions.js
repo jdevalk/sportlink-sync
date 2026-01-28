@@ -1,5 +1,6 @@
 require('varlock/auto-load');
 
+const crypto = require('crypto');
 const otplib = require('otplib');
 const { chromium } = require('playwright');
 const {
@@ -25,6 +26,21 @@ function createDebugLogger(enabled) {
 function parseBool(value, fallback = false) {
   if (value === undefined) return fallback;
   return ['1', 'true', 'yes', 'y'].includes(String(value).toLowerCase());
+}
+
+function generateAsciiTotp(secret, digits = 6, step = 30) {
+  const counter = Math.floor(Date.now() / 1000 / step);
+  const buffer = Buffer.alloc(8);
+  buffer.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
+  buffer.writeUInt32BE(counter % 0x100000000, 4);
+  const hmac = crypto.createHmac('sha1', Buffer.from(secret, 'ascii')).update(buffer).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code = ((hmac[offset] & 0x7f) << 24)
+    | ((hmac[offset + 1] & 0xff) << 16)
+    | ((hmac[offset + 2] & 0xff) << 8)
+    | (hmac[offset + 3] & 0xff);
+  const otp = (code % (10 ** digits)).toString().padStart(digits, '0');
+  return otp;
 }
 
 /**
@@ -85,7 +101,7 @@ async function loginToNikki(page, logger) {
       throw new Error('Missing NIKKI_OTP_SECRET - 2FA required but no secret configured');
     }
     logger.verbose('Generating OTP code...');
-    const otpCode = await otplib.generate({ secret: otpSecret, encoding: 'ascii' });
+    const otpCode = generateAsciiTotp(otpSecret);
     if (!otpCode) {
       throw new Error('OTP generation failed');
     }
