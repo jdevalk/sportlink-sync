@@ -64,7 +64,9 @@ function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate
 
 /**
  * Detect commissie changes for a member.
- * Compares current commissies vs tracked in SQLite.
+ * Compares current commissies vs SYNCED records in SQLite.
+ * Only records that have been actually synced to WordPress (have stadion_work_history_id)
+ * are considered "tracked". Unsynced records in the tracking table are treated as new.
  * @param {Object} db - SQLite database connection
  * @param {string} knvbId - Member KNVB ID
  * @param {Array<{commissie_name: string, role_name: string, is_active: boolean}>} currentCommissies - Current commissie memberships
@@ -72,12 +74,15 @@ function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate
  */
 function detectCommissieChanges(db, knvbId, currentCommissies) {
   const trackedHistory = getMemberCommissieWorkHistory(db, knvbId);
-  const trackedNames = new Set(trackedHistory.map(h => h.commissie_name));
+  // Only consider records as "synced" if they have a stadion_work_history_id
+  // Records just inserted by upsertCommissieWorkHistory won't have this set
+  const syncedHistory = trackedHistory.filter(h => h.stadion_work_history_id !== null);
+  const syncedNames = new Set(syncedHistory.map(h => h.commissie_name));
   const currentNames = new Set(currentCommissies.map(c => c.commissie_name));
 
-  const added = currentCommissies.filter(c => !trackedNames.has(c.commissie_name));
-  const removed = trackedHistory.filter(h => !currentNames.has(h.commissie_name));
-  const unchanged = currentCommissies.filter(c => trackedNames.has(c.commissie_name));
+  const added = currentCommissies.filter(c => !syncedNames.has(c.commissie_name));
+  const removed = syncedHistory.filter(h => !currentNames.has(h.commissie_name));
+  const unchanged = currentCommissies.filter(c => syncedNames.has(c.commissie_name));
 
   return { added, removed, unchanged };
 }
