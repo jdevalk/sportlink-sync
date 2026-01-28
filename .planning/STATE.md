@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-26)
 
 **Core value:** Keep downstream systems (Laposta, Stadion, FreeScout) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v1.6 FreeScout Integration
+**Current focus:** v1.6 FreeScout Integration - COMPLETE
 
 ## Current Position
 
 Phase: 16 of 16 (FreeScout Customer Sync)
-Plan: 1 of ? complete
-Status: In progress
-Last activity: 2026-01-28 — Completed 16-01-PLAN.md (FreeScout foundation)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-01-28 - Completed 16-02-PLAN.md (FreeScout customer sync)
 
-Progress: [███████████████░] 94% (15 of 16 phases complete)
+Progress: [████████████████] 100% (16 of 16 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
+- Total plans completed: 25
 - Total milestones shipped: 6
 
 **By Milestone:**
@@ -32,7 +32,7 @@ Progress: [███████████████░] 94% (15 of 16 phase
 | v1.3 Stadion | 4 | 8 | same day |
 | v1.4 Photo Sync | 4 | 4 | same day |
 | v1.5 Team Sync | 3 | 3 | same day |
-| v1.6 FreeScout | 1 | 1 | in progress |
+| v1.6 FreeScout | 1 | 2 | same day |
 
 **Recent Trend:** Consistent same-day delivery after initial v1.0 foundation
 
@@ -47,16 +47,23 @@ See PROJECT.md Key Decisions table (28 decisions total).
 |----|--------|--------|
 | use-native-https | Use native https module | Consistent with stadion-client.js |
 | knvb-id-as-key | KNVB ID as primary key | Stable identifier, email can change |
+| multi-source-aggregation | Aggregate from stadion and nikki DBs | Unified customer view |
+| nikki-optional | Nikki data optional with null fallback | Independent sync schedules |
+| freescout-id-authoritative | Track FreeScout ID in our DB | Not write back to Sportlink |
+| search-before-create | Email lookup before create | Prevent duplicates |
 
 ### Pending Todos
 
-3 pending — View with `/gsd:check-todos`
+3 pending - View with `/gsd:check-todos`
 
 ### Known Blockers
 
-**User setup required for Phase 16:**
+None - all phases complete.
+
+**User setup required for FreeScout sync:**
 - FREESCOUT_API_KEY - Get from FreeScout Settings -> API Keys
 - FREESCOUT_BASE_URL - FreeScout installation URL
+- Optional custom field IDs: FREESCOUT_FIELD_UNION_TEAMS, FREESCOUT_FIELD_PUBLIC_PERSON_ID, etc.
 
 ### Quick Tasks Completed
 
@@ -73,9 +80,9 @@ See PROJECT.md Key Decisions table (28 decisions total).
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed 16-01-PLAN.md (FreeScout foundation)
-Resume with: Plan 16-02 (customer sync implementation)
+Stopped at: Completed 16-02-PLAN.md (FreeScout customer sync)
+Resume with: Project complete - all phases delivered
 Resume file: None
 
 ---
-*Last updated: 2026-01-28 (16-01 completed)*
+*Last updated: 2026-01-28 (16-02 completed, v1.6 FreeScout complete)*
