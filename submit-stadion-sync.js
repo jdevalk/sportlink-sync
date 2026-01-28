@@ -346,7 +346,14 @@ async function deleteOrphanParents(db, currentParentEmails, options) {
       deleteParent(db, parent.email);
       deleted.push({ email: parent.email, stadion_id: parent.stadion_id });
     } catch (error) {
-      errors.push({ email: parent.email, message: error.message });
+      // Ignore 404 errors - person already deleted from WordPress
+      if (error.details?.data?.status === 404) {
+        logVerbose(`  Already deleted from WordPress (404)`);
+        deleteParent(db, parent.email);
+        deleted.push({ email: parent.email, stadion_id: parent.stadion_id });
+      } else {
+        errors.push({ email: parent.email, message: error.message });
+      }
     }
   }
 
@@ -454,7 +461,14 @@ async function deleteRemovedMembers(db, currentKnvbIds, options) {
       deleteMember(db, member.knvb_id);
       deleted.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
     } catch (error) {
-      errors.push({ knvb_id: member.knvb_id, message: error.message });
+      // Ignore 404 errors - person already deleted from WordPress
+      if (error.details?.data?.status === 404) {
+        logVerbose(`  Already deleted from WordPress (404)`);
+        deleteMember(db, member.knvb_id);
+        deleted.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
+      } else {
+        errors.push({ knvb_id: member.knvb_id, message: error.message });
+      }
     }
   }
 
