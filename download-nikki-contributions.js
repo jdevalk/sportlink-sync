@@ -130,6 +130,14 @@ async function loginToNikki(page, logger) {
       throw new Error('Login failed: Still on login page after authentication');
     }
   }
+
+  const cookies = await page.context().cookies();
+  const phpSession = cookies.find((cookie) => cookie.name === 'PHPSESSID');
+  if (phpSession) {
+    logger.verbose(`PHPSESSID set for ${phpSession.domain}${phpSession.path}`);
+  } else {
+    logger.verbose('PHPSESSID cookie not found after login.');
+  }
 }
 
 /**
