@@ -1,6 +1,7 @@
 require('varlock/auto-load');
 
 const otplib = require('otplib');
+const { totp } = require('@otplib/totp');
 const { chromium } = require('playwright');
 const {
   openDb,
@@ -85,14 +86,14 @@ async function loginToNikki(page, logger) {
       throw new Error('Missing NIKKI_OTP_SECRET - 2FA required but no secret configured');
     }
     logger.verbose('Generating OTP code...');
-    const totp = otplib.totp && typeof otplib.totp.clone === 'function'
-      ? otplib.totp.clone()
-      : otplib.totp;
-    if (!totp || typeof totp.generate !== 'function') {
+    const otpGenerator = totp && typeof totp.clone === 'function'
+      ? totp.clone()
+      : totp;
+    if (!otpGenerator || typeof otpGenerator.generate !== 'function') {
       throw new Error('OTP generation failed: totp generator unavailable');
     }
-    totp.options = { ...totp.options, encoding: 'ascii' };
-    const otpCode = totp.generate(otpSecret);
+    otpGenerator.options = { ...otpGenerator.options, encoding: 'ascii' };
+    const otpCode = otpGenerator.generate(otpSecret);
     if (!otpCode) {
       throw new Error('OTP generation failed');
     }
