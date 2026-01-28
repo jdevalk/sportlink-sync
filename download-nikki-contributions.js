@@ -134,11 +134,26 @@ async function loginToNikki(page, logger) {
  */
 async function scrapeContributions(page, logger) {
   logger.verbose('Navigating to /leden page...');
-  await page.goto('https://mijn.nikki-online.nl/leden', { waitUntil: 'networkidle' });
+  const response = await page.goto('https://mijn.nikki-online.nl/leden', { waitUntil: 'networkidle' });
+  if (response) {
+    logger.verbose(`  /leden response: ${response.status()} ${response.url()}`);
+  }
+  logger.verbose(`  /leden URL: ${page.url()}`);
+  try {
+    const title = await page.title();
+    logger.verbose(`  /leden title: ${title}`);
+  } catch (error) {
+    logger.verbose(`  /leden title unavailable: ${error.message}`);
+  }
 
   // Wait for datatable to load
   logger.verbose('Waiting for datatable...');
-  await page.waitForSelector('#datatable', { timeout: 30000 });
+  try {
+    await page.waitForSelector('#datatable', { timeout: 30000 });
+  } catch (error) {
+    logger.verbose(`  Datatable not found. Current URL: ${page.url()}`);
+    throw error;
+  }
 
   // Give table time to fully populate
   await page.waitForTimeout(2000);
@@ -207,6 +222,7 @@ async function runNikkiDownload(options = {}) {
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
     });
+    logger.verbose(`Using user agent: ${await context.userAgent()}`);
     const page = await context.newPage();
 
     if (debugEnabled) {
