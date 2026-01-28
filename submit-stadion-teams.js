@@ -11,6 +11,36 @@ const {
 } = require('./lib/stadion-db');
 
 /**
+ * Fetch all teams from WordPress API (paginated)
+ * @param {Object} options - Logger options
+ * @returns {Promise<Array<{id: number, title: string}>>}
+ */
+async function fetchAllWordPressTeams(options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+  const teams = [];
+  let page = 1;
+
+  while (true) {
+    try {
+      const response = await stadionRequest(`wp/v2/teams?per_page=100&page=${page}`, 'GET', null, options);
+      const pageTeams = response.body;
+      if (pageTeams.length === 0) break;
+      teams.push(...pageTeams.map(t => ({ id: t.id, title: t.title?.rendered || t.title })));
+      logVerbose(`  Fetched page ${page}: ${pageTeams.length} teams`);
+      page++;
+    } catch (error) {
+      // End of pages (400 error) or other error
+      if (error.details?.code === 'rest_post_invalid_page_number') {
+        break;
+      }
+      throw error;
+    }
+  }
+
+  return teams;
+}
+
+/**
  * Sync a single team to Stadion (create or update)
  * Uses local stadion_id tracking - no API search needed
  * @param {Object} team - Team record from database
@@ -192,6 +222,38 @@ async function runSync(options = {}) {
           deleteTeam(db, orphan.team_name);
           result.deleted++;
         }
+      }
+
+      // Delete untracked WordPress teams (teams in WordPress but never tracked locally)
+      // This catches teams created before tracking was implemented
+      logVerbose('Checking for untracked teams in WordPress...');
+      const wordPressTeams = await fetchAllWordPressTeams(options);
+      const trackedStadionIds = new Set(allTeams.filter(t => t.stadion_id).map(t => t.stadion_id));
+
+      const untrackedTeams = wordPressTeams.filter(t => !trackedStadionIds.has(t.id));
+      if (untrackedTeams.length > 0) {
+        logVerbose(`Found ${untrackedTeams.length} untracked teams in WordPress to delete`);
+
+        for (const team of untrackedTeams) {
+          logVerbose(`Deleting untracked team: ${team.title} (ID: ${team.id})`);
+          try {
+            await stadionRequest(`wp/v2/teams/${team.id}`, 'DELETE', { force: true }, options);
+            logVerbose(`  Deleted from WordPress: ${team.id}`);
+            result.deleted++;
+          } catch (error) {
+            if (error.details?.data?.status !== 404) {
+              logError(`  Error deleting untracked team: ${error.message}`);
+              result.errors.push({
+                team_name: team.title,
+                message: `Delete untracked failed: ${error.message}`
+              });
+            } else {
+              logVerbose(`  Already deleted from WordPress (404)`);
+            }
+          }
+        }
+      } else {
+        logVerbose('No untracked teams found in WordPress');
       }
 
     } finally {
