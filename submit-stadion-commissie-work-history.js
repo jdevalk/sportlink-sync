@@ -186,6 +186,31 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
     logVerbose(`Added work_history for commissie ${commissie.commissie_name} (index ${newIndex})`);
   }
 
+  // Handle unchanged commissies when force=true (update with current data including start_date)
+  if (force) {
+    for (const commissie of changes.unchanged) {
+      const commissieStadionId = commissieMap.get(commissie.commissie_name);
+      if (!commissieStadionId) continue;
+
+      // Find the tracked entry to get its index
+      const trackedHistory = getMemberCommissieWorkHistory(db, knvb_id);
+      const tracked = trackedHistory.find(h => h.commissie_name === commissie.commissie_name);
+      if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id < newWorkHistory.length) {
+        const index = tracked.stadion_work_history_id;
+        const entry = buildWorkHistoryEntry(
+          commissieStadionId,
+          commissie.role_name || 'Lid',
+          commissie.is_active !== false,
+          commissie.relation_start,
+          commissie.relation_end
+        );
+        newWorkHistory[index] = entry;
+        modified = true;
+        logVerbose(`Force-updated work_history for commissie ${commissie.commissie_name} (index ${index})`);
+      }
+    }
+  }
+
   // Update WordPress if modified
   if (modified) {
     try {
