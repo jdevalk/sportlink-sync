@@ -17,44 +17,86 @@ A CLI tool that synchronizes member data from Sportlink Club to Laposta email ma
 ## Quick Reference
 
 ```bash
-npm run sync-all          # Full sync pipeline (Sportlink → Laposta + Stadion)
-npm run sync-all-verbose  # Same with detailed logging
-npm run install-cron      # Set up automated daily sync with email reports
+# Individual sync pipelines (recommended)
+scripts/sync.sh people    # Hourly sync: members → Laposta + Stadion
+scripts/sync.sh photos    # Daily sync: photo download + upload
+scripts/sync.sh teams     # Weekly sync: team extraction + work history
+scripts/sync.sh functions # Weekly sync: commissies + work history
+
+# Full sync (all pipelines)
+scripts/sync.sh all       # Run all syncs sequentially
+npm run sync-all          # Alternative to sync.sh all
+
+# Automated scheduling
+npm run install-cron      # Set up automated sync schedules with email reports
 ```
 
 ## Architecture
 
-### Sync Pipeline
+### Sync Pipelines
 
-The full sync pipeline runs in this order:
+The sync is split into four independent pipelines, each with its own schedule:
 
-1. **download-data-from-sportlink.js** - Browser automation downloads member CSV from Sportlink Club
-2. **prepare-laposta-members.js** - Transforms Sportlink fields for Laposta using field mappings
-3. **submit-laposta-list.js** - Syncs to Laposta via API with hash-based change detection
-4. **submit-stadion-sync.js** - Syncs to Stadion WordPress (reads from SQLite, not CSV)
-5. **download-photos-from-sportlink.js** - Browser automation downloads member photos
-6. **upload-photos-to-stadion.js** - Uploads photos to Stadion via REST API
-7. **prepare-stadion-teams.js** - Extracts team assignments from Sportlink data
-8. **submit-stadion-teams.js** - Creates/updates teams in Stadion
-9. **submit-stadion-work-history.js** - Links persons to teams via work_history field
-10. **sync-all.js** - Orchestrates full pipeline, produces HTML email-ready summary
+**1. People Pipeline (hourly via scripts/sync.sh people):**
+- download-data-from-sportlink.js - Browser automation downloads member data
+- prepare-laposta-members.js - Transforms Sportlink fields for Laposta
+- submit-laposta-list.js - Syncs to Laposta via API (hash-based change detection)
+- submit-stadion-sync.js - Syncs members to Stadion WordPress
+- sync-important-dates.js - Syncs birthdays to Stadion calendar
+- Produces email-ready HTML summary
+
+**2. Photo Pipeline (daily via scripts/sync.sh photos):**
+- download-photos-from-sportlink.js - Browser automation downloads member photos
+- upload-photos-to-stadion.js - Uploads photos to Stadion via REST API
+- Produces email-ready HTML summary
+
+**3. Team Pipeline (weekly via scripts/sync.sh teams):**
+- download-teams-from-sportlink.js - Extracts team data from Sportlink
+- submit-stadion-teams.js - Creates/updates teams in Stadion
+- submit-stadion-work-history.js - Links persons to teams via work_history
+- Produces email-ready HTML summary
+
+**4. Functions Pipeline (weekly via scripts/sync.sh functions):**
+- download-functions-from-sportlink.js - Extracts commissie/function data
+- submit-stadion-commissies.js - Creates/updates commissies in Stadion
+- submit-stadion-commissie-work-history.js - Links persons to commissies
+- Produces email-ready HTML summary
+
+**Full Sync (scripts/sync.sh all or npm run sync-all):**
+Runs all four pipelines sequentially. Used for manual full syncs or initial setup.
 
 ### Data Flow
 
+Four independent pipelines running on different schedules:
+
 ```
-Sportlink Club (browser) → CSV → SQLite (state) → Laposta API
-                                      ↓
-                              Hash-based diff
-                                      ↓
-                           Only changed members sync
-                                      ↓
-                              Stadion WordPress API
-                                      ↓
-                              Photo download/upload
-                                      ↓
-                              Team sync + work history
-                                      ↓
-                              Email report (Postmark)
+People Pipeline (hourly):
+Sportlink Club → SQLite → Laposta API (hash-based diff)
+                       ↓
+              Stadion WordPress API (members)
+                       ↓
+              Stadion Calendar API (birthdays)
+                       ↓
+              Email report (Postmark)
+
+Photo Pipeline (daily):
+Sportlink Club → downloads/ → Stadion WordPress API (media)
+                           ↓
+                  Email report (Postmark)
+
+Team Pipeline (weekly):
+Sportlink members → team extraction → Stadion Teams API
+                                   ↓
+                        Stadion work_history field
+                                   ↓
+                        Email report (Postmark)
+
+Functions Pipeline (weekly):
+Sportlink members → function extraction → Stadion Commissies API
+                                       ↓
+                           Stadion work_history field
+                                       ↓
+                           Email report (Postmark)
 ```
 
 ### Supporting Files
@@ -62,7 +104,7 @@ Sportlink Club (browser) → CSV → SQLite (state) → Laposta API
 - `lib/logger.js` - Dual-stream logger (stdout + date-based files in `logs/`)
 - `laposta-db.js` - SQLite operations for state tracking and change detection
 - `field-mapping.json` - Configurable Sportlink → Laposta field transformations
-- `scripts/cron-wrapper.sh` - Cron execution with flock locking and email delivery
+- `scripts/sync.sh` - Unified sync wrapper with flock locking and email delivery
 - `scripts/install-cron.sh` - Interactive cron setup with credential prompts
 - `scripts/send-email.js` - Postmark email delivery for sync reports
 
@@ -107,19 +149,26 @@ DEBUG_LOG=false
 
 ## Usage
 
-### One-step full sync
+### Running syncs
+
+**Individual pipelines (recommended for production):**
 
 ```bash
-npm run sync-all
+scripts/sync.sh people    # Hourly: members, parents, birthdays
+scripts/sync.sh photos    # Daily: photo download + upload
+scripts/sync.sh teams     # Weekly: team sync + work history
+scripts/sync.sh functions # Weekly: commissies + work history
 ```
 
-For verbose output (shows per-member progress):
+**Full sync (all pipelines):**
 
 ```bash
-npm run sync-all-verbose
+scripts/sync.sh all       # Runs all four pipelines sequentially
+npm run sync-all          # Alternative (same behavior)
+npm run sync-all-verbose  # With detailed per-member logging
 ```
 
-This runs the complete pipeline: download → prepare → Laposta sync → Stadion sync → email report.
+Each sync produces an HTML email report sent via Postmark to OPERATOR_EMAIL.
 
 ### Individual pipeline steps
 
@@ -236,9 +285,9 @@ npm run dedupe-laposta -- 2 --apply # Delete duplicates in list 2 only
 - The default run targets all four lists and is a dry run.
 - Add `--apply` to delete duplicates.
 
-## Automated daily sync
+## Automated sync schedules
 
-Set up a cron job that runs the sync daily at 6:00 AM (Amsterdam time) and emails the report via Postmark:
+Set up automated cron jobs with staggered schedules:
 
 ```bash
 npm run install-cron
@@ -246,15 +295,24 @@ npm run install-cron
 
 This will:
 - Prompt for your operator email address and Postmark credentials
-- Install crontab entries for daily sync at 6:00 AM
-- Configure automatic retry at 8:00 AM if the first sync fails
+- Install four crontab entries with different schedules:
+  - **People sync:** Hourly (members, parents, birthdays)
+  - **Photo sync:** Daily at 6:00 AM Amsterdam time
+  - **Team sync:** Weekly on Sunday at 6:00 AM
+  - **Functions sync:** Weekly on Sunday at 7:00 AM
 - Send HTML email reports via Postmark after each sync
-- Use flock to prevent overlapping executions
+- Use flock to prevent overlapping executions (per sync type)
 
 To verify installation:
 
 ```bash
 crontab -l
+```
+
+To view logs:
+
+```bash
+ls -la logs/cron/
 ```
 
 ### Email reports
