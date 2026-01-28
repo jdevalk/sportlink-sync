@@ -76,14 +76,47 @@ When checking current data, you can connect as root to the live sync server over
 IP: 46.202.155.16
 Remote path: /home/sportlink/
 
-You can login with the user's key. Get new code to the server by committing to GitHub and doing a `git pull` on the remote server in the `/home/sportlink/` directory. 
+You can login with the user's key. Get new code to the server by committing to GitHub and doing a `git pull` on the remote server in the `/home/sportlink/` directory.
+
+## CRITICAL: Never Run Sync Locally
+
+**Sync scripts must only run on the production server.** Running sync from a local machine causes duplicate entries in Stadion because:
+
+1. Each machine has its own SQLite database tracking `stadion_id` mappings
+2. Local database doesn't know about entries created by server syncs
+3. Local sync creates NEW WordPress entries instead of updating existing ones
+4. Result: hundreds of duplicate members in Stadion
+
+The sync scripts (`sync-all.js`, `sync-people.js`) enforce this with a server check that blocks local execution. If you see:
+```
+ERROR: Cannot run sync from local machine
+```
+
+This is intentional. Always sync from the server:
+```bash
+ssh root@46.202.155.16
+cd /home/sportlink
+npm run sync-all
+```
+
+If duplicates occur, use `scripts/delete-duplicates.js` to clean up (keeps oldest entry per KNVB ID).
 
 ## Database
 
-SQLite database `laposta-sync.sqlite` tracks:
+Two SQLite databases track sync state (on the server only):
+
+**`laposta-sync.sqlite`** - Laposta sync tracking:
 - Member hashes for change detection
 - Sync state per list
 - Last sync timestamps
+
+**`stadion-sync.sqlite`** - Stadion WordPress sync tracking:
+- `stadion_members` - Maps `knvb_id` → `stadion_id` (WordPress post ID)
+- `stadion_parents` - Maps parent `email` → `stadion_id`
+- `stadion_teams`, `stadion_commissies` - Team/committee mappings
+- `stadion_work_history` - Team membership history
+
+The `stadion_id` mapping is critical: without it, sync creates new entries instead of updating existing ones.
 
 ## Cron Automation
 
