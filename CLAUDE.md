@@ -236,6 +236,30 @@ npm run show-laposta-member     # Single member lookup
 npm run show-sportlink-member   # Sportlink data lookup
 ```
 
+## Stadion API Gotchas
+
+### Required Fields on ACF Updates
+
+When updating a person's ACF fields via PUT request, **`first_name` and `last_name` are always required**, even if you're only updating a single field like `nikki-contributie-status`.
+
+```javascript
+// WRONG - will return 400 error
+await stadionRequest(`wp/v2/people/${id}`, 'PUT', {
+  acf: { 'nikki-contributie-status': html }
+});
+
+// CORRECT - include required fields
+await stadionRequest(`wp/v2/people/${id}`, 'PUT', {
+  acf: {
+    first_name: existingFirstName,
+    last_name: existingLastName,
+    'nikki-contributie-status': html
+  }
+});
+```
+
+This means partial ACF updates require a GET request first to fetch the existing required fields.
+
 ## Related Documentation
 
 Stadion API documentation is at `~/Code/stadion/docs/`. Key files:
