@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-01-26)
 Phase: 15 of 15 (complete)
 Plan: All complete
 Status: Ready for next milestone
-Last activity: 2026-01-28 — Completed quick task 005: Add functions sync to cron
+Last activity: 2026-01-28 — Completed quick task 006: Update docs for sync split
 
 Progress: [███████████████] 100% (15 of 15 phases complete)
 
@@ -53,6 +53,7 @@ None.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 006 | Update docs for sync split | 2026-01-28 | bf21321 | [006-update-docs-for-sync-split](./quick/006-update-docs-for-sync-split/) |
 | 005 | Add functions sync to cron | 2026-01-28 | 8c782e4 | [005-add-functions-sync-to-cron](./quick/005-add-functions-sync-to-cron/) |
 | 004 | Check photos against database | 2026-01-26 | 221ba2d | [004-check-photos-against-db](./quick/004-check-photos-against-db/) |
 | 003 | Update README with photo and team sync documentation | 2026-01-26 | 5aa29e5 | [003-update-readme](./quick/003-update-readme/) |
@@ -61,9 +62,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed quick task 005: Add functions sync to cron
+Stopped at: Completed quick task 006: Update docs for sync split
 Resume with: `/gsd:new-milestone` to plan next version
 Resume file: None
 
 ---
-*Last updated: 2026-01-28 (quick task 005 completed)*
+*Last updated: 2026-01-28 (quick task 006 completed)*
