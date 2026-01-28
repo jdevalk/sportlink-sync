@@ -8,9 +8,18 @@ A CLI tool that synchronizes member data from Sportlink Club (a Dutch sports clu
 
 Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
 
-## Current State (v1.5 Shipped)
+## Current Milestone: v1.7 MemberHeader API
 
-**Shipped:** 2026-01-26
+**Goal:** Use MemberHeader API response to capture financial block status and optimize photo sync by replacing browser DOM scraping with direct API photo URLs.
+
+**Target features:**
+- Capture `HasFinancialTransferBlockOwnClub` from MemberHeader and sync to Stadion `financiele-blokkade` field
+- Replace browser-based photo download with direct `Photo.Url` from MemberHeader API
+- Use `Photo.PhotoDate` for change detection (skip re-upload if unchanged)
+
+## Current State (v1.6 Shipped)
+
+**Shipped:** 2026-01-28
 
 Full sync pipeline operational:
 - Member data downloads from Sportlink via browser automation
@@ -19,6 +28,7 @@ Full sync pipeline operational:
 - Photos download from Sportlink and upload to Stadion
 - Teams extract from Sportlink and sync to Stadion
 - Work history links persons to teams with change detection
+- FreeScout customer sync from Stadion and Nikki databases
 - Daily automated pipeline with comprehensive email reports
 
 ## Requirements
@@ -67,7 +77,11 @@ Full sync pipeline operational:
 
 ### Active
 
-None - awaiting next milestone planning.
+- [ ] Capture MemberHeader API response when fetching free fields
+- [ ] Extract `HasFinancialTransferBlockOwnClub` and sync to Stadion `financiele-blokkade` field
+- [ ] Extract `Photo.Url` and `Photo.PhotoDate` from MemberHeader response
+- [ ] Replace browser DOM photo scraping with direct URL fetch
+- [ ] Use PhotoDate for change detection to skip unchanged photos
 
 ### Out of Scope
 
@@ -140,4 +154,4 @@ None - awaiting next milestone planning.
 | Non-critical team/work history sync | Prevents blocking Laposta or core Stadion sync | ✓ Good |
 
 ---
-*Last updated: 2026-01-26 after v1.5 milestone*
+*Last updated: 2026-01-28 after v1.7 milestone start*

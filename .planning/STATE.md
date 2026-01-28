@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-26)
 
 **Core value:** Keep downstream systems (Laposta, Stadion, FreeScout) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v1.6 FreeScout Integration - COMPLETE
+**Current focus:** v1.7 MemberHeader API
 
 ## Current Position
 
-Phase: 16 of 16 (FreeScout Customer Sync)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-01-28 - Completed 16-02-PLAN.md (FreeScout customer sync)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-01-28 — Milestone v1.7 started
 
-Progress: [████████████████] 100% (16 of 16 phases complete)
+Progress: Defining requirements
 
 ## Performance Metrics
 
@@ -81,9 +81,9 @@ None - all phases complete.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed quick task 009 (documentation updates)
-Resume with: Project complete - all phases delivered, documentation up to date
+Stopped at: Started milestone v1.7 MemberHeader API
+Resume with: Define requirements, create roadmap
 Resume file: None
 
 ---
-*Last updated: 2026-01-28 (quick-009 completed, documentation synchronized)*
+*Last updated: 2026-01-28 (v1.7 milestone started)*
