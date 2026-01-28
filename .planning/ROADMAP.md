@@ -93,10 +93,13 @@ Plans:
 - Reduces failure surface (no DOM selectors to break)
 - Photo upload and deletion logic stays the same (only download changes)
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (created by /gsd:plan-phase 19)
+- [ ] 19-01-PLAN.md - Extend MemberHeader capture to ALL members, add photo_url/photo_date to stadion_members
+- [ ] 19-02-PLAN.md - Create HTTP-based photo download script with retry logic
+- [ ] 19-03-PLAN.md - Integrate photo sync into people pipeline, update cron
+- [ ] 19-04-PLAN.md - Delete obsolete files, update documentation
 
 ---
 
@@ -106,7 +109,7 @@ Plans:
 |-------|--------|--------------|-------|-----------|
 | 17 - MemberHeader Data Capture | Complete | 4 | 1 | 2026-01-28 |
 | 18 - Financial Block Sync | Complete | 3 | 1 | 2026-01-28 |
-| 19 - Photo API Optimization | Pending | 5 | 0 | - |
+| 19 - Photo API Optimization | Planned | 5 | 4 | - |
 
 **Total:** 3 phases, 12 requirements
 
