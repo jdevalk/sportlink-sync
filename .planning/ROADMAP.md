@@ -96,10 +96,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 19-01-PLAN.md - Extend MemberHeader capture to ALL members, add photo_url/photo_date to stadion_members
-- [ ] 19-02-PLAN.md - Create HTTP-based photo download script with retry logic
-- [ ] 19-03-PLAN.md - Integrate photo sync into people pipeline, update cron
-- [ ] 19-04-PLAN.md - Delete obsolete files, update documentation
+- [x] 19-01-PLAN.md - Extend MemberHeader capture to ALL members, add photo_url/photo_date to stadion_members
+- [x] 19-02-PLAN.md - Create HTTP-based photo download script with retry logic
+- [x] 19-03-PLAN.md - Integrate photo sync into people pipeline, update cron
+- [x] 19-04-PLAN.md - Delete obsolete files, update documentation
 
 ---
 
@@ -109,7 +109,7 @@ Plans:
 |-------|--------|--------------|-------|-----------|
 | 17 - MemberHeader Data Capture | Complete | 4 | 1 | 2026-01-28 |
 | 18 - Financial Block Sync | Complete | 3 | 1 | 2026-01-28 |
-| 19 - Photo API Optimization | Planned | 5 | 4 | - |
+| 19 - Photo API Optimization | Complete | 5 | 4 | 2026-01-28 |
 
 **Total:** 3 phases, 12 requirements
 
@@ -138,4 +138,4 @@ All 12 v1.7 requirements mapped:
 
 ---
 
-*Last updated: 2026-01-28 (Phase 18 complete)*
+*Last updated: 2026-01-28 (Phase 19 complete - Milestone v1.7 complete)*
