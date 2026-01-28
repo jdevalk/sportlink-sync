@@ -222,8 +222,9 @@ async function runNikkiDownload(options = {}) {
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
     });
-    logger.verbose(`Using user agent: ${await context.userAgent()}`);
     const page = await context.newPage();
+    const runtimeUserAgent = await page.evaluate(() => navigator.userAgent);
+    logger.verbose(`Using user agent: ${runtimeUserAgent}`);
 
     if (debugEnabled) {
       const logDebug = createDebugLogger(true);
