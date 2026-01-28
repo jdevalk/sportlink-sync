@@ -20,8 +20,8 @@ A CLI tool that synchronizes member data from Sportlink Club to Laposta email ma
 
 ```bash
 # Individual sync pipelines (recommended)
-scripts/sync.sh people    # Hourly sync: members → Laposta + Stadion
-scripts/sync.sh photos    # Daily sync: photo download + upload
+scripts/sync.sh people    # Hourly sync: members, photos → Laposta + Stadion
+scripts/sync.sh photos    # Alias for people (photos integrated)
 scripts/sync.sh nikki     # Daily sync: Nikki contributions → Stadion
 scripts/sync.sh teams     # Weekly sync: team extraction + work history
 scripts/sync.sh functions # Weekly sync: commissies + work history
@@ -38,44 +38,41 @@ npm run install-cron      # Set up automated sync schedules with email reports
 
 ### Sync Pipelines
 
-The sync is split into five independent pipelines, each with its own schedule:
+The sync is split into four independent pipelines, each with its own schedule:
 
 **1. People Pipeline (hourly via scripts/sync.sh people):**
-- download-data-from-sportlink.js - Browser automation downloads member data
+- download-data-from-sportlink.js - Browser automation downloads member data (includes photo URLs)
 - prepare-laposta-members.js - Transforms Sportlink fields for Laposta
 - submit-laposta-list.js - Syncs to Laposta via API (hash-based change detection)
 - submit-stadion-sync.js - Syncs members to Stadion WordPress
 - sync-important-dates.js - Syncs birthdays to Stadion calendar
-- Produces email-ready HTML summary
-
-**2. Photo Pipeline (daily via scripts/sync.sh photos):**
-- download-photos-from-sportlink.js - Browser automation downloads member photos
+- download-photos-from-api.js - Downloads photos via HTTP (URL from MemberHeader API)
 - upload-photos-to-stadion.js - Uploads photos to Stadion via REST API
 - Produces email-ready HTML summary
 
-**3. Nikki Pipeline (daily via scripts/sync.sh nikki):**
+**2. Nikki Pipeline (daily via scripts/sync.sh nikki):**
 - download-nikki-contributions.js - Downloads contribution data from Nikki
 - sync-nikki-to-stadion.js - Updates Stadion person ACF fields with contribution status
 - Produces email-ready HTML summary
 
-**4. Team Pipeline (weekly via scripts/sync.sh teams):**
+**3. Team Pipeline (weekly via scripts/sync.sh teams):**
 - download-teams-from-sportlink.js - Extracts team data from Sportlink
 - submit-stadion-teams.js - Creates/updates teams in Stadion
 - submit-stadion-work-history.js - Links persons to teams via work_history
 - Produces email-ready HTML summary
 
-**5. Functions Pipeline (weekly via scripts/sync.sh functions):**
+**4. Functions Pipeline (weekly via scripts/sync.sh functions):**
 - download-functions-from-sportlink.js - Extracts commissie/function data
 - submit-stadion-commissies.js - Creates/updates commissies in Stadion
 - submit-stadion-commissie-work-history.js - Links persons to commissies
 - Produces email-ready HTML summary
 
 **Full Sync (scripts/sync.sh all or npm run sync-all):**
-Runs all five pipelines sequentially plus FreeScout customer sync. Used for manual full syncs or initial setup.
+Runs all four pipelines sequentially plus FreeScout customer sync. Used for manual full syncs or initial setup.
 
 ### Data Flow
 
-Five independent pipelines running on different schedules:
+Four independent pipelines running on different schedules:
 
 ```
 People Pipeline (hourly):
@@ -85,12 +82,9 @@ Sportlink Club → SQLite → Laposta API (hash-based diff)
                        ↓
               Stadion Calendar API (birthdays)
                        ↓
+              Photo URLs → downloads/ → Stadion WordPress API (media)
+                       ↓
               Email report (Postmark)
-
-Photo Pipeline (daily):
-Sportlink Club → downloads/ → Stadion WordPress API (media)
-                           ↓
-                  Email report (Postmark)
 
 Nikki Pipeline (daily):
 Nikki API → nikki-sync.sqlite → Stadion WordPress API (ACF fields)
@@ -178,8 +172,8 @@ DEBUG_LOG=false
 **Individual pipelines (recommended for production):**
 
 ```bash
-scripts/sync.sh people    # Hourly: members, parents, birthdays
-scripts/sync.sh photos    # Daily: photo download + upload
+scripts/sync.sh people    # Hourly: members, parents, birthdays, photos
+scripts/sync.sh photos    # Alias for people (backwards compatible)
 scripts/sync.sh teams     # Weekly: team sync + work history
 scripts/sync.sh functions # Weekly: commissies + work history
 ```
@@ -241,16 +235,18 @@ The Stadion sync:
 
 ### Photo sync
 
+Photos are now integrated into the people pipeline and sync hourly. For backwards compatibility:
+
 ```bash
-npm run download-photos           # Download photos from Sportlink
+npm run download-photos           # Download photos via API (runs download-photos-from-api.js)
 npm run download-photos-verbose   # Same with detailed logging
-npm run sync-photos               # Upload photos to Stadion
+npm run sync-photos               # Runs full people sync (photos included)
 npm run sync-photos-verbose       # Same with detailed logging
 ```
 
 Photo sync:
-- Downloads member photos from Sportlink when PersonImageDate indicates presence
-- Tracks photo state changes (added, updated, removed)
+- Downloads member photos via HTTP using URLs from MemberHeader API
+- Uses Photo.PhotoDate for change detection (more reliable than PersonImageDate)
 - Uploads photos to Stadion WordPress via REST API
 - Deletes photos from Stadion when removed in Sportlink
 
@@ -319,10 +315,9 @@ npm run install-cron
 
 This will:
 - Prompt for your operator email address and Postmark credentials
-- Install five crontab entries with different schedules:
-  - **People sync:** Hourly (members, parents, birthdays)
-  - **Photo sync:** Daily at 6:00 AM Amsterdam time
-  - **Nikki sync:** Daily at 7:00 AM Amsterdam time (after photos)
+- Install four crontab entries with different schedules:
+  - **People sync:** Hourly (members, parents, birthdays, photos)
+  - **Nikki sync:** Daily at 7:00 AM Amsterdam time
   - **Team sync:** Weekly on Sunday at 6:00 AM
   - **Functions sync:** Weekly on Sunday at 7:00 AM (after teams)
 - Send HTML email reports via Postmark after each sync
@@ -387,8 +382,8 @@ npm run download         # Just download from Sportlink
 npm run prepare-laposta  # Just prepare members
 npm run sync-laposta     # Just submit to Laposta
 npm run sync-stadion     # Just submit to Stadion
-npm run download-photos  # Download photos from Sportlink
-npm run sync-photos      # Upload photos to Stadion
+npm run download-photos  # Download photos via API
+npm run upload-photos    # Upload photos to Stadion
 ```
 
 ### Inspect data

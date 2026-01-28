@@ -6,8 +6,8 @@ CLI tool that synchronizes member data from Sportlink Club to Laposta email mark
 
 ```bash
 # Sync commands (via unified wrapper)
-scripts/sync.sh people    # Hourly: members, parents, birthdays
-scripts/sync.sh photos    # Daily: photo download + upload
+scripts/sync.sh people    # Hourly: members, parents, birthdays, photos
+scripts/sync.sh photos    # Alias for people (photos integrated)
 scripts/sync.sh nikki     # Daily: Nikki contributions to Stadion
 scripts/sync.sh teams     # Weekly: team sync + work history
 scripts/sync.sh functions # Weekly: commissies + work history
@@ -15,7 +15,7 @@ scripts/sync.sh all       # Full sync (all pipelines + FreeScout)
 
 # Alternative: npm scripts
 npm run sync-people       # Same as scripts/sync.sh people
-npm run sync-photos       # Same as scripts/sync.sh photos
+npm run sync-photos       # Same as sync-people (backwards compatible)
 npm run sync-nikki        # Same as scripts/sync.sh nikki
 npm run sync-teams        # Same as scripts/sync.sh teams
 npm run sync-functions    # Same as scripts/sync.sh functions
@@ -29,36 +29,34 @@ npm run install-cron      # Set up automated sync schedules with email reports
 
 ### Sync Architecture
 
-The sync is split into five independent pipelines, each with its own schedule:
+The sync is split into four independent pipelines, each with its own schedule:
 
 **1. People Pipeline (hourly via sync-people.js):**
-- download-data-from-sportlink.js - Browser automation downloads member data
+- download-data-from-sportlink.js - Browser automation downloads member data (includes photo URLs)
 - prepare-laposta-members.js - Transforms Sportlink fields for Laposta
 - submit-laposta-list.js - Syncs to Laposta via API (hash-based change detection)
 - submit-stadion-sync.js - Syncs members to Stadion WordPress
 - sync-important-dates.js - Syncs birthdays to Stadion calendar
-
-**2. Photo Pipeline (daily via sync-photos.js):**
-- download-photos-from-sportlink.js - Browser automation downloads member photos
+- download-photos-from-api.js - Downloads photos via HTTP (URL from MemberHeader API)
 - upload-photos-to-stadion.js - Uploads photos to Stadion via REST API
 
-**3. Nikki Pipeline (daily via sync-nikki.js):**
+**2. Nikki Pipeline (daily via sync-nikki.js):**
 - download-nikki-contributions.js - Downloads contribution data from Nikki
 - sync-nikki-to-stadion.js - Updates Stadion person ACF fields with contribution status
 - Produces email-ready HTML summary
 
-**4. Team Pipeline (weekly via sync-teams.js):**
+**3. Team Pipeline (weekly via sync-teams.js):**
 - download-teams-from-sportlink.js - Extracts team data from Sportlink
 - submit-stadion-teams.js - Creates/updates teams in Stadion
 - submit-stadion-work-history.js - Links persons to teams via work_history
 
-**5. Functions Pipeline (weekly via sync-functions.js):**
+**4. Functions Pipeline (weekly via sync-functions.js):**
 - download-functions-from-sportlink.js - Extracts commissie/function data
 - submit-stadion-commissies.js - Creates/updates commissies in Stadion
 - submit-stadion-commissie-work-history.js - Links persons to commissies
 
 **Full Sync (sync-all.js):**
-Runs all five pipelines sequentially plus FreeScout customer sync. Used for manual full syncs or initial setup.
+Runs all four pipelines sequentially plus FreeScout customer sync. Used for manual full syncs or initial setup.
 
 ### Supporting Files
 
@@ -71,7 +69,7 @@ Runs all five pipelines sequentially plus FreeScout customer sync. Used for manu
 
 ### Data Flow
 
-Five parallel pipelines:
+Four parallel pipelines:
 
 ```
 People (hourly):
@@ -80,9 +78,8 @@ Sportlink Club → SQLite → Laposta API (hash-based diff)
               Stadion WordPress API (members)
                        ↓
               Stadion Calendar API (birthdays)
-
-Photos (daily):
-Sportlink Club → downloads/ → Stadion WordPress API (media upload)
+                       ↓
+              Photo URLs → downloads/ → Stadion WordPress API (media upload)
 
 Nikki (daily):
 Nikki API → nikki-sync.sqlite → Stadion WordPress API (ACF fields)
@@ -198,11 +195,10 @@ The `stadion_id` mapping is critical: without it, sync creates new entries inste
 
 ## Cron Automation
 
-After `npm run install-cron`, five sync schedules are configured:
+After `npm run install-cron`, four sync schedules are configured:
 
-- **People sync:** Hourly (members, parents, birthdays)
-- **Photo sync:** Daily at 6:00 AM Amsterdam time
-- **Nikki sync:** Daily at 7:00 AM Amsterdam time (after photos)
+- **People sync:** Hourly (members, parents, birthdays, photos)
+- **Nikki sync:** Daily at 7:00 AM Amsterdam time
 - **Team sync:** Weekly on Sunday at 6:00 AM
 - **Functions sync:** Weekly on Sunday at 7:00 AM (after teams)
 
@@ -264,8 +260,8 @@ npm install              # Install dependencies (includes Playwright)
 npx playwright install chromium  # Browser for Sportlink automation
 
 # Run individual pipelines
-scripts/sync.sh people    # People sync (hourly)
-scripts/sync.sh photos    # Photo sync (daily)
+scripts/sync.sh people    # People sync (hourly, includes photos)
+scripts/sync.sh photos    # Alias for people (backwards compatible)
 scripts/sync.sh teams     # Team sync (weekly)
 scripts/sync.sh functions # Functions sync (weekly)
 scripts/sync.sh all       # Full sync (all pipelines)
