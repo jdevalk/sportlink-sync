@@ -76,12 +76,15 @@ function detectCommissieChanges(db, knvbId, currentCommissies) {
   // Only consider records as "synced" if they have a stadion_work_history_id
   // Records just inserted by upsertCommissieWorkHistory won't have this set
   const syncedHistory = trackedHistory.filter(h => h.stadion_work_history_id !== null);
-  const syncedNames = new Set(syncedHistory.map(h => h.commissie_name));
-  const currentNames = new Set(currentCommissies.map(c => c.commissie_name));
 
-  const added = currentCommissies.filter(c => !syncedNames.has(c.commissie_name));
-  const removed = syncedHistory.filter(h => !currentNames.has(h.commissie_name));
-  const unchanged = currentCommissies.filter(c => syncedNames.has(c.commissie_name));
+  // Create composite keys for matching (commissie_name + role_name)
+  const makeKey = (commissieName, roleName) => `${commissieName}|${roleName || ''}`;
+  const syncedKeys = new Set(syncedHistory.map(h => makeKey(h.commissie_name, h.role_name)));
+  const currentKeys = new Set(currentCommissies.map(c => makeKey(c.commissie_name, c.role_name)));
+
+  const added = currentCommissies.filter(c => !syncedKeys.has(makeKey(c.commissie_name, c.role_name)));
+  const removed = syncedHistory.filter(h => !currentKeys.has(makeKey(h.commissie_name, h.role_name)));
+  const unchanged = currentCommissies.filter(c => syncedKeys.has(makeKey(c.commissie_name, c.role_name)));
 
   return { added, removed, unchanged };
 }
@@ -145,11 +148,11 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
         modified = true;
       }
       // Delete from tracking
-      deleteCommissieWorkHistory(db, knvb_id, removed.commissie_name);
+      deleteCommissieWorkHistory(db, knvb_id, removed.commissie_name, removed.role_name);
       logVerbose(`Ended work_history for commissie ${removed.commissie_name} (index ${index})`);
     } else {
       // Manual entry, don't modify but remove from tracking
-      deleteCommissieWorkHistory(db, knvb_id, removed.commissie_name);
+      deleteCommissieWorkHistory(db, knvb_id, removed.commissie_name, removed.role_name);
       logVerbose(`Removed tracking for manual entry: ${removed.commissie_name}`);
     }
   }
@@ -179,7 +182,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
       commissie.role_name,
       commissie.is_active
     );
-    updateCommissieWorkHistorySyncState(db, knvb_id, commissie.commissie_name, sourceHash, newIndex);
+    updateCommissieWorkHistorySyncState(db, knvb_id, commissie.commissie_name, commissie.role_name, sourceHash, newIndex);
 
     addedCount++;
     modified = true;
@@ -192,9 +195,12 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
       const commissieStadionId = commissieMap.get(commissie.commissie_name);
       if (!commissieStadionId) continue;
 
-      // Find the tracked entry to get its index
+      // Find the tracked entry to get its index (match by both commissie_name and role_name)
       const trackedHistory = getMemberCommissieWorkHistory(db, knvb_id);
-      const tracked = trackedHistory.find(h => h.commissie_name === commissie.commissie_name);
+      const tracked = trackedHistory.find(h =>
+        h.commissie_name === commissie.commissie_name &&
+        (h.role_name || null) === (commissie.role_name || null)
+      );
       if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id < newWorkHistory.length) {
         const index = tracked.stadion_work_history_id;
         const entry = buildWorkHistoryEntry(
@@ -206,7 +212,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
         );
         newWorkHistory[index] = entry;
         modified = true;
-        logVerbose(`Force-updated work_history for commissie ${commissie.commissie_name} (index ${index})`);
+        logVerbose(`Force-updated work_history for commissie ${commissie.commissie_name} role ${commissie.role_name || 'Lid'} (index ${index})`);
       }
     }
   }
