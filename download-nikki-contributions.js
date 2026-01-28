@@ -147,13 +147,39 @@ async function scrapeContributions(page, logger) {
   }
 
   // Wait for datatable to load
-  logger.verbose('Waiting for datatable...');
+  logger.verbose('Waiting for member table...');
+  let tableContext = page;
+  let tableHandle = null;
   try {
-    await page.waitForSelector('#datatable', { timeout: 30000 });
+    tableHandle = await page.waitForSelector('table', { state: 'attached', timeout: 30000 });
   } catch (error) {
-    logger.verbose(`  Datatable not found. Current URL: ${page.url()}`);
-    throw error;
+    const frames = page.frames();
+    for (const frame of frames) {
+      if (frame === page.mainFrame()) continue;
+      const handle = await frame.$('table');
+      if (handle) {
+        tableContext = frame;
+        tableHandle = handle;
+        break;
+      }
+    }
   }
+  if (!tableHandle) {
+    logger.verbose(`  Table not found. Current URL: ${page.url()}`);
+    const debugDir = path.join(process.cwd(), 'debug');
+    await fs.mkdir(debugDir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const screenshotPath = path.join(debugDir, `nikki-table-missing-${timestamp}.png`);
+    const htmlPath = path.join(debugDir, `nikki-table-missing-${timestamp}.html`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    const html = await page.content();
+    await fs.writeFile(htmlPath, html, 'utf8');
+    logger.verbose(`  Saved debug screenshot: ${screenshotPath}`);
+    logger.verbose(`  Saved debug HTML: ${htmlPath}`);
+    throw new Error('Table not found');
+  }
+
+  await tableContext.waitForSelector('table tbody tr', { timeout: 30000 }).catch(() => null);
 
   // Give table time to fully populate
   await page.waitForTimeout(2000);
