@@ -46,6 +46,41 @@ function computeContentHash(html) {
 }
 
 /**
+ * Make a Stadion API request with retry logic for transient errors (5xx).
+ * Uses exponential backoff: 1s, 2s, 4s between retries.
+ * @param {string} endpoint - API endpoint
+ * @param {string} method - HTTP method
+ * @param {Object|null} body - Request body
+ * @param {Object} options - Options for stadionRequest
+ * @param {number} maxRetries - Maximum retry attempts (default 3)
+ * @returns {Promise<Object>} - API response
+ */
+async function stadionRequestWithRetry(endpoint, method, body, options, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await stadionRequest(endpoint, method, body, options);
+    } catch (error) {
+      lastError = error;
+
+      // Only retry on 5xx errors (server errors)
+      const status = error.message?.match(/\((\d+)\)/)?.[1];
+      if (!status || parseInt(status, 10) < 500) {
+        throw error; // Don't retry client errors (4xx)
+      }
+
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * Sync Nikki contribution data to Stadion WYSIWYG field
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance
@@ -112,7 +147,7 @@ async function runNikkiStadionSync(options = {}) {
       let skipUpdate = false;
 
       try {
-        const response = await stadionRequest(
+        const response = await stadionRequestWithRetry(
           `wp/v2/people/${stadionId}?_fields=acf`,
           'GET',
           null,
@@ -155,7 +190,7 @@ async function runNikkiStadionSync(options = {}) {
       try {
         logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: Updating Stadion ID ${stadionId}`);
 
-        await stadionRequest(
+        await stadionRequestWithRetry(
           `wp/v2/people/${stadionId}`,
           'PUT',
           {
@@ -179,9 +214,9 @@ async function runNikkiStadionSync(options = {}) {
         }
       }
 
-      // Small delay between requests
+      // Delay between requests to avoid overwhelming server
       if (processed < contributionsByMember.size) {
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 500));
       }
     }
 
