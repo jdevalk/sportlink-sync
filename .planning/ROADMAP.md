@@ -61,10 +61,10 @@ Plans:
   3. Operator receives email notification when conflicts are detected with details of resolution
   4. Grace period tolerates minor clock drift between systems
 
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 21-01: Conflict detection and resolution module
+- [ ] 21-01-PLAN.md — Conflict detection and resolution module with audit trail
 
 #### Phase 22: Stadion Change Detection
 
