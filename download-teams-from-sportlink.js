@@ -181,7 +181,7 @@ async function runTeamDownload(options = {}) {
                 sportlink_team_id: team.sportlink_id,
                 sportlink_person_id: personId,
                 member_type: 'player',
-                role_description: player.RoleDescription || 'Speler'
+                role_description: player.RoleFunctionDescription || 'Speler'
               });
             }
             team.player_count = players.length;
