@@ -23,14 +23,14 @@ Requirements for bidirectional sync. Each maps to roadmap phases.
 
 - [x] **RSYNC-01**: System queries Stadion to detect members with modifications newer than Sportlink
 - [x] **RSYNC-02**: Contact fields (email, email2, mobile, phone) sync from Stadion to Sportlink /general page
-- [ ] **RSYNC-03**: Free fields (datum-vog, freescout-id) sync from Stadion to Sportlink /other page
-- [ ] **RSYNC-04**: Financial block toggle syncs from Stadion to Sportlink /financial page
+- [x] **RSYNC-03**: Free fields (datum-vog, freescout-id) sync from Stadion to Sportlink /other page
+- [x] **RSYNC-04**: Financial block toggle syncs from Stadion to Sportlink /financial page
 
 ### Integration
 
 - [x] **INTEG-01**: All reverse sync operations logged with timestamps and field values for audit
-- [ ] **INTEG-02**: Email reports include reverse sync statistics (members updated, conflicts resolved)
-- [ ] **INTEG-03**: Reverse sync runs on separate cron schedule (every 15 minutes)
+- [x] **INTEG-02**: Email reports include reverse sync statistics (members updated, conflicts resolved)
+- [x] **INTEG-03**: Reverse sync runs on separate cron schedule (every 15 minutes)
 
 ## Future Requirements
 
@@ -72,13 +72,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-03 | Phase 20 | Complete |
 | CONF-01 | Phase 21 | Complete |
 | CONF-02 | Phase 21 | Complete |
-| CONF-03 | Phase 21, **26** | Blocked (wiring pending) |
-| RSYNC-01 | Phase 22, **25** | Blocked (wiring pending) |
+| CONF-03 | Phase 21, 26 | Complete |
+| RSYNC-01 | Phase 22, 25 | Complete |
 | RSYNC-02 | Phase 23 | Complete |
 | RSYNC-03 | Phase 24 | Complete |
 | RSYNC-04 | Phase 24 | Complete |
-| INTEG-01 | Phase 22, **25** | Blocked (wiring pending) |
-| INTEG-02 | Phase 24, **25** | Blocked (wiring pending) |
+| INTEG-01 | Phase 22, 25 | Complete |
+| INTEG-02 | Phase 24, 25, 26 | Complete |
 | INTEG-03 | Phase 24 | Complete |
 
 **Coverage:**
@@ -88,4 +88,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-29*
-*Last updated: 2026-01-29 (Gap closure phases 25-26 added)*
+*Last updated: 2026-01-29 (v2.0 milestone complete - all requirements met)*
