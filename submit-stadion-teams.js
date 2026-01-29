@@ -49,9 +49,15 @@ async function fetchAllWordPressTeams(options) {
  * @returns {Promise<{action: string, id: number}>}
  */
 async function syncTeam(team, db, options) {
-  const { team_name, source_hash, last_synced_hash } = team;
+  const { team_name, sportlink_id, game_activity, gender, source_hash, last_synced_hash } = team;
   let { stadion_id } = team;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  // Build ACF fields payload
+  const acfFields = {};
+  if (sportlink_id) acfFields.publicteamid = sportlink_id;
+  if (game_activity) acfFields.activiteit = game_activity;
+  if (gender) acfFields.gender = gender;
 
   if (stadion_id) {
     // Team exists - check if changed (unless force)
@@ -60,7 +66,11 @@ async function syncTeam(team, db, options) {
       return { action: 'skipped', id: stadion_id };
     }
     // UPDATE existing team (unlikely - team names don't change often)
-    const payload = { title: team_name, status: 'publish' };
+    const payload = {
+      title: team_name,
+      status: 'publish',
+      acf: acfFields
+    };
     const endpoint = `wp/v2/teams/${stadion_id}`;
     logVerbose(`Updating existing team: ${stadion_id} - ${team_name}`);
     logVerbose(`  PUT ${endpoint}`);
@@ -93,7 +103,11 @@ async function syncTeam(team, db, options) {
 
   // CREATE new team (or recreate if deleted from WordPress)
   if (!stadion_id) {
-    const payload = { title: team_name, status: 'publish' };
+    const payload = {
+      title: team_name,
+      status: 'publish',
+      acf: acfFields
+    };
     const endpoint = 'wp/v2/teams';
     logVerbose(`Creating new team: ${team_name}`);
     logVerbose(`  POST ${endpoint}`);
