@@ -132,6 +132,7 @@ async function runTeamDownload(options = {}) {
       const teamRecords = teams.map(team => ({
         team_name: team.TeamName || team.Name || '',
         sportlink_id: team.PublicTeamId || '',
+        team_code: team.TeamCode || '',
         game_activity: team.GameActivityDescription || '',
         gender: team.Gender || '',
         player_count: 0,
