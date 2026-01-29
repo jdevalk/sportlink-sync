@@ -13,7 +13,7 @@ v2.0 adds bidirectional sync capability to enable corrections made in Stadion to
 - ✅ **v1.4 Photo Sync** - Phases 14-16 (shipped 2025)
 - ✅ **v1.5 Team Sync** - Phases 17-18 (shipped 2025)
 - ✅ **v1.7 Photo API Optimization** - Phase 19 (shipped 2026-01-28)
-- 🚧 **v2.0 Bidirectional Sync** - Phases 20-24 (in progress)
+- ✅ **v2.0 Bidirectional Sync** - Phases 20-24 (shipped 2026-01-29)
 
 ## Phases
 
@@ -24,7 +24,7 @@ Previous milestones completed. See git history for phase details.
 
 </details>
 
-### 🚧 v2.0 Bidirectional Sync (In Progress)
+### ✅ v2.0 Bidirectional Sync (Complete)
 
 **Milestone Goal:** Enable pushing corrections made in Stadion back to Sportlink via browser automation, with last-edit-wins conflict resolution.
 
@@ -126,8 +126,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 24-01-PLAN.md — Multi-page reverse sync core with session timeout detection
-- [ ] 24-02-PLAN.md — CLI entry point and 15-minute cron integration
+- [x] 24-01-PLAN.md — Multi-page reverse sync core with session timeout detection
+- [x] 24-02-PLAN.md — CLI entry point and 15-minute cron integration
 
 ## Progress
 
@@ -140,8 +140,8 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 | 21. Conflict Resolution | v2.0 | 1/1 | ✅ Complete | 2026-01-29 |
 | 22. Change Detection | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
 | 23. Contact Fields | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
-| 24. Free Fields & Toggle | v2.0 | 0/2 | Not started | - |
+| 24. Free Fields & Toggle | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
 
 ---
 *Roadmap created: 2026-01-29*
-*Last updated: 2026-01-29 (Phase 24 planned)*
+*Last updated: 2026-01-29 (Phase 24 complete - v2.0 milestone shipped)*
