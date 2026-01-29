@@ -45,7 +45,7 @@ Previous milestones completed. See git history for phase details.
 **Plans:** 1 plan
 
 Plans:
-- [ ] 20-01-PLAN.md — Add per-field timestamp columns and sync-origin utilities
+- [x] 20-01-PLAN.md — Add per-field timestamp columns and sync-origin utilities
 
 #### Phase 21: Conflict Resolution Infrastructure
 
@@ -135,12 +135,12 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 20. Foundation | v2.0 | 0/1 | Ready | - |
-| 21. Conflict Resolution | v2.0 | 0/1 | Not started | - |
+| 20. Foundation | v2.0 | 1/1 | ✅ Complete | 2026-01-29 |
+| 21. Conflict Resolution | v2.0 | 0/1 | Ready | - |
 | 22. Change Detection | v2.0 | 0/1 | Not started | - |
 | 23. Contact Fields | v2.0 | 0/1 | Not started | - |
 | 24. Free Fields & Toggle | v2.0 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-29*
-*Last updated: 2026-01-29*
+*Last updated: 2026-01-29 (Phase 20 complete)*

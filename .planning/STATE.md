@@ -6,14 +6,14 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 
 **Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally
 
-**Current focus:** Phase 20 - Foundation (Database & Origin Tracking)
+**Current focus:** Phase 21 - Conflict Resolution Infrastructure
 
 ## Current Position
 
-Phase: 20 of 24 (Foundation - Database & Origin Tracking)
-Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase complete
-Last activity: 2026-01-29 — Completed 20-01-PLAN.md (Bidirectional Timestamp Tracking)
+Phase: 21 of 24 (Conflict Resolution Infrastructure)
+Plan: 0 of 1 in current phase
+Status: Ready to plan
+Last activity: 2026-01-29 — Phase 20 verified complete
 
 Progress: [████████░░░░░░░░░░░░] 20/24 phases (83%)
 

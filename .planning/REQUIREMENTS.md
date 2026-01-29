@@ -9,9 +9,9 @@ Requirements for bidirectional sync. Each maps to roadmap phases.
 
 ### Foundation
 
-- [ ] **FOUND-01**: Sync operations track origin (user edit vs sync-initiated) to prevent infinite loops
-- [ ] **FOUND-02**: SQLite tracks modification timestamps in both directions (forward and reverse)
-- [ ] **FOUND-03**: All timestamps normalized to UTC before comparison
+- [x] **FOUND-01**: Sync operations track origin (user edit vs sync-initiated) to prevent infinite loops
+- [x] **FOUND-02**: SQLite tracks modification timestamps in both directions (forward and reverse)
+- [x] **FOUND-03**: All timestamps normalized to UTC before comparison
 
 ### Conflict Resolution
 
@@ -67,9 +67,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 20 | Pending |
-| FOUND-02 | Phase 20 | Pending |
-| FOUND-03 | Phase 20 | Pending |
+| FOUND-01 | Phase 20 | Complete |
+| FOUND-02 | Phase 20 | Complete |
+| FOUND-03 | Phase 20 | Complete |
 | CONF-01 | Phase 21 | Pending |
 | CONF-02 | Phase 21 | Pending |
 | CONF-03 | Phase 21 | Pending |
@@ -88,4 +88,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-29*
-*Last updated: 2026-01-29 after roadmap creation*
+*Last updated: 2026-01-29 (Phase 20 complete)*
