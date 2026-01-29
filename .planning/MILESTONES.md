@@ -1,5 +1,33 @@
 # Project Milestones: Sportlink Sync
 
+## v2.0 Bidirectional Sync (Shipped: 2026-01-29)
+
+**Delivered:** Bidirectional sync enabling corrections made in Stadion to flow back to Sportlink via browser automation, with last-edit-wins conflict resolution at field level.
+
+**Phases completed:** 20-26 (10 plans total)
+
+**Key accomplishments:**
+
+- Per-field bidirectional timestamp tracking (14 columns) for conflict detection
+- Last-write-wins conflict resolution with 5-second grace period and audit trail
+- Hash-based change detection identifies Stadion modifications for reverse sync
+- Playwright-based reverse sync pushes contact field corrections to Sportlink
+- Multi-page Sportlink updates for datum-vog, freescout-id, and financiele-blokkade
+- Full pipeline integration with email reporting for conflicts and reverse sync stats
+
+**Stats:**
+
+- 21 files created/modified
+- 17,547 lines of JavaScript (project total)
+- 7 phases, 10 plans, ~27 tasks
+- Same day development (2026-01-29, ~6 hours)
+
+**Git range:** `feat(20-01)` → `feat(26-01)`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v1.7 MemberHeader API (Shipped: 2026-01-28)
 
 **Delivered:** Financial block tracking and optimized photo sync via MemberHeader API, replacing browser-based photo download with direct HTTP fetch.

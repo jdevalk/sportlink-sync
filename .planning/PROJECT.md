@@ -2,39 +2,29 @@
 
 ## What This Is
 
-A CLI tool that synchronizes member data from Sportlink Club (a Dutch sports club management system) to multiple destinations: Laposta email marketing lists and Stadion (a WordPress-based member management app). It downloads member data via browser automation, transforms it according to field mappings, syncs changes to both destinations including photos and team assignments, and runs automatically on a daily schedule with combined email reports via Postmark.
+A CLI tool that synchronizes member data bidirectionally between Sportlink Club (a Dutch sports club management system) and multiple destinations: Laposta email marketing lists and Stadion (a WordPress-based member management app). It downloads member data via browser automation, transforms it according to field mappings, syncs changes to both destinations including photos and team assignments, enables corrections in Stadion to flow back to Sportlink via browser automation, and runs automatically on scheduled intervals with email reports via Postmark.
 
 ## Core Value
 
-Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
+Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally.
 
-## Current Milestone: v2.0 Bidirectional Sync
+## Current State (v2.0 Shipped)
 
-**Goal:** Enable pushing corrections made in Stadion back to Sportlink via browser automation, with last-edit-wins conflict resolution.
+**Shipped:** 2026-01-29
 
-**Target features:**
-- Reverse sync contact details (email, email2, mobile, phone) to Sportlink
-- Reverse sync datum-vog to Sportlink free field
-- Reverse sync freescout-id to Sportlink free field
-- Reverse sync financiele-blokkade toggle to Sportlink
-- Track modification times for last-edit-wins conflict resolution
-- Change detection for Stadion → Sportlink direction
-
-## Previous State (v1.7 Shipped)
-
-**Shipped:** 2026-01-28
-
-Full sync pipeline operational with photo optimization:
+Full bidirectional sync pipeline operational:
 - Member data downloads from Sportlink via browser automation
 - Members sync to Laposta email lists with hash-based change detection
 - Members and parents sync to Stadion WordPress with relationship linking
-- Financial block status syncs to Stadion with activity audit trail
+- Financial block status syncs bidirectionally with activity audit trail
 - Photos download via HTTP (from MemberHeader API URLs) and upload to Stadion hourly
 - Photo change detection uses Photo.PhotoDate for accuracy
 - Teams extract from Sportlink and sync to Stadion
 - Work history links persons to teams with change detection
 - FreeScout customer sync from Stadion and Nikki databases
-- Four automated pipelines (people/photos hourly, nikki daily, teams/functions weekly)
+- Reverse sync pushes contact field corrections from Stadion to Sportlink
+- Conflict resolution uses last-write-wins with 5-second grace period
+- Five automated pipelines (people 4x daily, nikki daily, teams/functions weekly, reverse sync every 15 minutes)
 
 ## Requirements
 
@@ -84,10 +74,23 @@ Full sync pipeline operational with photo optimization:
 - ✓ Extract Photo.Url and Photo.PhotoDate from MemberHeader response — v1.7
 - ✓ Replace browser DOM photo scraping with direct URL fetch — v1.7
 - ✓ Use PhotoDate for change detection to skip unchanged photos — v1.7
+- ✓ Sync operations track origin (user edit vs sync-initiated) to prevent infinite loops — v2.0
+- ✓ SQLite tracks modification timestamps in both directions (forward and reverse) — v2.0
+- ✓ All timestamps normalized to UTC before comparison — v2.0
+- ✓ System compares modification timestamps to determine last-edit-wins — v2.0
+- ✓ Conflict resolution operates at field level, not whole record — v2.0
+- ✓ Operator receives notification when conflicts are detected and resolved — v2.0
+- ✓ System queries Stadion to detect members with modifications newer than Sportlink — v2.0
+- ✓ Contact fields (email, email2, mobile, phone) sync from Stadion to Sportlink /general page — v2.0
+- ✓ Free fields (datum-vog, freescout-id) sync from Stadion to Sportlink /other page — v2.0
+- ✓ Financial block toggle syncs from Stadion to Sportlink /financial page — v2.0
+- ✓ All reverse sync operations logged with timestamps and field values for audit — v2.0
+- ✓ Email reports include reverse sync statistics (members updated, conflicts resolved) — v2.0
+- ✓ Reverse sync runs on separate cron schedule (every 15 minutes) — v2.0
 
 ### Active
 
-(None - ready for next milestone planning)
+(None — ready for next milestone planning)
 
 ### Out of Scope
 
@@ -101,13 +104,16 @@ Full sync pipeline operational with photo optimization:
 - Team history tracking — Only track current team assignment
 - Team deletion sync — Teams persist in Stadion even if empty
 - Parent team assignments — Parents don't have team data in Sportlink
+- Three-way merge — Last-edit-wins is simpler and predictable
+- Bidirectional photo sync — Photos only flow Sportlink → Stadion (correct design)
+- Full bidirectional sync — Only specific fields sync back; Sportlink remains primary source
 
 ## Context
 
 **Codebase:**
-- ~15,000 lines of JavaScript + shell
+- ~17,500 lines of JavaScript + shell
 - Node.js with Playwright for browser automation
-- SQLite for state tracking (Laposta and Stadion)
+- SQLite for state tracking (Laposta, Stadion, FreeScout, Nikki)
 - Shell scripts for cron automation
 
 **Tech stack:** Node.js 18+, Playwright/Chromium, SQLite, Bash, Postmark, WordPress REST API
@@ -164,6 +170,20 @@ Full sync pipeline operational with photo optimization:
 | HTTP photo fetch with 3-retry backoff | Resilience for transient network failures | ✓ Good |
 | Photo sync integrated into people pipeline | Hourly vs daily, simpler cron (4 vs 5 jobs) | ✓ Good |
 | Delete obsolete browser photo scripts | Clean architecture, ~400 lines removed | ✓ Good |
+| Per-field timestamp tracking | 14 columns for 7 fields × 2 systems enables conflict detection | ✓ Good |
+| 5-second clock drift tolerance | Prevents false conflicts from minor time differences | ✓ Good |
+| NULL timestamps as "unknown" | Existing data predates tracking, don't backfill | ✓ Good |
+| Sportlink wins on timestamp tie | Forward sync has precedence as Sportlink is source of truth | ✓ Good |
+| Skip member on conflict failure | Individual errors shouldn't abort entire sync | ✓ Good |
+| Plain text conflict summary | Existing email system (formatAsHtml) converts to HTML | ✓ Good |
+| Playwright for reverse sync | Sportlink lacks API for member updates | ✓ Good |
+| Verify field values after save | Catches silent failures in Sportlink forms | ✓ Good |
+| Sequential processing with delay | Prevents rate limiting, 1-2s between members | ✓ Good |
+| Exponential backoff retry | 3 attempts with jitter for flaky Sportlink UI | ✓ Good |
+| Multi-page order general→other→financial | Consistent ordering for Sportlink navigation | ✓ Good |
+| Fail-fast per member | If any page fails, skip entire member | ✓ Good |
+| 15-minute reverse sync schedule | Balances responsiveness vs Sportlink load | ✓ Good |
+| Separate lockfile per sync type | Allows parallel execution of different pipelines | ✓ Good |
 
 ---
-*Last updated: 2026-01-29 after v2.0 milestone start*
+*Last updated: 2026-01-29 after v2.0 milestone*
