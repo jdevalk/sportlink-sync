@@ -145,7 +145,10 @@ Plans:
   3. E2E flow works: Stadion edit → change detected → reverse sync → Sportlink updated
   4. Email reports show actual reverse sync statistics (non-zero when changes exist)
 
-**Plans:** 0 plans (pending)
+**Plans:** 1 plan
+
+Plans:
+- [x] 25-01-PLAN.md — Wire detectChanges() into reverse sync entry point
 
 #### Phase 26: Wire Conflict Resolution to Forward Sync (Gap Closure)
 
@@ -177,9 +180,9 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24 → 25 → 26
 | 22. Change Detection | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
 | 23. Contact Fields | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
 | 24. Free Fields & Toggle | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
-| 25. Wire Change Detection | v2.0 | 0/? | ⏳ Pending | - |
+| 25. Wire Change Detection | v2.0 | 1/1 | ✅ Complete | 2026-01-29 |
 | 26. Wire Conflict Resolution | v2.0 | 0/? | ⏳ Pending | - |
 
 ---
 *Roadmap created: 2026-01-29*
-*Last updated: 2026-01-29 (Gap closure phases 25-26 added)*
+*Last updated: 2026-01-29 (Phase 25 complete)*

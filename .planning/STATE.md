@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 
 **Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally
 
-**Current focus:** v2.0 Bidirectional Sync Milestone COMPLETE
+**Current focus:** v2.0 Bidirectional Sync Gap Closure
 
 ## Current Position
 
-Phase: 24 of 24 (Free Fields & Financial Toggle)
-Plan: 2 of 2 in current phase
-Status: Milestone complete
-Last activity: 2026-01-29 — Phase 24 verified, v2.0 milestone complete
+Phase: 25 of 26 (Wire Change Detection)
+Plan: 1 of 1 in current phase
+Status: Phase 25 complete
+Last activity: 2026-01-29 — Phase 25 verified, change detection wired to reverse sync
 
-Progress: [████████████████████] 24/24 phases (100%)
+Progress: [█████████████████░░░] 25/26 phases (96%)
 
 ## Performance Metrics
 
@@ -36,12 +36,12 @@ Progress: [████████████████████] 24/24 p
 | 23-02 | Pipeline Integration | 3 min | 2/2 |
 | 24-01 | Multi-Page Reverse Sync Foundation | 2.5 min | 2/2 |
 | 24-02 | Cron Integration | 1.5 min | 3/3 |
+| 25-01 | Wire Change Detection | 3 min | 3/3 |
 
 **Recent Trend:**
-- Phase 23-01 completed in 2.4 minutes
-- Phase 23-02 completed in 3 minutes
 - Phase 24-01 completed in 2.5 minutes
 - Phase 24-02 completed in 1.5 minutes
+- Phase 25-01 completed in 3 minutes
 - Trend: Consistent 1.5-3 min per plan
 
 *Updated after each plan completion*
