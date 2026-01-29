@@ -9,6 +9,7 @@ const { runSync: runStadionSync } = require('./submit-stadion-sync');
 const { runSync: runBirthdaySync } = require('./sync-important-dates');
 const { runPhotoDownload } = require('./download-photos-from-api');
 const { runPhotoSync } = require('./upload-photos-to-stadion');
+const { runReverseSync } = require('./lib/reverse-sync-sportlink');
 
 /**
  * Format duration in human-readable format
@@ -76,11 +77,33 @@ function printSummary(logger, stats) {
   }
   logger.log('');
 
+  // Only show reverse sync section if there were changes or failures
+  if (stats.reverseSync.synced > 0 || stats.reverseSync.failed > 0) {
+    logger.log('REVERSE SYNC (STADION -> SPORTLINK)');
+    logger.log(minorDivider);
+    logger.log(`Contact fields synced: ${stats.reverseSync.synced} members`);
+    if (stats.reverseSync.failed > 0) {
+      logger.log(`Failed: ${stats.reverseSync.failed} members`);
+    }
+
+    // Optional: field-level detail if REVERSE_SYNC_DETAIL=detailed
+    const detailLevel = process.env.REVERSE_SYNC_DETAIL || 'summary';
+    if (detailLevel === 'detailed' && stats.reverseSync.results) {
+      for (const result of stats.reverseSync.results) {
+        if (result.success && result.fieldCount > 0) {
+          logger.log(`  ${result.knvbId}: ${result.fieldCount} field(s) synced`);
+        }
+      }
+    }
+    logger.log('');
+  }
+
   const allErrors = [
     ...stats.errors,
     ...stats.stadion.errors,
     ...stats.birthdays.errors,
-    ...stats.photos.errors
+    ...stats.photos.errors,
+    ...stats.reverseSync.errors
   ];
   if (allErrors.length > 0) {
     logger.log(`ERRORS (${allErrors.length})`);
@@ -142,6 +165,12 @@ async function runPeopleSync(options = {}) {
       deleted: 0,
       skipped: 0,
       errors: []
+    },
+    reverseSync: {
+      synced: 0,
+      failed: 0,
+      errors: [],
+      results: []
     }
   };
 
@@ -325,6 +354,35 @@ async function runPeopleSync(options = {}) {
       });
     }
 
+    // Step 8: Reverse Sync (Stadion -> Sportlink)
+    logger.verbose('Running reverse sync (Stadion -> Sportlink)...');
+    try {
+      const reverseSyncResult = await runReverseSync({ logger, verbose });
+
+      stats.reverseSync.synced = reverseSyncResult.synced;
+      stats.reverseSync.failed = reverseSyncResult.failed;
+      stats.reverseSync.results = reverseSyncResult.results || [];
+
+      if (reverseSyncResult.results) {
+        // Add field-level detail to errors for failed syncs
+        for (const result of reverseSyncResult.results) {
+          if (!result.success) {
+            stats.reverseSync.errors.push({
+              knvb_id: result.knvbId,
+              message: result.error || 'Sync failed',
+              system: 'reverse-sync'
+            });
+          }
+        }
+      }
+    } catch (err) {
+      logger.error(`Reverse sync failed: ${err.message}`);
+      stats.reverseSync.errors.push({
+        message: `Reverse sync failed: ${err.message}`,
+        system: 'reverse-sync'
+      });
+    }
+
     // Complete
     stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
     stats.duration = formatDuration(Date.now() - startTime);
@@ -337,7 +395,8 @@ async function runPeopleSync(options = {}) {
       success: stats.errors.length === 0 &&
                stats.stadion.errors.length === 0 &&
                stats.birthdays.errors.length === 0 &&
-               stats.photos.errors.length === 0,
+               stats.photos.errors.length === 0 &&
+               stats.reverseSync.errors.length === 0,
       stats
     };
   } catch (err) {
