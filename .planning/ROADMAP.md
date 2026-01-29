@@ -80,10 +80,10 @@ Plans:
   3. Hash-based change detection confirms actual field changes (not just modification time)
   4. All detected changes logged with timestamps and field values for audit trail
 
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 22-01: Stadion change detection script
+- [ ] 22-01-PLAN.md — Stadion change detection script with audit table and hash comparison
 
 #### Phase 23: Contact Fields Reverse Sync
 
