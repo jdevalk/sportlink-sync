@@ -3,11 +3,12 @@
 # Unified sync wrapper for cron
 #
 # Usage:
-#   sync.sh people   # Hourly: download + laposta + stadion + birthdays
-#   sync.sh photos   # Daily: photo download + upload
+#   sync.sh people   # 4x daily: download + laposta + stadion + birthdays
+#   sync.sh photos   # Alias for people (photos integrated)
 #   sync.sh teams    # Weekly: team download + sync + work history
 #   sync.sh functions  # Weekly: functions download + commissies + work history
 #   sync.sh nikki    # Daily: nikki contributions download + stadion sync
+#   sync.sh reverse  # Every 15 min: reverse sync (Stadion -> Sportlink)
 #   sync.sh all      # Full sync (all steps)
 #
 # Configuration via environment variables in .env:
@@ -20,6 +21,7 @@
 #   0 7 * * * /path/to/sync.sh nikki            # daily
 #   0 6 * * 0 /path/to/sync.sh teams            # weekly Sunday
 #   0 7 * * 0 /path/to/sync.sh functions        # weekly Sunday
+#   */15 * * * * /path/to/sync.sh reverse       # every 15 minutes
 #
 
 set -e
@@ -33,10 +35,10 @@ SYNC_TYPE="${1:-all}"
 
 # Validate sync type
 case "$SYNC_TYPE" in
-    people|photos|teams|functions|nikki|all)
+    people|photos|teams|functions|nikki|reverse|all)
         ;;
     *)
-        echo "Usage: $0 {people|photos|teams|functions|nikki|all}" >&2
+        echo "Usage: $0 {people|photos|teams|functions|nikki|reverse|all}" >&2
         exit 1
         ;;
 esac
@@ -90,6 +92,9 @@ case "$SYNC_TYPE" in
         ;;
     nikki)
         SYNC_SCRIPT="sync-nikki.js"
+        ;;
+    reverse)
+        SYNC_SCRIPT="reverse-sync.js"
         ;;
     all)
         SYNC_SCRIPT="sync-all.js"
