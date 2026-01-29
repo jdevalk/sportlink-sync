@@ -3,6 +3,7 @@ require('varlock/auto-load');
 const { requireProductionServer } = require('./lib/server-check');
 const { createSyncLogger } = require('./lib/logger');
 const { runReverseSyncMultiPage } = require('./lib/reverse-sync-sportlink');
+const { detectChanges } = require('./lib/detect-stadion-changes');
 
 /**
  * Run full reverse sync for all fields (Stadion -> Sportlink)
@@ -20,6 +21,11 @@ async function runAllFieldsReverseSync(options = {}) {
   logger.log('Fields: email, email2, mobile, phone, datum-vog, freescout-id, financiele-blokkade');
 
   try {
+    // Detect Stadion changes to populate stadion_change_detections table
+    logger.log('Detecting Stadion changes...');
+    const detectedChanges = await detectChanges({ verbose, logger });
+    logger.log(`Detected ${detectedChanges.length} field change(s)`);
+
     const result = await runReverseSyncMultiPage({ verbose, logger });
 
     if (result.synced === 0 && result.failed === 0) {
