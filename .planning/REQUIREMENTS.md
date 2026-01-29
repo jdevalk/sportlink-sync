@@ -72,14 +72,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-03 | Phase 20 | Complete |
 | CONF-01 | Phase 21 | Complete |
 | CONF-02 | Phase 21 | Complete |
-| CONF-03 | Phase 21 | Complete |
-| RSYNC-01 | Phase 22 | Complete |
+| CONF-03 | Phase 21, **26** | Blocked (wiring pending) |
+| RSYNC-01 | Phase 22, **25** | Blocked (wiring pending) |
 | RSYNC-02 | Phase 23 | Complete |
-| RSYNC-03 | Phase 24 | Pending |
-| RSYNC-04 | Phase 24 | Pending |
-| INTEG-01 | Phase 22 | Complete |
-| INTEG-02 | Phase 24 | Pending |
-| INTEG-03 | Phase 24 | Pending |
+| RSYNC-03 | Phase 24 | Complete |
+| RSYNC-04 | Phase 24 | Complete |
+| INTEG-01 | Phase 22, **25** | Blocked (wiring pending) |
+| INTEG-02 | Phase 24, **25** | Blocked (wiring pending) |
+| INTEG-03 | Phase 24 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 13 total
@@ -88,4 +88,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-29*
-*Last updated: 2026-01-29 (Phase 23 complete)*
+*Last updated: 2026-01-29 (Gap closure phases 25-26 added)*

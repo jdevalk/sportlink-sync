@@ -13,7 +13,7 @@ v2.0 adds bidirectional sync capability to enable corrections made in Stadion to
 - ✅ **v1.4 Photo Sync** - Phases 14-16 (shipped 2025)
 - ✅ **v1.5 Team Sync** - Phases 17-18 (shipped 2025)
 - ✅ **v1.7 Photo API Optimization** - Phase 19 (shipped 2026-01-28)
-- ✅ **v2.0 Bidirectional Sync** - Phases 20-24 (shipped 2026-01-29)
+- 🔧 **v2.0 Bidirectional Sync** - Phases 20-26 (gap closure in progress)
 
 ## Phases
 
@@ -24,7 +24,7 @@ Previous milestones completed. See git history for phase details.
 
 </details>
 
-### ✅ v2.0 Bidirectional Sync (Complete)
+### 🔧 v2.0 Bidirectional Sync (Gap Closure)
 
 **Milestone Goal:** Enable pushing corrections made in Stadion back to Sportlink via browser automation, with last-edit-wins conflict resolution.
 
@@ -129,10 +129,46 @@ Plans:
 - [x] 24-01-PLAN.md — Multi-page reverse sync core with session timeout detection
 - [x] 24-02-PLAN.md — CLI entry point and 15-minute cron integration
 
+#### Phase 25: Wire Change Detection to Reverse Sync (Gap Closure)
+
+**Goal**: Connect orphaned change detection infrastructure to reverse sync pipeline so Stadion edits flow through to Sportlink
+
+**Depends on**: Phase 24
+
+**Requirements**: RSYNC-01, INTEG-01, INTEG-02
+
+**Gap Closure**: Closes integration gap from v2.0-MILESTONE-AUDIT.md
+
+**Success Criteria** (what must be TRUE):
+  1. reverse-sync.js calls detectChanges() before runReverseSyncMultiPage()
+  2. stadion_change_detections table populates with real data when Stadion members are modified
+  3. E2E flow works: Stadion edit → change detected → reverse sync → Sportlink updated
+  4. Email reports show actual reverse sync statistics (non-zero when changes exist)
+
+**Plans:** 0 plans (pending)
+
+#### Phase 26: Wire Conflict Resolution to Forward Sync (Gap Closure)
+
+**Goal**: Connect orphaned conflict resolution infrastructure to forward sync so bidirectional conflicts are detected and resolved
+
+**Depends on**: Phase 25
+
+**Requirements**: CONF-03
+
+**Gap Closure**: Closes integration gap from v2.0-MILESTONE-AUDIT.md
+
+**Success Criteria** (what must be TRUE):
+  1. submit-stadion-sync.js calls resolveFieldConflicts() before updating Stadion
+  2. Conflicts are detected when both systems have modifications to same field
+  3. Last-edit-wins is applied based on timestamp comparison
+  4. Conflict resolutions logged to audit table and included in email reports
+
+**Plans:** 0 plans (pending)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
+Phases execute in numeric order: 20 → 21 → 22 → 23 → 24 → 25 → 26
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -141,7 +177,9 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 | 22. Change Detection | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
 | 23. Contact Fields | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
 | 24. Free Fields & Toggle | v2.0 | 2/2 | ✅ Complete | 2026-01-29 |
+| 25. Wire Change Detection | v2.0 | 0/? | ⏳ Pending | - |
+| 26. Wire Conflict Resolution | v2.0 | 0/? | ⏳ Pending | - |
 
 ---
 *Roadmap created: 2026-01-29*
-*Last updated: 2026-01-29 (Phase 24 complete - v2.0 milestone shipped)*
+*Last updated: 2026-01-29 (Gap closure phases 25-26 added)*
