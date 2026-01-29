@@ -30,6 +30,7 @@ Requirements for bidirectional sync. Each maps to roadmap phases.
 
 - [ ] **INTEG-01**: All reverse sync operations logged with timestamps and field values for audit
 - [ ] **INTEG-02**: Email reports include reverse sync statistics (members updated, conflicts resolved)
+- [ ] **INTEG-03**: Reverse sync runs on separate cron schedule (every 15 minutes)
 
 ## Future Requirements
 
@@ -78,10 +79,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RSYNC-04 | Phase 24 | Pending |
 | INTEG-01 | Phase 22 | Pending |
 | INTEG-02 | Phase 24 | Pending |
+| INTEG-03 | Phase 24 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 12 total
-- Mapped to phases: 12
+- v2.0 requirements: 13 total
+- Mapped to phases: 13
 - Unmapped: 0 ✓
 
 ---

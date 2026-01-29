@@ -111,14 +111,15 @@ Plans:
 
 **Depends on**: Phase 23
 
-**Requirements**: RSYNC-03, RSYNC-04, INTEG-02
+**Requirements**: RSYNC-03, RSYNC-04, INTEG-02, INTEG-03
 
 **Success Criteria** (what must be TRUE):
   1. System syncs datum-vog and freescout-id from Stadion to Sportlink /other page
   2. System syncs financiele-blokkade toggle from Stadion to Sportlink /financial page
   3. Multi-page navigation maintains session state across /general, /other, and /financial pages
   4. Email reports include reverse sync statistics (members updated, fields changed, conflicts resolved)
-  5. Reverse sync integrated into sync-people.js pipeline with graceful degradation on failures
+  5. Reverse sync runs on separate cron schedule every 15 minutes via scripts/sync.sh reverse
+  6. Graceful degradation on failures (forward sync not blocked by reverse sync issues)
 
 **Plans**: TBD
 
