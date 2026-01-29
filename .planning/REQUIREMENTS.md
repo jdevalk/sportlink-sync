@@ -22,7 +22,7 @@ Requirements for bidirectional sync. Each maps to roadmap phases.
 ### Reverse Sync
 
 - [x] **RSYNC-01**: System queries Stadion to detect members with modifications newer than Sportlink
-- [ ] **RSYNC-02**: Contact fields (email, email2, mobile, phone) sync from Stadion to Sportlink /general page
+- [x] **RSYNC-02**: Contact fields (email, email2, mobile, phone) sync from Stadion to Sportlink /general page
 - [ ] **RSYNC-03**: Free fields (datum-vog, freescout-id) sync from Stadion to Sportlink /other page
 - [ ] **RSYNC-04**: Financial block toggle syncs from Stadion to Sportlink /financial page
 
@@ -74,7 +74,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONF-02 | Phase 21 | Complete |
 | CONF-03 | Phase 21 | Complete |
 | RSYNC-01 | Phase 22 | Complete |
-| RSYNC-02 | Phase 23 | Pending |
+| RSYNC-02 | Phase 23 | Complete |
 | RSYNC-03 | Phase 24 | Pending |
 | RSYNC-04 | Phase 24 | Pending |
 | INTEG-01 | Phase 22 | Complete |
@@ -88,4 +88,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-29*
-*Last updated: 2026-01-29 (Phase 22 complete)*
+*Last updated: 2026-01-29 (Phase 23 complete)*
