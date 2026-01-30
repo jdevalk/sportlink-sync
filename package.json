@@ -51,6 +51,8 @@
     "sync-nikki-verbose": "node sync-nikki.js --verbose",
     "sync-freescout": "node sync-freescout.js",
     "sync-freescout-verbose": "node sync-freescout.js --verbose",
+    "sync-individual": "node sync-individual.js",
+    "sync-individual-verbose": "node sync-individual.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
     "show-sportlink-member": "node show-sportlink-member.js",
     "show-laposta-changes": "node show-laposta-changes.js",
