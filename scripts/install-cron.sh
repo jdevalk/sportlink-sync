@@ -13,7 +13,7 @@ echo "  - People sync:    4x daily (members, parents, birthdays, photos)"
 echo "  - Nikki sync:     daily at 7:00 AM"
 echo "  - FreeScout sync: daily at 8:00 AM"
 echo "  - Team sync:      weekly on Sunday at 6:00 AM"
-echo "  - Functions sync: weekly on Sunday at 7:00 AM"
+echo "  - Functions sync: daily at 7:15 AM"
 echo "  - Reverse sync:   every 15 minutes (Stadion -> Sportlink)"
 echo ""
 
@@ -117,8 +117,8 @@ CRON_TZ=Europe/Amsterdam
 # Team sync: weekly on Sunday at 6:00 AM
 0 6 * * 0 $PROJECT_DIR/scripts/sync.sh teams
 
-# Functions sync: weekly on Sunday at 7:00 AM (after teams)
-0 7 * * 0 $PROJECT_DIR/scripts/sync.sh functions
+# Functions sync: daily at 7:15 AM (after Nikki sync)
+15 7 * * * $PROJECT_DIR/scripts/sync.sh functions
 
 # Reverse sync: every 15 minutes (Stadion -> Sportlink)
 */15 * * * * $PROJECT_DIR/scripts/sync.sh reverse
@@ -134,7 +134,7 @@ echo "  - People sync:    4x daily at 8am, 11am, 2pm, 5pm (members, parents, bir
 echo "  - Nikki sync:     daily at 7:00 AM (nikki contributions)"
 echo "  - FreeScout sync: daily at 8:00 AM (customer sync)"
 echo "  - Team sync:      weekly on Sunday at 6:00 AM"
-echo "  - Functions sync: weekly on Sunday at 7:00 AM"
+echo "  - Functions sync: daily at 7:15 AM"
 echo "  - Reverse sync:   every 15 minutes (Stadion -> Sportlink)"
 echo ""
 echo "All times are Amsterdam timezone (Europe/Amsterdam)"

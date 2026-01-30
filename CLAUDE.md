@@ -206,7 +206,7 @@ After `npm run install-cron`, six sync schedules are configured:
 - **Nikki sync:** Daily at 7:00 AM Amsterdam time
 - **FreeScout sync:** Daily at 8:00 AM Amsterdam time
 - **Team sync:** Weekly on Sunday at 6:00 AM
-- **Functions sync:** Weekly on Sunday at 7:00 AM (after teams)
+- **Functions sync:** Daily at 7:15 AM (after Nikki sync)
 
 Each sync:
 - Runs via scripts/sync.sh wrapper
@@ -269,7 +269,7 @@ npx playwright install chromium  # Browser for Sportlink automation
 scripts/sync.sh people    # People sync (hourly, includes photos)
 scripts/sync.sh photos    # Alias for people (backwards compatible)
 scripts/sync.sh teams     # Team sync (weekly)
-scripts/sync.sh functions # Functions sync (weekly)
+scripts/sync.sh functions # Functions sync (daily)
 scripts/sync.sh all       # Full sync (all pipelines)
 
 # Debug individual steps within people pipeline
