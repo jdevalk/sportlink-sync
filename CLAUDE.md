@@ -9,14 +9,16 @@ CLI tool that synchronizes member data from Sportlink Club to Laposta email mark
 scripts/sync.sh people    # 4x daily: members, parents, birthdays, photos
 scripts/sync.sh photos    # Alias for people (photos integrated)
 scripts/sync.sh nikki     # Daily: Nikki contributions to Stadion
+scripts/sync.sh freescout # Daily: FreeScout customer sync
 scripts/sync.sh teams     # Weekly: team sync + work history
 scripts/sync.sh functions # Weekly: commissies + work history
-scripts/sync.sh all       # Full sync (all pipelines + FreeScout)
+scripts/sync.sh all       # Full sync (all pipelines)
 
 # Alternative: npm scripts
 npm run sync-people       # Same as scripts/sync.sh people
 npm run sync-photos       # Same as sync-people (backwards compatible)
 npm run sync-nikki        # Same as scripts/sync.sh nikki
+npm run sync-freescout    # Same as scripts/sync.sh freescout
 npm run sync-teams        # Same as scripts/sync.sh teams
 npm run sync-functions    # Same as scripts/sync.sh functions
 npm run sync-all          # Full sync (all pipelines)
@@ -55,8 +57,11 @@ The sync is split into four independent pipelines, each with its own schedule:
 - submit-stadion-commissies.js - Creates/updates commissies in Stadion
 - submit-stadion-commissie-work-history.js - Links persons to commissies
 
+**5. FreeScout Pipeline (daily via sync-freescout.js):**
+- submit-freescout-sync.js - Syncs Stadion members to FreeScout customers
+
 **Full Sync (sync-all.js):**
-Runs all four pipelines sequentially plus FreeScout customer sync. Used for manual full syncs or initial setup.
+Runs all five pipelines sequentially. Used for manual full syncs or initial setup.
 
 ### Supporting Files
 
@@ -94,7 +99,7 @@ Sportlink members → function extraction → Stadion Commissies API
                                        ↓
                            Stadion work_history field
 
-FreeScout (with full sync):
+FreeScout (daily):
 Stadion members → freescout-sync.sqlite → FreeScout API (customers)
 ```
 
@@ -195,10 +200,11 @@ The `stadion_id` mapping is critical: without it, sync creates new entries inste
 
 ## Cron Automation
 
-After `npm run install-cron`, four sync schedules are configured:
+After `npm run install-cron`, six sync schedules are configured:
 
 - **People sync:** 4x daily at 8am, 11am, 2pm, 5pm (members, parents, birthdays, photos)
 - **Nikki sync:** Daily at 7:00 AM Amsterdam time
+- **FreeScout sync:** Daily at 8:00 AM Amsterdam time
 - **Team sync:** Weekly on Sunday at 6:00 AM
 - **Functions sync:** Weekly on Sunday at 7:00 AM (after teams)
 

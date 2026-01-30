@@ -8,9 +8,10 @@ PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 echo "Sportlink Sync - Cron Installation"
 echo "==================================="
 echo ""
-echo "This will set up five sync schedules:"
+echo "This will set up six sync schedules:"
 echo "  - People sync:    4x daily (members, parents, birthdays, photos)"
 echo "  - Nikki sync:     daily at 7:00 AM"
+echo "  - FreeScout sync: daily at 8:00 AM"
 echo "  - Team sync:      weekly on Sunday at 6:00 AM"
 echo "  - Functions sync: weekly on Sunday at 7:00 AM"
 echo "  - Reverse sync:   every 15 minutes (Stadion -> Sportlink)"
@@ -110,6 +111,9 @@ CRON_TZ=Europe/Amsterdam
 # Nikki sync: daily at 7:00 AM
 0 7 * * * $PROJECT_DIR/scripts/sync.sh nikki
 
+# FreeScout sync: daily at 8:00 AM
+0 8 * * * $PROJECT_DIR/scripts/sync.sh freescout
+
 # Team sync: weekly on Sunday at 6:00 AM
 0 6 * * 0 $PROJECT_DIR/scripts/sync.sh teams
 
@@ -128,6 +132,7 @@ echo ""
 echo "Scheduled jobs:"
 echo "  - People sync:    4x daily at 8am, 11am, 2pm, 5pm (members, parents, birthdays, photos)"
 echo "  - Nikki sync:     daily at 7:00 AM (nikki contributions)"
+echo "  - FreeScout sync: daily at 8:00 AM (customer sync)"
 echo "  - Team sync:      weekly on Sunday at 6:00 AM"
 echo "  - Functions sync: weekly on Sunday at 7:00 AM"
 echo "  - Reverse sync:   every 15 minutes (Stadion -> Sportlink)"
@@ -141,6 +146,6 @@ fi
 echo "Helpful commands:"
 echo "  View installed cron jobs:   crontab -l"
 echo "  View logs:                  ls -la $PROJECT_DIR/logs/cron/"
-echo "  Manual sync:                $PROJECT_DIR/scripts/sync.sh {people|teams|functions|nikki|reverse|all}"
+echo "  Manual sync:                $PROJECT_DIR/scripts/sync.sh {people|teams|functions|nikki|freescout|reverse|all}"
 echo "  Remove all cron jobs:       crontab -r"
 echo ""

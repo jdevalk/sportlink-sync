@@ -49,6 +49,8 @@
     "sync-nikki-stadion-verbose": "node sync-nikki-to-stadion.js --verbose",
     "sync-nikki": "node sync-nikki.js",
     "sync-nikki-verbose": "node sync-nikki.js --verbose",
+    "sync-freescout": "node sync-freescout.js",
+    "sync-freescout-verbose": "node sync-freescout.js --verbose",
     "show-laposta-member": "node show-laposta-member.js",
     "show-sportlink-member": "node show-sportlink-member.js",
     "show-laposta-changes": "node show-laposta-changes.js",

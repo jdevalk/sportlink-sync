@@ -8,6 +8,7 @@
 #   sync.sh teams    # Weekly: team download + sync + work history
 #   sync.sh functions  # Weekly: functions download + commissies + work history
 #   sync.sh nikki    # Daily: nikki contributions download + stadion sync
+#   sync.sh freescout # Daily: FreeScout customer sync
 #   sync.sh reverse  # Every 15 min: reverse sync (Stadion -> Sportlink)
 #   sync.sh all      # Full sync (all steps)
 #
@@ -19,6 +20,7 @@
 # Crontab example (single-line entries):
 #   0 8,11,14,17 * * * /path/to/sync.sh people  # 4x daily
 #   0 7 * * * /path/to/sync.sh nikki            # daily
+#   0 8 * * * /path/to/sync.sh freescout        # daily
 #   0 6 * * 0 /path/to/sync.sh teams            # weekly Sunday
 #   0 7 * * 0 /path/to/sync.sh functions        # weekly Sunday
 #   */15 * * * * /path/to/sync.sh reverse       # every 15 minutes
@@ -35,10 +37,10 @@ SYNC_TYPE="${1:-all}"
 
 # Validate sync type
 case "$SYNC_TYPE" in
-    people|photos|teams|functions|nikki|reverse|all)
+    people|photos|teams|functions|nikki|freescout|reverse|all)
         ;;
     *)
-        echo "Usage: $0 {people|photos|teams|functions|nikki|reverse|all}" >&2
+        echo "Usage: $0 {people|photos|teams|functions|nikki|freescout|reverse|all}" >&2
         exit 1
         ;;
 esac
@@ -92,6 +94,9 @@ case "$SYNC_TYPE" in
         ;;
     nikki)
         SYNC_SCRIPT="sync-nikki.js"
+        ;;
+    freescout)
+        SYNC_SCRIPT="sync-freescout.js"
         ;;
     reverse)
         SYNC_SCRIPT="reverse-sync.js"
