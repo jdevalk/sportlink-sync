@@ -486,7 +486,14 @@ async function runFunctionsDownload(options = {}) {
   }
 }
 
-module.exports = { runFunctionsDownload };
+module.exports = {
+  runFunctionsDownload,
+  loginToSportlink,
+  fetchMemberFunctions,
+  fetchMemberDataFromOtherPage,
+  parseFunctionsResponse,
+  parseFreeFieldsResponse
+};
 
 // CLI entry point
 if (require.main === module) {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 require('varlock/auto-load');
 
+const { chromium } = require('playwright');
 const { openDb: openLapostaDb, getLatestSportlinkResults } = require('./laposta-db');
 const {
   openDb: openStadionDb,
@@ -10,7 +11,10 @@ const {
   updateSyncState,
   getMemberFunctions,
   getMemberCommittees,
-  getAllCommissies
+  getAllCommissies,
+  upsertMemberFunctions,
+  upsertMemberCommittees,
+  upsertMemberFreeFields
 } = require('./lib/stadion-db');
 const { preparePerson } = require('./prepare-stadion-members');
 const { stadionRequest } = require('./lib/stadion-client');
@@ -18,6 +22,12 @@ const { resolveFieldConflicts } = require('./lib/conflict-resolver');
 const { TRACKED_FIELDS } = require('./lib/sync-origin');
 const { extractFieldValue } = require('./lib/detect-stadion-changes');
 const { syncCommissieWorkHistoryForMember } = require('./submit-stadion-commissie-work-history');
+const {
+  loginToSportlink,
+  fetchMemberFunctions,
+  fetchMemberDataFromOtherPage,
+  parseFunctionsResponse
+} = require('./download-functions-from-sportlink');
 
 /**
  * Extract tracked field values from member data
@@ -54,6 +64,88 @@ function applyResolutions(originalData, resolutions) {
     }
   }
   return resolvedData;
+}
+
+/**
+ * Fetch fresh data from Sportlink for a single member
+ * This includes functions, committees, and free fields (VOG, FreeScout ID, etc.)
+ */
+async function fetchFreshDataFromSportlink(knvbId, db, options = {}) {
+  const { verbose = false } = options;
+  const log = verbose ? console.log : () => {};
+
+  log('Launching browser to fetch fresh data from Sportlink...');
+
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+  });
+  const page = await context.newPage();
+
+  const logger = {
+    log: verbose ? console.log : () => {},
+    verbose: verbose ? console.log : () => {},
+    error: console.error
+  };
+
+  try {
+    await loginToSportlink(page, logger);
+    log('Logged in to Sportlink');
+
+    // Fetch functions
+    log(`Fetching functions for ${knvbId}...`);
+    const functionsData = await fetchMemberFunctions(page, knvbId, logger);
+
+    let functions = [];
+    let committees = [];
+
+    if (functionsData) {
+      const parsed = parseFunctionsResponse(functionsData, knvbId);
+      functions = parsed.functions;
+      committees = parsed.committees;
+      log(`  Found ${functions.length} functions, ${committees.length} committees`);
+    }
+
+    // Fetch free fields (Other tab)
+    log(`Fetching free fields (Other tab) for ${knvbId}...`);
+    const freeFieldsData = await fetchMemberDataFromOtherPage(page, knvbId, logger);
+
+    if (freeFieldsData) {
+      log(`  FreeScout ID: ${freeFieldsData.freescout_id || 'none'}`);
+      log(`  VOG datum: ${freeFieldsData.vog_datum || 'none'}`);
+      log(`  Financial block: ${freeFieldsData.has_financial_block}`);
+      log(`  Photo: ${freeFieldsData.photo_url ? 'yes' : 'no'}`);
+    }
+
+    // Store to database
+    if (functions.length > 0) {
+      // Clear existing functions for this member first
+      db.prepare('DELETE FROM sportlink_member_functions WHERE knvb_id = ?').run(knvbId);
+      upsertMemberFunctions(db, functions);
+    }
+
+    if (committees.length > 0) {
+      // Clear existing committees for this member first
+      db.prepare('DELETE FROM sportlink_member_committees WHERE knvb_id = ?').run(knvbId);
+      upsertMemberCommittees(db, committees);
+    }
+
+    if (freeFieldsData) {
+      // Update or insert free fields for this member
+      upsertMemberFreeFields(db, [freeFieldsData]);
+    }
+
+    return {
+      success: true,
+      functions,
+      committees,
+      freeFields: freeFieldsData
+    };
+
+  } finally {
+    await browser.close();
+    log('Browser closed');
+  }
 }
 
 /**
@@ -129,7 +221,7 @@ async function syncFunctionsForMember(knvbId, stadionId, db, memberFunctions, me
  * Sync a single person by KNVB ID
  */
 async function syncIndividual(knvbId, options = {}) {
-  const { verbose = false, force = false, dryRun = false, skipFunctions = false } = options;
+  const { verbose = false, force = false, dryRun = false, skipFunctions = false, fetch = false } = options;
   const log = verbose ? console.log : () => {};
 
   // Open databases
@@ -137,6 +229,17 @@ async function syncIndividual(knvbId, options = {}) {
   const stadionDb = openStadionDb();
 
   try {
+    // Fetch fresh data from Sportlink if requested
+    if (fetch) {
+      console.log('Fetching fresh data from Sportlink...');
+      const fetchResult = await fetchFreshDataFromSportlink(knvbId, stadionDb, { verbose });
+      if (!fetchResult.success) {
+        console.error('Failed to fetch data from Sportlink');
+        return { success: false, error: 'Failed to fetch from Sportlink' };
+      }
+      console.log('Fresh data fetched successfully');
+    }
+
     // Get latest Sportlink data
     const resultsJson = getLatestSportlinkResults(lapostaDb);
     if (!resultsJson) {
@@ -157,7 +260,7 @@ async function syncIndividual(knvbId, options = {}) {
 
     log(`Found member: ${member.FirstName} ${member.Infix || ''} ${member.LastName}`);
 
-    // Get free fields for this member
+    // Get free fields for this member (now includes freshly fetched data if --fetch was used)
     const freeFields = getMemberFreeFieldsByKnvbId(stadionDb, knvbId);
     log(`Free fields: ${JSON.stringify(freeFields)}`);
 
@@ -337,6 +440,7 @@ if (require.main === module) {
   const dryRun = args.includes('--dry-run');
   const searchMode = args.includes('--search');
   const skipFunctions = args.includes('--skip-functions');
+  const fetch = args.includes('--fetch');
 
   // Filter out flags to get the identifier
   const identifier = args.find(a => !a.startsWith('--'));
@@ -350,9 +454,11 @@ if (require.main === module) {
     console.log('  --dry-run         Show what would be synced without making changes');
     console.log('  --search          Search for members by name');
     console.log('  --skip-functions  Skip syncing functions/commissie work history');
+    console.log('  --fetch           Fetch fresh data from Sportlink (functions, VOG, etc.)');
     console.log('\nExamples:');
-    console.log('  node sync-individual.js 12345678       # Sync by KNVB ID (includes functions)');
-    console.log('  node sync-individual.js --search Jan   # Find members named Jan');
+    console.log('  node sync-individual.js 12345678          # Sync by KNVB ID');
+    console.log('  node sync-individual.js 12345678 --fetch  # Fetch fresh data from Sportlink first');
+    console.log('  node sync-individual.js --search Jan      # Find members named Jan');
     process.exit(1);
   }
 
@@ -369,7 +475,7 @@ if (require.main === module) {
     process.exit(0);
   }
 
-  syncIndividual(identifier, { verbose, force, dryRun, skipFunctions })
+  syncIndividual(identifier, { verbose, force, dryRun, skipFunctions, fetch })
     .then(result => {
       if (!result.success) {
         process.exitCode = 1;
