@@ -242,7 +242,9 @@ async function runSync(options = {}) {
       // This catches teams created before tracking was implemented
       logVerbose('Checking for untracked teams in WordPress...');
       const wordPressTeams = await fetchAllWordPressTeams(options);
-      const trackedStadionIds = new Set(allTeams.filter(t => t.stadion_id).map(t => t.stadion_id));
+      // Re-fetch teams to get updated stadion_ids from newly created teams
+      const updatedTeams = getAllTeamsForSync(db);
+      const trackedStadionIds = new Set(updatedTeams.filter(t => t.stadion_id).map(t => t.stadion_id));
 
       const untrackedTeams = wordPressTeams.filter(t => !trackedStadionIds.has(t.id));
       if (untrackedTeams.length > 0) {
