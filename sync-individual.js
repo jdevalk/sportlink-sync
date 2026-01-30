@@ -2,12 +2,22 @@
 require('varlock/auto-load');
 
 const { openDb: openLapostaDb, getLatestSportlinkResults } = require('./laposta-db');
-const { openDb: openStadionDb, getMemberFreeFieldsByKnvbId, upsertMembers, getMembersNeedingSync, updateSyncState } = require('./lib/stadion-db');
+const {
+  openDb: openStadionDb,
+  getMemberFreeFieldsByKnvbId,
+  upsertMembers,
+  getMembersNeedingSync,
+  updateSyncState,
+  getMemberFunctions,
+  getMemberCommittees,
+  getAllCommissies
+} = require('./lib/stadion-db');
 const { preparePerson } = require('./prepare-stadion-members');
 const { stadionRequest } = require('./lib/stadion-client');
 const { resolveFieldConflicts } = require('./lib/conflict-resolver');
 const { TRACKED_FIELDS } = require('./lib/sync-origin');
 const { extractFieldValue } = require('./lib/detect-stadion-changes');
+const { syncCommissieWorkHistoryForMember } = require('./submit-stadion-commissie-work-history');
 
 /**
  * Extract tracked field values from member data
@@ -47,10 +57,79 @@ function applyResolutions(originalData, resolutions) {
 }
 
 /**
+ * Sync functions/commissie work history for a single member
+ */
+async function syncFunctionsForMember(knvbId, stadionId, db, memberFunctions, memberCommittees, options = {}) {
+  const { verbose = false, force = false } = options;
+  const log = verbose ? console.log : () => {};
+
+  // Build commissie map
+  const commissies = getAllCommissies(db);
+  const commissieMap = new Map(commissies.map(c => [c.commissie_name, c.stadion_id]));
+
+  if (commissies.length === 0) {
+    log('No commissies found in database. Run functions sync first.');
+    return { synced: false, added: 0, ended: 0 };
+  }
+
+  // Build current commissies list from functions and committees
+  const currentCommissies = [];
+
+  // Functions go to "Verenigingsbreed"
+  for (const func of memberFunctions) {
+    currentCommissies.push({
+      commissie_name: 'Verenigingsbreed',
+      role_name: func.function_description,
+      is_active: func.is_active === 1,
+      relation_start: func.relation_start,
+      relation_end: func.relation_end
+    });
+  }
+
+  // Committees go to their respective commissie
+  for (const comm of memberCommittees) {
+    currentCommissies.push({
+      commissie_name: comm.committee_name,
+      role_name: comm.role_name,
+      is_active: comm.is_active === 1,
+      relation_start: comm.relation_start,
+      relation_end: comm.relation_end
+    });
+  }
+
+  if (currentCommissies.length === 0) {
+    log('No functions or committees to sync');
+    return { synced: false, added: 0, ended: 0 };
+  }
+
+  log(`Syncing ${currentCommissies.length} function(s)/committee(s) for ${knvbId}`);
+
+  try {
+    const result = await syncCommissieWorkHistoryForMember(
+      { knvb_id: knvbId, stadion_id: stadionId },
+      currentCommissies,
+      db,
+      commissieMap,
+      { verbose },
+      force
+    );
+
+    return {
+      synced: result.action === 'updated',
+      added: result.added || 0,
+      ended: result.ended || 0
+    };
+  } catch (error) {
+    console.error(`Error syncing functions for ${knvbId}: ${error.message}`);
+    return { synced: false, added: 0, ended: 0, error: error.message };
+  }
+}
+
+/**
  * Sync a single person by KNVB ID
  */
 async function syncIndividual(knvbId, options = {}) {
-  const { verbose = false, force = false, dryRun = false } = options;
+  const { verbose = false, force = false, dryRun = false, skipFunctions = false } = options;
   const log = verbose ? console.log : () => {};
 
   // Open databases
@@ -106,6 +185,10 @@ async function syncIndividual(knvbId, options = {}) {
 
     log(`Stadion ID: ${stadionId || 'none (will create)'}`);
 
+    // Get functions data for dry run display
+    const memberFunctions = getMemberFunctions(stadionDb, knvbId);
+    const memberCommittees = getMemberCommittees(stadionDb, knvbId);
+
     if (dryRun) {
       console.log('\n=== DRY RUN - No changes will be made ===');
       console.log(`KNVB ID: ${knvbId}`);
@@ -114,6 +197,26 @@ async function syncIndividual(knvbId, options = {}) {
       console.log(`Email: ${prepared.email || 'none'}`);
       console.log('\nData to sync:');
       console.log(JSON.stringify(prepared.data, null, 2));
+
+      if (!skipFunctions) {
+        console.log('\nFunctions (Verenigingsbreed):');
+        if (memberFunctions.length === 0) {
+          console.log('  (none)');
+        } else {
+          memberFunctions.forEach(f => {
+            console.log(`  - ${f.function_description} (${f.is_active ? 'active' : 'inactive'})`);
+          });
+        }
+
+        console.log('\nCommittee memberships:');
+        if (memberCommittees.length === 0) {
+          console.log('  (none)');
+        } else {
+          memberCommittees.forEach(c => {
+            console.log(`  - ${c.committee_name}: ${c.role_name || 'Lid'} (${c.is_active ? 'active' : 'inactive'})`);
+          });
+        }
+      }
       return { success: true, action: 'dry-run' };
     }
 
@@ -161,6 +264,15 @@ async function syncIndividual(knvbId, options = {}) {
         updateSyncState(stadionDb, knvbId, prepared.source_hash, stadionId);
 
         console.log(`Updated person ${stadionId} (${prepared.data.acf.first_name} ${prepared.data.acf.last_name})`);
+
+        // Sync functions/commissie work history
+        if (!skipFunctions) {
+          const functionsResult = await syncFunctionsForMember(knvbId, stadionId, stadionDb, memberFunctions, memberCommittees, { verbose, force });
+          if (functionsResult.synced) {
+            console.log(`  Functions: ${functionsResult.added} added, ${functionsResult.ended} ended`);
+          }
+        }
+
         return { success: true, action: 'updated', stadionId };
       }
     }
@@ -172,6 +284,15 @@ async function syncIndividual(knvbId, options = {}) {
     updateSyncState(stadionDb, knvbId, prepared.source_hash, newId);
 
     console.log(`Created person ${newId} (${prepared.data.acf.first_name} ${prepared.data.acf.last_name})`);
+
+    // Sync functions/commissie work history for new person
+    if (!skipFunctions) {
+      const functionsResult = await syncFunctionsForMember(knvbId, newId, stadionDb, memberFunctions, memberCommittees, { verbose, force });
+      if (functionsResult.synced) {
+        console.log(`  Functions: ${functionsResult.added} added, ${functionsResult.ended} ended`);
+      }
+    }
+
     return { success: true, action: 'created', stadionId: newId };
 
   } finally {
@@ -215,6 +336,7 @@ if (require.main === module) {
   const force = args.includes('--force');
   const dryRun = args.includes('--dry-run');
   const searchMode = args.includes('--search');
+  const skipFunctions = args.includes('--skip-functions');
 
   // Filter out flags to get the identifier
   const identifier = args.find(a => !a.startsWith('--'));
@@ -223,12 +345,13 @@ if (require.main === module) {
     console.log('Usage: node sync-individual.js <knvb-id> [options]');
     console.log('       node sync-individual.js --search <name> [options]');
     console.log('\nOptions:');
-    console.log('  --verbose    Show detailed output');
-    console.log('  --force      Sync even if no changes detected');
-    console.log('  --dry-run    Show what would be synced without making changes');
-    console.log('  --search     Search for members by name');
+    console.log('  --verbose         Show detailed output');
+    console.log('  --force           Sync even if no changes detected');
+    console.log('  --dry-run         Show what would be synced without making changes');
+    console.log('  --search          Search for members by name');
+    console.log('  --skip-functions  Skip syncing functions/commissie work history');
     console.log('\nExamples:');
-    console.log('  node sync-individual.js 12345678       # Sync by KNVB ID');
+    console.log('  node sync-individual.js 12345678       # Sync by KNVB ID (includes functions)');
     console.log('  node sync-individual.js --search Jan   # Find members named Jan');
     process.exit(1);
   }
@@ -246,7 +369,7 @@ if (require.main === module) {
     process.exit(0);
   }
 
-  syncIndividual(identifier, { verbose, force, dryRun })
+  syncIndividual(identifier, { verbose, force, dryRun, skipFunctions })
     .then(result => {
       if (!result.success) {
         process.exitCode = 1;
