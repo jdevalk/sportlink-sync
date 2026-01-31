@@ -84,7 +84,7 @@ async function syncTeam(team, db, options) {
     logVerbose(`  Payload: ${JSON.stringify(payload)}`);
     try {
       const response = await stadionRequest(endpoint, 'PUT', payload, options);
-      updateTeamSyncState(db, team_name, source_hash, stadion_id);
+      updateTeamSyncState(db, sportlink_id, source_hash, stadion_id);
       return { action: 'updated', id: stadion_id };
     } catch (error) {
       // Check if team was deleted in WordPress (404 with rest_post_invalid_id)
@@ -92,7 +92,7 @@ async function syncTeam(team, db, options) {
         logVerbose(`Team ${team_name} (ID: ${stadion_id}) no longer exists in WordPress, recreating...`);
         // Clear the stadion_id so we fall through to create
         stadion_id = null;
-        updateTeamSyncState(db, team_name, null, null);
+        updateTeamSyncState(db, sportlink_id, null, null);
       } else {
         console.error(`API Error updating team "${team_name}" (ID: ${stadion_id}):`);
         console.error(`  Status: ${error.message}`);
@@ -122,7 +122,7 @@ async function syncTeam(team, db, options) {
     try {
       const response = await stadionRequest(endpoint, 'POST', payload, options);
       const newId = response.body.id;
-      updateTeamSyncState(db, team_name, source_hash, newId);
+      updateTeamSyncState(db, sportlink_id, source_hash, newId);
       return { action: 'created', id: newId };
     } catch (error) {
       console.error(`API Error creating team "${team_name}":`);
