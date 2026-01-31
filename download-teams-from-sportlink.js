@@ -197,14 +197,12 @@ async function runTeamDownload(options = {}) {
         const teamType = team.source === 'club' ? 'club' : 'union';
         logVerbose(`Fetching members for ${teamType} team ${i + 1}/${teamRecords.length}: ${team.team_name}`);
 
-        // Determine URLs and API patterns based on team source
-        const isClubTeam = team.source === 'club';
-        const teamMembersUrl = isClubTeam
-          ? `https://club.sportlink.com/teams/club-team-details/${team.sportlink_id}/members`
-          : `https://club.sportlink.com/teams/team-details/${team.sportlink_id}/members`;
+        // Use same URL pattern for both union and club teams
+        const teamMembersUrl = `https://club.sportlink.com/teams/team-details/${team.sportlink_id}/members`;
 
-        const playersPattern = isClubTeam ? '/ClubTeamPlayers' : '/UnionTeamPlayers';
-        const nonPlayersPattern = isClubTeam ? '/ClubTeamNonPlayers' : '/UnionTeamNonPlayers';
+        // Both team types use the same API patterns for member data
+        const playersPattern = '/UnionTeamPlayers';
+        const nonPlayersPattern = '/UnionTeamNonPlayers';
 
         // Set up listeners for both players and non-players responses
         const playersResponsePromise = page.waitForResponse(
