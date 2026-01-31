@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+/**
+ * Cleanup script for duplicate and self-referential relationships
+ *
+ * Scans all people in Stadion and removes:
+ * - Duplicate relationships (same person + type)
+ * - Self-referential relationships (pointing to themselves)
+ */
+
+require('varlock/auto-load');
+const { stadionRequest } = require('../lib/stadion-client');
+
+async function cleanupAllRelationships() {
+  console.log('Scanning all people for relationship issues...');
+
+  let page = 1;
+  let totalFixed = 0;
+  let totalPeople = 0;
+
+  while (true) {
+    let people;
+    try {
+      const response = await stadionRequest(`wp/v2/people?per_page=100&page=${page}`, 'GET');
+      people = response.body;
+    } catch (e) {
+      if (e.message.includes('400')) break; // No more pages
+      throw e;
+    }
+
+    if (!people || people.length === 0) break;
+    totalPeople += people.length;
+
+    for (const person of people) {
+      const relationships = person.acf?.relationships || [];
+      if (relationships.length === 0) continue;
+
+      // Deduplicate and remove self-references
+      const seen = new Set();
+      const deduped = [];
+      let issues = 0;
+
+      for (const rel of relationships) {
+        // Skip self-referential
+        if (rel.related_person === person.id) {
+          issues++;
+          continue;
+        }
+
+        const key = `${rel.related_person}-${rel.relationship_type}`;
+        if (seen.has(key)) {
+          issues++;
+          continue;
+        }
+        seen.add(key);
+        deduped.push(rel);
+      }
+
+      if (issues > 0) {
+        console.log(`Fixing ${person.id} (${person.acf.first_name} ${person.acf.last_name}): ${relationships.length} -> ${deduped.length} relationships`);
+
+        await stadionRequest(
+          `wp/v2/people/${person.id}`,
+          'PUT',
+          {
+            acf: {
+              first_name: person.acf.first_name,
+              last_name: person.acf.last_name,
+              relationships: deduped
+            }
+          }
+        );
+        totalFixed++;
+      }
+    }
+
+    process.stderr.write(`Scanned page ${page} (${totalPeople} people, ${totalFixed} fixed)...\r`);
+    page++;
+  }
+
+  console.log(`\nDone! Scanned ${totalPeople} people, fixed ${totalFixed} with relationship issues.`);
+}
+
+cleanupAllRelationships().catch(e => {
+  console.error('Error:', e.message);
+  process.exit(1);
+});
