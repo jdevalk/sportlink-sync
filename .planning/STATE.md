@@ -2,78 +2,63 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-29)
+See: .planning/PROJECT.md (updated 2026-02-01)
 
-**Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally
-
-**Current focus:** v2.1 Improved Nikki Import
+**Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally.
+**Current focus:** Phase 27 - CSV Download & Data Matching
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-01 — Milestone v2.1 started
+Phase: 27 of 29 (CSV Download & Data Matching)
+Plan: 0 of 0 (planning not started)
+Status: Ready to plan
+Last activity: 2026-02-01 — Roadmap created for v2.1 milestone
 
-Progress: [░░░░░░░░░░░░░░░░░░░░] v2.1 starting
+Progress: [████████░░] 89% (26 of 29 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 35+ plans (v1.0-v2.0)
-- v2.0 milestone: 10 plans in ~6 hours
-- Average duration: 1.5-3 min per plan
+- Total plans completed: Unknown (prior to v2.1)
+- Average duration: N/A
+- Total execution time: N/A
 
-**v2.0 Plans:**
+**By Phase:**
 
-| Phase | Plan | Duration | Tasks |
-|-------|------|----------|-------|
-| 20-01 | Bidirectional Timestamp Tracking | 3 min | 3/3 |
-| 21-01 | Conflict Resolution Infrastructure | 3 min | 3/3 |
-| 22-01 | Stadion Change Detection | 3 min | 3/3 |
-| 22-02 | Field-Level Comparison Fix | 1 min | 2/2 |
-| 23-01 | Contact Fields Reverse Sync Foundation | 2.4 min | 3/3 |
-| 23-02 | Pipeline Integration | 3 min | 2/2 |
-| 24-01 | Multi-Page Reverse Sync Foundation | 2.5 min | 2/2 |
-| 24-02 | Cron Integration | 1.5 min | 3/3 |
-| 25-01 | Wire Change Detection | 3 min | 3/3 |
-| 26-01 | Wire Conflict Resolution | 3 min | 3/3 |
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 27 | - | - | - |
+| 28 | - | - | - |
+| 29 | - | - | - |
 
-*Updated after v2.0 milestone completion*
+**Recent Trend:**
+- Last 5 plans: N/A (metrics start with v2.1)
+- Trend: Baseline
+
+*Metrics will update after first v2.1 plan completion*
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-All v2.0 decisions captured and moved to PROJECT.md.
+Recent decisions affecting current work:
+
+- [v2.0]: Per-field timestamp tracking enables conflict detection (14 columns for 7 fields × 2 systems)
+- [v2.0]: 15-minute reverse sync schedule balances responsiveness vs Sportlink load
+- [v1.7]: Photo sync integrated into people pipeline (hourly vs daily)
+- [v1.7]: Store photo_url/photo_date in stadion_members table
 
 ### Pending Todos
 
-None.
+None yet.
 
 ### Blockers/Concerns
 
-**Production Monitoring (recommended for first 2 weeks):**
-- Monitor conflict resolution behavior (expected ~0-5 conflicts per sync initially)
-- Verify NTP clock sync on production server (46.202.155.16) for timestamp accuracy
-- Update Sportlink page selectors with real browser inspection (placeholder selectors in use)
-- Watch for unexpected conflict patterns or resolution failures
-
-## Recent Quick Tasks
-
-**Quick Task 010: Fetch Local Teams from Sportlink** (2026-01-30)
-- Extended download-teams-from-sportlink.js to fetch ClubTeams alongside UnionTeams
-- Added AWC team filtering to exclude external teams
-- Duration: 1 min
-- Summary: .planning/quick/010-fetch-local-teams-from-sportlink/010-SUMMARY.md
+None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01
-Stopped at: Milestone v2.1 initialization
+Last session: 2026-02-01 (roadmap creation)
+Stopped at: ROADMAP.md and STATE.md created for v2.1 milestone
 Resume file: None
-
----
-*State created: 2026-01-29*
-*Last updated: 2026-02-01 after v2.1 milestone start*
