@@ -358,10 +358,9 @@ async function runFunctionsDownload(options = {}) {
 
     logger.log(`Downloading functions for ${members.length} members`);
 
-    // Clear existing data for fresh import
-    clearMemberFunctions(db);
-    clearMemberCommittees(db);
-    clearMemberFreeFields(db);
+    // NOTE: We no longer clear tables here at the start.
+    // Tables are cleared atomically with upserts at the END of the download,
+    // preventing race conditions where other syncs see empty tables mid-process.
 
     const debugEnabled = parseBool(readEnv('DEBUG_LOG', 'false'));
     const browser = await chromium.launch({ headless: true });
@@ -437,21 +436,32 @@ async function runFunctionsDownload(options = {}) {
       await browser.close();
     }
 
-    // Store to database
-    if (allFunctions.length > 0) {
-      upsertMemberFunctions(db, allFunctions);
+    // Store to database - atomic clear + upsert to prevent race conditions
+    // Other syncs that read these tables will see either old data or new data, never empty
+    const atomicReplace = db.transaction(() => {
+      // Clear and replace functions
+      clearMemberFunctions(db);
+      if (allFunctions.length > 0) {
+        upsertMemberFunctions(db, allFunctions);
+      }
       result.functionsCount = allFunctions.length;
-    }
 
-    if (allCommittees.length > 0) {
-      upsertMemberCommittees(db, allCommittees);
+      // Clear and replace committees
+      clearMemberCommittees(db);
+      if (allCommittees.length > 0) {
+        upsertMemberCommittees(db, allCommittees);
+      }
       result.committeesCount = allCommittees.length;
-    }
 
-    if (allFreeFields.length > 0) {
-      upsertMemberFreeFields(db, allFreeFields);
+      // Clear and replace free fields (includes photo URLs)
+      clearMemberFreeFields(db);
+      if (allFreeFields.length > 0) {
+        upsertMemberFreeFields(db, allFreeFields);
+      }
       result.freeFieldsCount = allFreeFields.length;
-    }
+    });
+
+    atomicReplace();
 
     // Create commissie records from unique committee names
     // Plus add "Verenigingsbreed" for club-level functions
