@@ -345,6 +345,7 @@ async function downloadAndParseCsv(page, logger) {
     require('fs').createReadStream(filePath)
       .pipe(parse({
         columns: true,           // Use first row as column names
+        delimiter: ';',          // European CSV format uses semicolon
         skip_empty_lines: true,
         trim: true,
         bom: true,               // Handle UTF-8 BOM
