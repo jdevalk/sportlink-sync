@@ -73,6 +73,37 @@ async function findCustomerByEmail(email, options) {
 }
 
 /**
+ * Search for customer ID via conversations (when email exists in conversations but not as customer)
+ * @param {string} email - Email to search for
+ * @param {Object} options - Logger and verbose options
+ * @returns {Promise<number|null>} - FreeScout customer ID if found, null otherwise
+ */
+async function findCustomerByConversationEmail(email, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  try {
+    const response = await freescoutRequest(
+      `/api/conversations?customerEmail=${encodeURIComponent(email)}`,
+      'GET',
+      null,
+      options
+    );
+
+    // FreeScout returns _embedded.conversations array, each with a customer object
+    const conversations = response.body?._embedded?.conversations || [];
+    if (conversations.length > 0 && conversations[0].customer?.id) {
+      const customerId = conversations[0].customer.id;
+      logVerbose(`Found customer ${customerId} via conversation search for ${email}`);
+      return customerId;
+    }
+    return null;
+  } catch (error) {
+    logVerbose(`Conversation email search failed: ${error.message}`);
+    return null;
+  }
+}
+
+/**
  * Create a new customer in FreeScout
  * @param {Object} customer - Customer data
  * @param {Object} options - Logger and verbose options
@@ -207,7 +238,15 @@ async function syncCustomer(customer, db, options) {
     // Handle 400 "email already exists" - FreeScout thinks email exists but API can't find it
     // This happens when email exists in conversations but not as a customer email
     if (error.status === 400 && error.details?._embedded?.errors?.some(e => e.message?.includes('already exist'))) {
-      const existingId = await findCustomerByEmail(email, options);
+      // First try regular customer search
+      let existingId = await findCustomerByEmail(email, options);
+
+      // If not found, try searching via conversations
+      if (!existingId) {
+        logVerbose(`Customer not found via direct search, trying conversation search for ${email}`);
+        existingId = await findCustomerByConversationEmail(email, options);
+      }
+
       if (existingId) {
         logVerbose(`Found customer ${existingId} after 400 error, linking`);
         await updateCustomer(existingId, customer, options);
@@ -216,7 +255,7 @@ async function syncCustomer(customer, db, options) {
         return { action: 'updated', id: existingId };
       }
       // Can't find customer - email exists in FreeScout system but not as searchable customer
-      throw new Error(`Email exists in FreeScout but customer not found via API - may need manual linking in FreeScout`);
+      throw new Error(`Email exists in FreeScout but customer not found via API or conversations`);
     }
 
     throw error;
