@@ -25,7 +25,7 @@ Previous milestones completed. See git history for details.
 
 **Milestone Goal:** Enhance Nikki contribution sync with CSV data extraction and per-year ACF field storage in Stadion.
 
-#### Phase 27: CSV Download & Data Matching
+#### Phase 27: CSV Download & Data Matching ✓
 **Goal**: Download CSV from Nikki Rapporten link and match contribution data to members by nikki_id
 **Depends on**: Phase 26
 **Requirements**: CSV-01, CSV-02, CSV-03, MATCH-01, MATCH-02, MATCH-03
@@ -35,9 +35,10 @@ Previous milestones completed. See git history for details.
   3. Members without nikki_id are processed without errors (gracefully skipped)
   4. CSV data correctly matches to existing /leden records for validation
 **Plans:** 1 plan
+**Completed:** 2026-02-01
 
 Plans:
-- [ ] 27-01-PLAN.md — CSV download, parsing, and data merge with hoofdsom field
+- [x] 27-01-PLAN.md — CSV download, parsing, and data merge with hoofdsom field
 
 #### Phase 28: Per-Year SQLite Storage
 **Goal**: Store 2-3 years of historical contribution data per member in SQLite
@@ -74,6 +75,6 @@ Phases execute in numeric order: 27 → 28 → 29
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 27. CSV Download & Data Matching | v2.1 | 0/1 | Planned | - |
+| 27. CSV Download & Data Matching | v2.1 | 1/1 | Complete | 2026-02-01 |
 | 28. Per-Year SQLite Storage | v2.1 | 0/? | Not started | - |
 | 29. Stadion ACF Sync | v2.1 | 0/? | Not started | - |

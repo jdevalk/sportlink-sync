@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally.
-**Current focus:** Phase 27 - CSV Download & Data Matching
+**Current focus:** Phase 28 - Per-Year SQLite Storage
 
 ## Current Position
 
-Phase: 27 of 29 (CSV Download & Data Matching)
-Plan: 1 of 1 (Plan 01 complete)
-Status: Phase 27 Plan 01 complete
-Last activity: 2026-02-01 — Completed 27-01-PLAN.md (CSV Download & Data Matching)
+Phase: 28 of 29 (Per-Year SQLite Storage)
+Plan: 0 of 0 (planning not started)
+Status: Ready to plan
+Last activity: 2026-02-01 — Phase 27 complete and verified
 
-Progress: [████████░░] 89% (26 of 29 phases complete, phase 27 plan 01 done)
+Progress: [█████████░] 93% (27 of 29 phases complete)
 
 ## Performance Metrics
 
@@ -58,6 +58,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 (plan 27-01 execution)
-Stopped at: Completed 27-01-PLAN.md (CSV Download & Data Matching)
+Last session: 2026-02-01 (phase 27 execution)
+Stopped at: Phase 27 complete and verified
 Resume file: None

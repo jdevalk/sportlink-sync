@@ -9,15 +9,15 @@ Requirements for Improved Nikki Import milestone.
 
 ### CSV Download
 
-- [ ] **CSV-01**: System downloads CSV when clicking Rapporten link after /leden scrape
-- [ ] **CSV-02**: System handles download via Playwright (wait for download, read file)
-- [ ] **CSV-03**: System parses CSV with columns: nikki_id, lid_nr, hoofdsom, saldo, etc.
+- [x] **CSV-01**: System downloads CSV when clicking Rapporten link after /leden scrape
+- [x] **CSV-02**: System handles download via Playwright (wait for download, read file)
+- [x] **CSV-03**: System parses CSV with columns: nikki_id, lid_nr, hoofdsom, saldo, etc.
 
 ### Data Matching
 
-- [ ] **MATCH-01**: System matches CSV rows to /leden table rows by nikki_id
-- [ ] **MATCH-02**: System extracts hoofdsom (total amount) from matched CSV row
-- [ ] **MATCH-03**: System handles missing nikki_id gracefully (skip without error)
+- [x] **MATCH-01**: System matches CSV rows to /leden table rows by nikki_id
+- [x] **MATCH-02**: System extracts hoofdsom (total amount) from matched CSV row
+- [x] **MATCH-03**: System handles missing nikki_id gracefully (skip without error)
 
 ### Per-Year Storage
 
@@ -44,12 +44,12 @@ Requirements for Improved Nikki Import milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CSV-01 | Phase 27 | Pending |
-| CSV-02 | Phase 27 | Pending |
-| CSV-03 | Phase 27 | Pending |
-| MATCH-01 | Phase 27 | Pending |
-| MATCH-02 | Phase 27 | Pending |
-| MATCH-03 | Phase 27 | Pending |
+| CSV-01 | Phase 27 | Complete |
+| CSV-02 | Phase 27 | Complete |
+| CSV-03 | Phase 27 | Complete |
+| MATCH-01 | Phase 27 | Complete |
+| MATCH-02 | Phase 27 | Complete |
+| MATCH-03 | Phase 27 | Complete |
 | STORE-01 | Phase 28 | Pending |
 | STORE-02 | Phase 28 | Pending |
 | STORE-03 | Phase 28 | Pending |
@@ -65,4 +65,4 @@ Requirements for Improved Nikki Import milestone.
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after roadmap creation*
+*Last updated: 2026-02-01 after Phase 27 completion*
