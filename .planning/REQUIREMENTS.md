@@ -27,10 +27,10 @@ Requirements for Improved Nikki Import milestone.
 
 ### Stadion Sync
 
-- [ ] **SYNC-01**: System syncs `_nikki_{year}_total` field to Stadion person ACF
-- [ ] **SYNC-02**: System syncs `_nikki_{year}_saldo` field to Stadion person ACF
-- [ ] **SYNC-03**: System syncs `_nikki_{year}_status` field to Stadion person ACF
-- [ ] **SYNC-04**: System syncs all years (2-3) for each member
+- [x] **SYNC-01**: System syncs `_nikki_{year}_total` field to Stadion person ACF
+- [x] **SYNC-02**: System syncs `_nikki_{year}_saldo` field to Stadion person ACF
+- [x] **SYNC-03**: System syncs `_nikki_{year}_status` field to Stadion person ACF
+- [x] **SYNC-04**: System syncs all years (2-3) for each member
 
 ## Out of Scope
 
@@ -53,10 +53,10 @@ Requirements for Improved Nikki Import milestone.
 | STORE-01 | Phase 28 | Complete |
 | STORE-02 | Phase 28 | Complete |
 | STORE-03 | Phase 28 | Complete |
-| SYNC-01 | Phase 29 | Pending |
-| SYNC-02 | Phase 29 | Pending |
-| SYNC-03 | Phase 29 | Pending |
-| SYNC-04 | Phase 29 | Pending |
+| SYNC-01 | Phase 29 | Complete |
+| SYNC-02 | Phase 29 | Complete |
+| SYNC-03 | Phase 29 | Complete |
+| SYNC-04 | Phase 29 | Complete |
 
 **Coverage:**
 - v2.1 requirements: 13 total
@@ -65,4 +65,4 @@ Requirements for Improved Nikki Import milestone.
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after Phase 28 completion*
+*Last updated: 2026-02-01 after Phase 29 completion*

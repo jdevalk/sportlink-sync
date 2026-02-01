@@ -10,7 +10,7 @@
 - ✅ **v1.5 Team Sync** - Phases 18-19 (shipped 2025)
 - ✅ **v1.7 Financial Block** - Phases 20-21 (shipped 2025)
 - ✅ **v2.0 Bidirectional Sync** - Phases 22-26 (shipped 2026-01-29)
-- 🚧 **v2.1 Improved Nikki Import** - Phases 27-29 (in progress)
+- ✅ **v2.1 Improved Nikki Import** - Phases 27-29 (shipped 2026-02-01)
 
 ## Phases
 
@@ -21,7 +21,7 @@ Previous milestones completed. See git history for details.
 
 </details>
 
-### 🚧 v2.1 Improved Nikki Import (In Progress)
+### ✅ v2.1 Improved Nikki Import (Complete)
 
 **Milestone Goal:** Enhance Nikki contribution sync with CSV data extraction and per-year ACF field storage in Stadion.
 
@@ -55,7 +55,7 @@ Plans:
 Plans:
 - [x] 28-01-PLAN.md — Remove clearContributions, add pruneOldContributions with 4-year retention
 
-#### Phase 29: Stadion ACF Sync
+#### Phase 29: Stadion ACF Sync ✓
 **Goal**: Sync individual per-year contribution fields to Stadion person ACF
 **Depends on**: Phase 28
 **Requirements**: SYNC-01, SYNC-02, SYNC-03, SYNC-04
@@ -64,10 +64,11 @@ Plans:
   2. Each person record in Stadion shows _nikki_{year}_saldo field with correct value
   3. Each person record in Stadion shows _nikki_{year}_status field with correct value
   4. All years (2-3) sync correctly for each member in one sync operation
-**Plans**: TBD
+**Plans:** 1 plan
+**Completed:** 2026-02-01
 
 Plans:
-- [ ] 29-01: TBD
+- [x] 29-01-PLAN.md — Per-year ACF field sync to Stadion
 
 ## Progress
 
@@ -78,4 +79,4 @@ Phases execute in numeric order: 27 → 28 → 29
 |-------|-----------|----------------|--------|-----------|
 | 27. CSV Download & Data Matching | v2.1 | 1/1 | Complete | 2026-02-01 |
 | 28. Per-Year SQLite Storage | v2.1 | 1/1 | Complete | 2026-02-01 |
-| 29. Stadion ACF Sync | v2.1 | 0/? | Not started | - |
+| 29. Stadion ACF Sync | v2.1 | 1/1 | Complete | 2026-02-01 |
