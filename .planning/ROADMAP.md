@@ -34,10 +34,10 @@ Previous milestones completed. See git history for details.
   2. System extracts hoofdsom (total amount) from CSV for each member with valid nikki_id
   3. Members without nikki_id are processed without errors (gracefully skipped)
   4. CSV data correctly matches to existing /leden records for validation
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 27-01: TBD
+- [ ] 27-01-PLAN.md — CSV download, parsing, and data merge with hoofdsom field
 
 #### Phase 28: Per-Year SQLite Storage
 **Goal**: Store 2-3 years of historical contribution data per member in SQLite
@@ -74,6 +74,6 @@ Phases execute in numeric order: 27 → 28 → 29
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 27. CSV Download & Data Matching | v2.1 | 0/? | Not started | - |
+| 27. CSV Download & Data Matching | v2.1 | 0/1 | Planned | - |
 | 28. Per-Year SQLite Storage | v2.1 | 0/? | Not started | - |
 | 29. Stadion ACF Sync | v2.1 | 0/? | Not started | - |
