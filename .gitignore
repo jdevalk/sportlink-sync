@@ -8,7 +8,9 @@ node_modules
 # Data
 laposta-sync.sqlite
 stadion-sync.sqlite
+nikki-sync.sqlite
 photos/
+downloads/
 
 # Logs
 logs/

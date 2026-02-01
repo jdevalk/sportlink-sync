@@ -63,6 +63,7 @@
   },
   "dependencies": {
     "better-sqlite3": "latest",
+    "csv-parse": "^6.1.0",
     "form-data": "^4.0.0",
     "otplib": "latest",
     "playwright": "latest",
