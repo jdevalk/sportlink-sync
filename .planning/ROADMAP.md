@@ -41,18 +41,18 @@ Plans:
 - [x] 27-01-PLAN.md — CSV download, parsing, and data merge with hoofdsom field
 
 #### Phase 28: Per-Year SQLite Storage
-**Goal**: Store 2-3 years of historical contribution data per member in SQLite
+**Goal**: Store 4 years of historical contribution data per member in SQLite (current + 3 previous)
 **Depends on**: Phase 27
 **Requirements**: STORE-01, STORE-02, STORE-03
 **Success Criteria** (what must be TRUE):
   1. SQLite schema stores contribution data with year, knvb_id, total, saldo, status columns
-  2. Historical data persists across syncs (2-3 years retained per member)
+  2. Historical data persists across syncs (4 years retained per member)
   3. Current year data updates correctly on each sync (replace, not append)
   4. Query can retrieve multi-year history for any member by knvb_id
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 28-01: TBD
+- [ ] 28-01-PLAN.md — Remove clearContributions, add pruneOldContributions with 4-year retention
 
 #### Phase 29: Stadion ACF Sync
 **Goal**: Sync individual per-year contribution fields to Stadion person ACF
@@ -76,5 +76,5 @@ Phases execute in numeric order: 27 → 28 → 29
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 27. CSV Download & Data Matching | v2.1 | 1/1 | Complete | 2026-02-01 |
-| 28. Per-Year SQLite Storage | v2.1 | 0/? | Not started | - |
+| 28. Per-Year SQLite Storage | v2.1 | 0/1 | Planning complete | - |
 | 29. Stadion ACF Sync | v2.1 | 0/? | Not started | - |
