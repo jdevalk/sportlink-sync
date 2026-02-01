@@ -21,9 +21,9 @@ Requirements for Improved Nikki Import milestone.
 
 ### Per-Year Storage
 
-- [ ] **STORE-01**: SQLite schema stores per-year data: year, knvb_id, total, saldo, status
-- [ ] **STORE-02**: System retains 2-3 years of historical data per member
-- [ ] **STORE-03**: System replaces data for current year on each sync
+- [x] **STORE-01**: SQLite schema stores per-year data: year, knvb_id, total, saldo, status
+- [x] **STORE-02**: System retains 2-3 years of historical data per member
+- [x] **STORE-03**: System replaces data for current year on each sync
 
 ### Stadion Sync
 
@@ -50,9 +50,9 @@ Requirements for Improved Nikki Import milestone.
 | MATCH-01 | Phase 27 | Complete |
 | MATCH-02 | Phase 27 | Complete |
 | MATCH-03 | Phase 27 | Complete |
-| STORE-01 | Phase 28 | Pending |
-| STORE-02 | Phase 28 | Pending |
-| STORE-03 | Phase 28 | Pending |
+| STORE-01 | Phase 28 | Complete |
+| STORE-02 | Phase 28 | Complete |
+| STORE-03 | Phase 28 | Complete |
 | SYNC-01 | Phase 29 | Pending |
 | SYNC-02 | Phase 29 | Pending |
 | SYNC-03 | Phase 29 | Pending |
@@ -65,4 +65,4 @@ Requirements for Improved Nikki Import milestone.
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after Phase 27 completion*
+*Last updated: 2026-02-01 after Phase 28 completion*

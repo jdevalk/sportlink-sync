@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally.
-**Current focus:** Phase 28 - Per-Year SQLite Storage
+**Current focus:** Phase 29 - Stadion ACF Sync
 
 ## Current Position
 
-Phase: 28 of 29 (Per-Year SQLite Storage)
-Plan: 1 of 1 (Complete)
-Status: Phase complete
-Last activity: 2026-02-01 — Completed 28-01-PLAN.md
+Phase: 29 of 29 (Stadion ACF Sync)
+Plan: 0 of ? (not started)
+Status: Ready to plan
+Last activity: 2026-02-01 — Phase 28 complete and verified
 
 Progress: [█████████░] 97% (28 of 29 phases complete)
 
@@ -58,6 +58,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 (phase 28 execution)
-Stopped at: Phase 28 complete (28-01-PLAN.md)
+Last session: 2026-02-01 (phase 28 verified)
+Stopped at: Phase 28 complete and verified
 Resume file: None
