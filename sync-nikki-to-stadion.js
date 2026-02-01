@@ -39,6 +39,23 @@ function generateContributionHtml(contributions) {
 }
 
 /**
+ * Build per-year ACF fields from contributions.
+ * Creates fields like _nikki_2025_total, _nikki_2025_saldo, _nikki_2025_status
+ *
+ * @param {Array<{year: number, nikki_id: string, saldo: number, hoofdsom: number, status: string}>} contributions
+ * @returns {Object} - Object with per-year field keys and values
+ */
+function buildPerYearAcfFields(contributions) {
+  const fields = {};
+  for (const c of contributions) {
+    fields[`_nikki_${c.year}_total`] = c.hoofdsom ?? null;
+    fields[`_nikki_${c.year}_saldo`] = c.saldo ?? null;
+    fields[`_nikki_${c.year}_status`] = c.status || null;
+  }
+  return fields;
+}
+
+/**
  * Compute hash for HTML content (for change detection)
  */
 function computeContentHash(html) {
@@ -190,6 +207,9 @@ async function runNikkiStadionSync(options = {}) {
       try {
         logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: Updating Stadion ID ${stadionId}`);
 
+        // Build per-year ACF fields for all contribution years
+        const perYearFields = buildPerYearAcfFields(contributions);
+
         await stadionRequestWithRetry(
           `wp/v2/people/${stadionId}`,
           'PUT',
@@ -197,7 +217,8 @@ async function runNikkiStadionSync(options = {}) {
             acf: {
               first_name: existingFirstName,
               last_name: existingLastName,
-              'nikki-contributie-status': html
+              'nikki-contributie-status': html,
+              ...perYearFields
             }
           },
           { verbose: false }
