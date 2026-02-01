@@ -349,7 +349,8 @@ async function downloadAndParseCsv(page, logger) {
         skip_empty_lines: true,
         trim: true,
         bom: true,               // Handle UTF-8 BOM
-        relax_column_count: true // Handle inconsistent column counts
+        relax_column_count: true, // Handle inconsistent column counts
+        relax_quotes: true       // Allow quotes in unquoted fields (European CSV)
       }))
       .on('data', (row) => rows.push(row))
       .on('error', (err) => {
