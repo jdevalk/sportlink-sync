@@ -9,9 +9,9 @@ Requirements for discipline case sync. Each maps to roadmap phases.
 
 ### Download & Storage
 
-- [ ] **DISC-01**: Download discipline cases from Sportlink `/competition-affairs/discipline-cases`
-- [ ] **DISC-02**: Click "Individuele tuchtzaken" tab and capture DisciplineClubCasesPlayer API response
-- [ ] **DISC-03**: Store cases in SQLite with all fields (DossierId, PublicPersonId, MatchDate, MatchDescription, TeamName, ChargeCodes, ChargeDescription, SanctionDescription, ProcessingDate, AdministrativeFee, IsCharged)
+- [x] **DISC-01**: Download discipline cases from Sportlink `/competition-affairs/discipline-cases`
+- [x] **DISC-02**: Click "Individuele tuchtzaken" tab and capture DisciplineClubCasesPlayer API response
+- [x] **DISC-03**: Store cases in SQLite with all fields (DossierId, PublicPersonId, MatchDate, MatchDescription, TeamName, ChargeCodes, ChargeDescription, SanctionDescription, ProcessingDate, AdministrativeFee, IsCharged)
 
 ### Stadion Sync
 
@@ -46,9 +46,9 @@ Requirements for discipline case sync. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DISC-01 | Phase 30 | Pending |
-| DISC-02 | Phase 30 | Pending |
-| DISC-03 | Phase 30 | Pending |
+| DISC-01 | Phase 30 | Complete |
+| DISC-02 | Phase 30 | Complete |
+| DISC-03 | Phase 30 | Complete |
 | DISC-04 | Phase 31 | Pending |
 | DISC-05 | Phase 31 | Pending |
 | DISC-06 | Phase 31 | Pending |
