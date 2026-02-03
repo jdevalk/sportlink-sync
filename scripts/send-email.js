@@ -83,7 +83,7 @@ function formatAsHtml(textContent) {
     }
 
     // Main title (various sync summaries)
-    if (/^(SPORTLINK|PEOPLE|PHOTO|TEAM) SYNC SUMMARY$/.test(trimmed)) {
+    if (/^(SPORTLINK|PEOPLE|PHOTO|TEAM|DISCIPLINE) SYNC SUMMARY$/.test(trimmed)) {
       htmlParts.push(`<h1>${escapeHtml(trimmed)}</h1>`);
       continue;
     }

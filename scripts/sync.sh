@@ -37,10 +37,10 @@ SYNC_TYPE="${1:-all}"
 
 # Validate sync type
 case "$SYNC_TYPE" in
-    people|photos|teams|functions|nikki|freescout|reverse|all)
+    people|photos|teams|functions|nikki|freescout|reverse|discipline|all)
         ;;
     *)
-        echo "Usage: $0 {people|photos|teams|functions|nikki|freescout|reverse|all}" >&2
+        echo "Usage: $0 {people|photos|teams|functions|nikki|freescout|reverse|discipline|all}" >&2
         exit 1
         ;;
 esac
@@ -100,6 +100,9 @@ case "$SYNC_TYPE" in
         ;;
     reverse)
         SYNC_SCRIPT="reverse-sync.js"
+        ;;
+    discipline)
+        SYNC_SCRIPT="sync-discipline.js"
         ;;
     all)
         SYNC_SCRIPT="sync-all.js"
