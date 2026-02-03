@@ -8,17 +8,22 @@ A CLI tool that synchronizes member data bidirectionally between Sportlink Club 
 
 Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention — now bidirectionally.
 
-## Current Milestone: v2.2 Discipline Cases
+## Current State (v2.2 Shipped)
 
-**Goal:** Sync individual discipline cases from Sportlink to Stadion with season-based organization and person linking.
+**Shipped:** 2026-02-03
 
-**Target features:**
-- Download discipline cases from Sportlink via browser automation
-- Store cases in SQLite with DossierId as unique key
-- Sync to Stadion as `discipline-cases` post type with ACF fields
-- Link cases to persons via PublicPersonId → stadion_id mapping
-- Organize cases by season category (derived from date, Aug 1 boundary)
-- Weekly sync schedule integrated into pipeline
+Full bidirectional sync pipeline operational with discipline case tracking:
+- Member data downloads from Sportlink via browser automation
+- Members sync to Laposta email lists with hash-based change detection
+- Members and parents sync to Stadion WordPress with relationship linking
+- Financial block status syncs bidirectionally with activity audit trail
+- Photos download via HTTP (from MemberHeader API URLs) and upload to Stadion hourly
+- Teams extract from Sportlink and sync to Stadion with work history
+- FreeScout customer sync from Stadion and Nikki databases
+- Reverse sync pushes contact field corrections from Stadion to Sportlink
+- Nikki contributions sync with CSV download, per-year ACF fields, and 4-year retention
+- **Discipline cases download from Sportlink and sync to Stadion with season-based organization**
+- Six automated pipelines (people 4x daily, nikki daily, teams/functions weekly, reverse sync every 15 minutes, discipline weekly Monday 11:30 PM)
 
 ## Current State (v2.1 Shipped)
 
@@ -120,15 +125,16 @@ Full bidirectional sync pipeline operational:
 - ✓ SQLite schema stores per-year data (total, saldo, status) — v2.1
 - ✓ Sync individual ACF fields to Stadion: `_nikki_{year}_total`, `_nikki_{year}_saldo`, `_nikki_{year}_status` — v2.1
 - ✓ Support 4 years of historical data per member (current + 3 previous) — v2.1
+- ✓ Download discipline cases from Sportlink `/competition-affairs/discipline-cases` — v2.2
+- ✓ Store cases in SQLite with full field set (DossierId, PublicPersonId, MatchDate, etc.) — v2.2
+- ✓ Sync cases to Stadion `discipline-cases` post type — v2.2
+- ✓ Link cases to persons via existing PublicPersonId → stadion_id mapping — v2.2
+- ✓ Organize by season category (auto-derived from date) — v2.2
+- ✓ Weekly sync schedule with email reporting — v2.2
 
 ### Active
 
-- [ ] Download discipline cases from Sportlink `/competition-affairs/discipline-cases`
-- [ ] Store cases in SQLite with full field set (DossierId, PublicPersonId, MatchDate, etc.)
-- [ ] Sync cases to Stadion `discipline-cases` post type
-- [ ] Link cases to persons via existing PublicPersonId → stadion_id mapping
-- [ ] Organize by season category (auto-derived from date)
-- [ ] Weekly sync schedule with email reporting
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -226,6 +232,12 @@ Full bidirectional sync pipeline operational:
 | 4-year retention window | Current + 3 previous years, configurable default | ✓ Good |
 | Upsert-before-prune pattern | Prevents data loss during sync (upsert first, then prune old) | ✓ Good |
 | ACF field registration via API | WordPress/ACF requires field registration before values can be stored | ✓ Good |
+| DossierId as unique key | Sportlink's stable identifier for discipline cases | ✓ Good |
+| Season boundary August 1 | Matches KNVB season cycles (Aug-Jul), not calendar year | ✓ Good |
+| Person linking with skip | Cases without matching person skip (data integrity over completeness) | ✓ Good |
+| Discipline-cases post type | Custom post type in Stadion for disciplinary data | ✓ Good |
+| Season taxonomy auto-create | Creates season terms (e.g., "2025-2026") if missing | ✓ Good |
+| Monday 11:30 PM schedule | Weekly sync avoids overlap with other syncs, catches weekend matches | ✓ Good |
 
 ---
-*Last updated: 2026-02-02 after starting v2.2 milestone*
+*Last updated: 2026-02-03 after v2.2 milestone*

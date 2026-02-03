@@ -1,5 +1,33 @@
 # Project Milestones: Sportlink Sync
 
+## v2.2 Discipline Cases (Shipped: 2026-02-03)
+
+**Delivered:** Discipline case sync from Sportlink to Stadion with season-based organization, person linking, and weekly automated pipeline.
+
+**Phases completed:** 30-32 (3 plans total)
+
+**Key accomplishments:**
+
+- Browser automation downloads individual discipline cases from Sportlink's `/competition-affairs/discipline-cases`
+- SQLite storage with 12 data columns and hash-based change detection
+- Season derivation from match date using August 1 boundary (matches KNVB season cycles)
+- Person linking via PublicPersonId → stadion_id mapping with skip handling
+- Pipeline integration: `scripts/sync.sh discipline`, Monday 11:30 PM cron, email reporting
+
+**Stats:**
+
+- 27 files modified
+- 1,227 lines new code (discipline module)
+- 20,224 lines total JavaScript (project)
+- 3 phases, 3 plans
+- 2 days (2026-02-02 → 2026-02-03)
+
+**Git range:** `580868d` → `739db11`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v2.1 Improved Nikki Import (Shipped: 2026-02-02)
 
 **Delivered:** Enhanced Nikki contribution sync with CSV data extraction, per-year ACF field storage in Stadion, and 4-year historical retention.
