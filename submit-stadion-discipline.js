@@ -11,6 +11,25 @@ const {
 const { openDb: openStadionDb } = require('./lib/stadion-db');
 
 /**
+ * Convert date string to ACF Ymd format (e.g., "2026-01-15" -> "20260115")
+ * @param {string} dateString - Date in various formats (ISO, etc.)
+ * @returns {string} - Date in Ymd format, or empty string if invalid
+ */
+function toAcfDateFormat(dateString) {
+  if (!dateString) return '';
+
+  // Try to parse the date
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}${month}${day}`;
+}
+
+/**
  * Build knvb_id -> stadion_id lookup map from stadion-sync.sqlite
  * @returns {Map<string, number>} - Map of KNVB ID to Stadion person ID
  */
@@ -142,17 +161,18 @@ async function syncCase(caseData, personStadionId, seasonTermId, personName, db,
   }
 
   // Build ACF fields payload
+  // Note: Date fields use ACF date_picker with Ymd return format (e.g., "20260115")
   const acfFields = {
     'dossier_id': dossier_id,
     'person': personStadionId,
-    'match_date': match_date || '',
+    'match_date': toAcfDateFormat(match_date),
     'match_description': match_description || '',
     'team_name': caseData.team_name || '',
     'charge_codes': caseData.charge_codes || '',
     'charge_description': caseData.charge_description || '',
     'sanction_description': caseData.sanction_description || '',
-    'processing_date': caseData.processing_date || '',
-    'administrative_fee': caseData.administrative_fee || '',
+    'processing_date': toAcfDateFormat(caseData.processing_date),
+    'administrative_fee': caseData.administrative_fee ? parseFloat(caseData.administrative_fee) : null,
     'is_charged': caseData.is_charged === 1
   };
 
