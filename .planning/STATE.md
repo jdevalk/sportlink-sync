@@ -62,10 +62,11 @@ None. Stadion UI work (DISC-07, DISC-08) deferred to Stadion codebase.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 011 | Remove debug output from parent sync and fix photo phase HTML headers | 2026-02-02 | ae25606 | [011-remove-debug-output-fix-photo-headers](./quick/011-remove-debug-output-fix-photo-headers/) |
+| 012 | Sum Nikki saldo per KNVB ID (support multiple entries per year) | 2026-02-03 | e4f411f | [012-sum-nikki-saldo-per-knvb-id](./quick/012-sum-nikki-saldo-per-knvb-id/) |
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: v2.2 Discipline Cases milestone completed
+Stopped at: Quick task 012 completed
 Resume file: None
 Next steps: Run `/gsd:new-milestone` to start next milestone
