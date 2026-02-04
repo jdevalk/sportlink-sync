@@ -96,7 +96,7 @@ function printSummary(logger, stats) {
  * Uses cached member data from last people sync (hourly download)
  */
 async function runFunctionsSync(options = {}) {
-  const { verbose = false, force = false } = options;
+  const { verbose = false, force = false, withInvoice = false } = options;
 
   const logger = createSyncLogger({ verbose, prefix: 'functions' });
   const startTime = Date.now();
@@ -133,7 +133,7 @@ async function runFunctionsSync(options = {}) {
     // Step 1: Download functions from Sportlink
     logger.verbose('Downloading functions from Sportlink...');
     try {
-      const downloadResult = await runFunctionsDownload({ logger, verbose });
+      const downloadResult = await runFunctionsDownload({ logger, verbose, withInvoice });
       stats.download.total = downloadResult.total || 0;
       stats.download.functionsCount = downloadResult.functionsCount || 0;
       stats.download.committeesCount = downloadResult.committeesCount || 0;
@@ -248,8 +248,9 @@ module.exports = { runFunctionsSync };
 if (require.main === module) {
   const verbose = process.argv.includes('--verbose');
   const force = process.argv.includes('--force');
+  const withInvoice = process.argv.includes('--with-invoice');
 
-  runFunctionsSync({ verbose, force })
+  runFunctionsSync({ verbose, force, withInvoice })
     .then(result => {
       if (!result.success) {
         process.exitCode = 1;

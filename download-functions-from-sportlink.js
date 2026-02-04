@@ -383,10 +383,11 @@ async function fetchMemberFunctions(page, knvbId, logger) {
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance
  * @param {boolean} [options.verbose=false] - Verbose mode
+ * @param {boolean} [options.withInvoice=false] - Also fetch invoice data from /financial tab (slow, run monthly)
  * @returns {Promise<{success: boolean, total: number, downloaded: number, functionsCount: number, committeesCount: number, errors: Array}>}
  */
 async function runFunctionsDownload(options = {}) {
-  const { logger: providedLogger, verbose = false } = options;
+  const { logger: providedLogger, verbose = false, withInvoice = false } = options;
   const logger = providedLogger || createSyncLogger({ verbose });
 
   const result = {
@@ -476,13 +477,15 @@ async function runFunctionsDownload(options = {}) {
             logger.verbose(`  Found FreeScout ID: ${memberData.freescout_id || 'none'}, VOG datum: ${memberData.vog_datum || 'none'}, Financial block: ${memberData.has_financial_block}`);
           }
 
-          // Fetch invoice data from /financial tab for ALL members
-          // This captures custom invoice addresses and invoice emails
-          logger.verbose(`  Fetching invoice data from /financial page...`);
-          const invoiceData = await fetchMemberFinancialData(page, member.knvb_id, logger);
-          if (invoiceData) {
-            // Always store invoice data - we track is_default to know if custom address is set
-            allInvoiceData.push(invoiceData);
+          // Fetch invoice data from /financial tab (only when --with-invoice flag is set)
+          // This is slow (adds ~1-2s per member) so we run it monthly
+          if (withInvoice) {
+            logger.verbose(`  Fetching invoice data from /financial page...`);
+            const invoiceData = await fetchMemberFinancialData(page, member.knvb_id, logger);
+            if (invoiceData) {
+              // Always store invoice data - we track is_default to know if custom address is set
+              allInvoiceData.push(invoiceData);
+            }
           }
         } catch (error) {
           result.errors.push({ knvb_id: member.knvb_id, message: error.message });
@@ -523,12 +526,14 @@ async function runFunctionsDownload(options = {}) {
       }
       result.freeFieldsCount = allFreeFields.length;
 
-      // Clear and replace invoice data
-      clearMemberInvoiceData(db);
-      if (allInvoiceData.length > 0) {
-        upsertMemberInvoiceData(db, allInvoiceData);
+      // Clear and replace invoice data (only when --with-invoice is set)
+      if (withInvoice) {
+        clearMemberInvoiceData(db);
+        if (allInvoiceData.length > 0) {
+          upsertMemberInvoiceData(db, allInvoiceData);
+        }
+        result.invoiceDataCount = allInvoiceData.length;
       }
-      result.invoiceDataCount = allInvoiceData.length;
     });
 
     atomicReplace();
@@ -553,7 +558,9 @@ async function runFunctionsDownload(options = {}) {
     logger.log(`  Committee memberships found: ${result.committeesCount}`);
     logger.log(`  Unique commissies: ${commissies.length}`);
     logger.log(`  Free fields (VOG/FreeScout): ${result.freeFieldsCount}`);
-    logger.log(`  Invoice data records: ${result.invoiceDataCount}`);
+    if (withInvoice) {
+      logger.log(`  Invoice data records: ${result.invoiceDataCount}`);
+    }
 
     if (result.errors.length > 0) {
       logger.log(`  Errors: ${result.errors.length}`);
@@ -581,7 +588,8 @@ module.exports = {
 // CLI entry point
 if (require.main === module) {
   const verbose = process.argv.includes('--verbose');
-  runFunctionsDownload({ verbose })
+  const withInvoice = process.argv.includes('--with-invoice');
+  runFunctionsDownload({ verbose, withInvoice })
     .then(result => {
       if (!result.success) process.exitCode = 1;
     })
