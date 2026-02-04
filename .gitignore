@@ -13,4 +13,4 @@ photos/
 downloads/
 
 # Logs
-logs/
+logs/.DS_Store
