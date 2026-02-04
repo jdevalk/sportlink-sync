@@ -379,15 +379,39 @@ async function fetchMemberFunctions(page, knvbId, logger) {
 }
 
 /**
+ * Filter members to only those updated recently
+ * @param {Array} members - Array of tracked members [{knvb_id, stadion_id}]
+ * @param {Map} memberDataMap - Map of knvb_id -> member data (includes LastUpdate)
+ * @returns {Array} Filtered members
+ */
+function filterRecentlyUpdated(members, memberDataMap) {
+  const now = new Date();
+  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+
+  return members.filter(member => {
+    const memberData = memberDataMap.get(member.knvb_id);
+    if (!memberData || !memberData.LastUpdate) {
+      // If no LastUpdate data, include the member (safe fallback)
+      return true;
+    }
+
+    // Parse LastUpdate field (format: "YYYY-MM-DD" or similar)
+    const lastUpdate = new Date(memberData.LastUpdate);
+    return lastUpdate >= twoDaysAgo;
+  });
+}
+
+/**
  * Main download orchestration
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance
  * @param {boolean} [options.verbose=false] - Verbose mode
  * @param {boolean} [options.withInvoice=false] - Also fetch invoice data from /financial tab (slow, run monthly)
+ * @param {boolean} [options.recentOnly=true] - Only process members with recent updates
  * @returns {Promise<{success: boolean, total: number, downloaded: number, functionsCount: number, committeesCount: number, errors: Array}>}
  */
 async function runFunctionsDownload(options = {}) {
-  const { logger: providedLogger, verbose = false, withInvoice = false } = options;
+  const { logger: providedLogger, verbose = false, withInvoice = false, recentOnly = true } = options;
   const logger = providedLogger || createSyncLogger({ verbose });
 
   const result = {
@@ -405,15 +429,47 @@ async function runFunctionsDownload(options = {}) {
   const db = openDb();
   try {
     // Get all tracked members (those already synced to Stadion)
-    const members = getAllTrackedMembers(db);
-    result.total = members.length;
+    let members = getAllTrackedMembers(db);
+    const allMembersCount = members.length;
 
     if (members.length === 0) {
       logger.log('No tracked members found. Run Stadion sync first.');
       return result;
     }
 
-    logger.log(`Downloading functions for ${members.length} members`);
+    // Filter members by LastUpdate if recentOnly is true
+    if (recentOnly) {
+      const { getLatestSportlinkResults } = require('./laposta-db');
+      const resultsJson = getLatestSportlinkResults(db);
+
+      if (resultsJson) {
+        try {
+          const resultsData = JSON.parse(resultsJson);
+          const membersArray = resultsData.Members || [];
+
+          // Build map of PublicPersonId -> member data (includes LastUpdate)
+          const memberDataMap = new Map();
+          membersArray.forEach(m => {
+            if (m.PublicPersonId) {
+              memberDataMap.set(String(m.PublicPersonId), m);
+            }
+          });
+
+          members = filterRecentlyUpdated(members, memberDataMap);
+          logger.log(`Processing ${members.length} of ${allMembersCount} members (recent updates only)`);
+        } catch (err) {
+          logger.verbose(`Error parsing Sportlink results, processing all members: ${err.message}`);
+          logger.log(`Processing ${members.length} members (full sync)`);
+        }
+      } else {
+        logger.verbose('No cached Sportlink results found, processing all members');
+        logger.log(`Processing ${members.length} members (full sync)`);
+      }
+    } else {
+      logger.log(`Processing ${members.length} members (full sync)`);
+    }
+
+    result.total = members.length;
 
     // NOTE: We no longer clear tables here at the start.
     // Tables are cleared atomically with upserts at the END of the download,
@@ -582,14 +638,16 @@ module.exports = {
   parseFunctionsResponse,
   parseFreeFieldsResponse,
   parseInvoiceAddressResponse,
-  parseInvoiceInfoResponse
+  parseInvoiceInfoResponse,
+  filterRecentlyUpdated
 };
 
 // CLI entry point
 if (require.main === module) {
   const verbose = process.argv.includes('--verbose');
   const withInvoice = process.argv.includes('--with-invoice');
-  runFunctionsDownload({ verbose, withInvoice })
+  const all = process.argv.includes('--all');
+  runFunctionsDownload({ verbose, withInvoice, recentOnly: !all })
     .then(result => {
       if (!result.success) process.exitCode = 1;
     })
