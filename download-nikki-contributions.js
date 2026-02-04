@@ -135,10 +135,20 @@ async function scrapeContributions(page, logger) {
   }
 
   // Wait for DataTables to populate via AJAX before scraping
-  logger.verbose('Waiting for DataTables to load...');
-  await page.waitForSelector('#datatable, table', { timeout: 10000 });
-  await page.waitForSelector('#datatable tbody tr, table tbody tr', { timeout: 15000 });
-  await page.waitForTimeout(2000);
+  logger.verbose('Waiting for DataTables to load data...');
+  try {
+    await page.waitForSelector('#datatable, table', { timeout: 10000 });
+    await page.waitForSelector('#datatable tbody tr, table tbody tr', { timeout: 15000 });
+    await page.waitForTimeout(2000);
+
+    const rowCount = await page.evaluate(() => {
+      const table = document.querySelector('#datatable') || document.querySelector('table');
+      return table ? table.querySelectorAll('tbody tr').length : 0;
+    });
+    logger.verbose(`Table loaded with ${rowCount} rows`);
+  } catch (error) {
+    logger.verbose(`Warning: Could not wait for table rows: ${error.message}`);
+  }
 
   // Scrape from live DOM (after AJAX completes)
   const html = await page.content();
