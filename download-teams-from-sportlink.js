@@ -1,6 +1,5 @@
 require('varlock/auto-load');
 
-const otplib = require('otplib');
 const { chromium } = require('playwright');
 const {
   openDb,
@@ -8,23 +7,8 @@ const {
   upsertTeamMembers,
   clearTeamMembers
 } = require('./lib/stadion-db');
-
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
-
-function createDebugLogger(enabled) {
-  return (...args) => {
-    if (enabled) {
-      console.log(...args);
-    }
-  };
-}
-
-function parseBool(value, fallback = false) {
-  if (value === undefined) return fallback;
-  return ['1', 'true', 'yes', 'y'].includes(String(value).toLowerCase());
-}
+const { loginToSportlink } = require('./lib/sportlink-login');
+const { createLoggerAdapter, createDebugLogger } = require('./lib/log-adapters');
 
 /**
  * Download team data from Sportlink including player/staff roles
@@ -36,22 +20,8 @@ function parseBool(value, fallback = false) {
 async function runTeamDownload(options = {}) {
   const { logger, verbose = false } = options;
 
-  const log = logger ? logger.log.bind(logger) : (verbose ? console.log : () => {});
-  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
-  const logError = logger ? logger.error.bind(logger) : console.error;
-
-  const username = readEnv('SPORTLINK_USERNAME');
-  const password = readEnv('SPORTLINK_PASSWORD');
-  const otpSecret = readEnv('SPORTLINK_OTP_SECRET');
-
-  if (!username || !password) {
-    const errorMsg = 'Missing SPORTLINK_USERNAME or SPORTLINK_PASSWORD';
-    logError(errorMsg);
-    return { success: false, teamCount: 0, memberCount: 0, error: errorMsg };
-  }
-
-  const debugEnabled = parseBool(readEnv('DEBUG_LOG', 'false'));
-  const logDebug = createDebugLogger(debugEnabled);
+  const { log, verbose: logVerbose, error: logError } = createLoggerAdapter({ logger, verbose });
+  const logDebug = createDebugLogger();
 
   let browser;
   try {
@@ -67,37 +37,7 @@ async function runTeamDownload(options = {}) {
         page.on('response', r => logDebug('<<', r.status(), r.url()));
       }
 
-      // Login flow
-      await page.goto('https://club.sportlink.com/', { waitUntil: 'domcontentloaded' });
-      await page.fill('#username', username);
-      await page.fill('#password', password);
-      await page.click('#kc-login');
-
-      await page.waitForSelector('#otp', { timeout: 20000 });
-      if (!otpSecret) {
-        const errorMsg = 'Missing SPORTLINK_OTP_SECRET';
-        logError(errorMsg);
-        return { success: false, teamCount: 0, memberCount: 0, error: errorMsg };
-      }
-      const otpCode = await otplib.generate({ secret: otpSecret });
-      if (!otpCode) {
-        const errorMsg = 'OTP is required to continue';
-        logError(errorMsg);
-        return { success: false, teamCount: 0, memberCount: 0, error: errorMsg };
-      }
-      await page.fill('#otp', otpCode);
-      await page.click('#kc-login');
-
-      await page.waitForLoadState('networkidle');
-
-      logDebug('Waiting for login success selector: #panelHeaderTasks');
-      try {
-        await page.waitForSelector('#panelHeaderTasks', { timeout: 30000 });
-      } catch (error) {
-        const errorMsg = 'Login failed: Could not find dashboard element';
-        logError(errorMsg);
-        return { success: false, teamCount: 0, memberCount: 0, error: errorMsg };
-      }
+      await loginToSportlink(page, { logger: { log, verbose: logVerbose, error: logError } });
 
       // Step 1: Navigate to union teams page and capture teams list
       logVerbose('Fetching union teams list...');

@@ -1,20 +1,10 @@
 require('varlock/auto-load');
 
 const { createSyncLogger } = require('./lib/logger');
+const { formatDuration, formatTimestamp } = require('./lib/utils');
 const { runFunctionsDownload } = require('./download-functions-from-sportlink');
 const { runSync: runCommissiesSync } = require('./submit-stadion-commissies');
 const { runSync: runCommissieWorkHistorySync } = require('./submit-stadion-commissie-work-history');
-
-/**
- * Format duration in human-readable format
- */
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
-}
 
 /**
  * Print summary report for functions sync
@@ -225,7 +215,7 @@ async function runFunctionsSync(options = {}) {
     }
 
     // Complete
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
     printSummary(logger, stats);
@@ -242,7 +232,7 @@ async function runFunctionsSync(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
     printSummary(logger, stats);
 

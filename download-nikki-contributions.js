@@ -3,7 +3,6 @@ require('varlock/auto-load');
 const crypto = require('crypto');
 const fs = require('fs/promises');
 const path = require('path');
-const otplib = require('otplib');
 const { chromium } = require('playwright');
 const { parse } = require('csv-parse');
 const {
@@ -13,23 +12,8 @@ const {
   pruneOldContributions
 } = require('./lib/nikki-db');
 const { createSyncLogger } = require('./lib/logger');
-
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
-
-function createDebugLogger(enabled) {
-  return (...args) => {
-    if (enabled) {
-      console.log(...args);
-    }
-  };
-}
-
-function parseBool(value, fallback = false) {
-  if (value === undefined) return fallback;
-  return ['1', 'true', 'yes', 'y'].includes(String(value).toLowerCase());
-}
+const { readEnv } = require('./lib/utils');
+const { createDebugLogger } = require('./lib/log-adapters');
 
 function generateAsciiTotp(secret, digits = 6, step = 30) {
   const counter = Math.floor(Date.now() / 1000 / step);
@@ -485,7 +469,7 @@ async function runNikkiDownload(options = {}) {
   try {
     logger.log('Starting Nikki contributions download');
 
-    const debugEnabled = parseBool(readEnv('DEBUG_LOG', 'false'));
+    const logDebug = createDebugLogger();
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       acceptDownloads: true,  // REQUIRED for download operations
@@ -507,11 +491,8 @@ async function runNikkiDownload(options = {}) {
     const runtimeUserAgent = await page.evaluate(() => navigator.userAgent);
     logger.verbose(`Using user agent: ${runtimeUserAgent}`);
 
-    if (debugEnabled) {
-      const logDebug = createDebugLogger(true);
-      page.on('request', r => logDebug('>>', r.method(), r.url()));
-      page.on('response', r => logDebug('<<', r.status(), r.url()));
-    }
+    page.on('request', r => logDebug('>>', r.method(), r.url()));
+    page.on('response', r => logDebug('<<', r.status(), r.url()));
 
     try {
       await loginToNikki(page, logger);

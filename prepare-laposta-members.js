@@ -11,6 +11,8 @@ const {
   computeSourceHash
 } = require('./laposta-db');
 const { normalizeEmail, isValidEmail, buildChildFullName, hasValue } = require('./lib/parent-dedupe');
+const { readEnv } = require('./lib/utils');
+const { createLoggerAdapter } = require('./lib/log-adapters');
 
 const DEFAULT_MAPPING = path.join(process.cwd(), 'field-mapping.json');
 const MAX_LISTS = 4;
@@ -29,10 +31,6 @@ const EXCLUDED_CUSTOM_FIELDS = new Set([
   'emailouder1',
   'emailouder2'
 ]);
-
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
 
 function getLatestResultsFromDb() {
   const db = openDb();
@@ -278,9 +276,7 @@ function buildMemberEntry(
 async function runPrepare(options = {}) {
   const { logger, verbose = false, inputPath, mappingPath } = options;
 
-  // Use provided logger or create simple fallback
-  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
-  const logError = logger ? logger.error.bind(logger) : console.error;
+  const { verbose: logVerbose, error: logError } = createLoggerAdapter({ logger, verbose });
 
   try {
     const resolvedInputPath = inputPath || null;

@@ -1,25 +1,12 @@
 const path = require('path');
-const crypto = require('crypto');
 const Database = require('better-sqlite3');
+const { stableStringify, computeHash } = require('./lib/utils');
 
 const DEFAULT_DB_PATH = path.join(process.cwd(), 'laposta-sync.sqlite');
 
-function stableStringify(value) {
-  if (value === null || value === undefined) return 'null';
-  if (Array.isArray(value)) {
-    return `[${value.map(item => stableStringify(item)).join(',')}]`;
-  }
-  if (typeof value === 'object') {
-    const keys = Object.keys(value).sort();
-    const entries = keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
-    return `{${entries.join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
 function computeSourceHash(email, customFields) {
   const payload = stableStringify({ email, custom_fields: customFields || {} });
-  return crypto.createHash('sha256').update(payload).digest('hex');
+  return computeHash(payload);
 }
 
 function openDb(dbPath = DEFAULT_DB_PATH) {
@@ -313,7 +300,6 @@ module.exports = {
   DEFAULT_DB_PATH,
   openDb,
   initDb,
-  stableStringify,
   computeSourceHash,
   upsertMembers,
   deleteMembersForList,

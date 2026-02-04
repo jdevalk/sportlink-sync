@@ -7,10 +7,8 @@ const { URL } = require('url');
 const FormData = require('form-data');
 const { openDb, getMembersByPhotoState, updatePhotoState, clearPhotoState } = require('./lib/stadion-db');
 const { createSyncLogger } = require('./lib/logger');
-
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
+const { readEnv } = require('./lib/utils');
+const { createLoggerAdapter } = require('./lib/log-adapters');
 
 /**
  * Validate Stadion credentials exist
@@ -76,7 +74,7 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
     }
 
     const { logger, verbose = false } = options;
-    const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
+    const { verbose: logVerbose } = createLoggerAdapter({ logger, verbose });
 
     const baseUrl = readEnv('STADION_URL');
     const username = readEnv('STADION_USERNAME');
@@ -164,7 +162,7 @@ function deletePhotoFromStadion(stadionId, options = {}) {
     }
 
     const { logger, verbose = false } = options;
-    const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
+    const { verbose: logVerbose } = createLoggerAdapter({ logger, verbose });
 
     const baseUrl = readEnv('STADION_URL');
     const username = readEnv('STADION_USERNAME');

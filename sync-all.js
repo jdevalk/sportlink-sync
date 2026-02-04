@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { requireProductionServer } = require('./lib/server-check');
 const { createSyncLogger } = require('./lib/logger');
+const { formatDuration, formatTimestamp } = require('./lib/utils');
 const { runDownload } = require('./download-data-from-sportlink');
 const { runTeamDownload } = require('./download-teams-from-sportlink');
 const { runPrepare } = require('./prepare-laposta-members');
@@ -9,7 +10,7 @@ const { runSubmit } = require('./submit-laposta-list');
 const { runSync: runStadionSync } = require('./submit-stadion-sync');
 const { runSync: runTeamSync } = require('./submit-stadion-teams');
 const { runSync: runWorkHistorySync } = require('./submit-stadion-work-history');
-const { runPhotoDownload } = require('./download-photos-from-sportlink');
+const { runPhotoDownload } = require('./download-photos-from-api');
 const { runPhotoSync } = require('./upload-photos-to-stadion');
 const { runSync: runBirthdaySync } = require('./sync-important-dates');
 const { runFunctionsDownload } = require('./download-functions-from-sportlink');
@@ -31,21 +32,6 @@ function parseArgs(argv) {
     force: argv.includes('--force'),
     dryRun: argv.includes('--dry-run')
   };
-}
-
-/**
- * Format duration in human-readable format
- * @param {number} ms - Duration in milliseconds
- * @returns {string} Formatted duration (e.g., "2m 34s" or "45s")
- */
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
 }
 
 /**
@@ -427,7 +413,7 @@ async function runSyncAll(options = {}) {
     if (!downloadResult.success) {
       const errorMsg = downloadResult.error || 'Download failed';
       logger.error(`Download failed: ${errorMsg}`);
-      stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+      stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
       logger.close();
@@ -444,7 +430,7 @@ async function runSyncAll(options = {}) {
     if (!prepareResult.success) {
       const errorMsg = prepareResult.error || 'Prepare failed';
       logger.error(`Prepare failed: ${errorMsg}`);
-      stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+      stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
       logger.close();
@@ -839,7 +825,7 @@ async function runSyncAll(options = {}) {
 
     // Complete timing
     const endTime = Date.now();
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(endTime - startTime);
 
     // Print summary
@@ -870,7 +856,7 @@ async function runSyncAll(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
     printSummary(logger, stats);
 

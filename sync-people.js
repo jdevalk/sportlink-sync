@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { requireProductionServer } = require('./lib/server-check');
 const { createSyncLogger } = require('./lib/logger');
+const { formatDuration, formatTimestamp } = require('./lib/utils');
 const { runDownload } = require('./download-data-from-sportlink');
 const { runPrepare } = require('./prepare-laposta-members');
 const { runSubmit } = require('./submit-laposta-list');
@@ -10,17 +11,6 @@ const { runSync: runBirthdaySync } = require('./sync-important-dates');
 const { runPhotoDownload } = require('./download-photos-from-api');
 const { runPhotoSync } = require('./upload-photos-to-stadion');
 const { runReverseSync } = require('./lib/reverse-sync-sportlink');
-
-/**
- * Format duration in human-readable format
- */
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
-}
 
 /**
  * Print summary report for people sync
@@ -182,7 +172,7 @@ async function runPeopleSync(options = {}) {
     if (!downloadResult.success) {
       const errorMsg = downloadResult.error || 'Download failed';
       logger.error(`Download failed: ${errorMsg}`);
-      stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+      stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
       logger.close();
@@ -199,7 +189,7 @@ async function runPeopleSync(options = {}) {
     if (!prepareResult.success) {
       const errorMsg = prepareResult.error || 'Prepare failed';
       logger.error(`Prepare failed: ${errorMsg}`);
-      stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+      stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
       logger.close();
@@ -384,7 +374,7 @@ async function runPeopleSync(options = {}) {
     }
 
     // Complete
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
     printSummary(logger, stats);
@@ -403,7 +393,7 @@ async function runPeopleSync(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
     printSummary(logger, stats);
 

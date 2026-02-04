@@ -1,10 +1,7 @@
 require('varlock/auto-load');
 
 const https = require('https');
-
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
+const { readEnv } = require('./lib/utils');
 
 const ENV_KEYS = ['LAPOSTA_LIST', 'LAPOSTA_LIST2', 'LAPOSTA_LIST3', 'LAPOSTA_LIST4'];
 

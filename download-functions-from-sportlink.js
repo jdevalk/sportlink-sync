@@ -1,6 +1,5 @@
 require('varlock/auto-load');
 
-const otplib = require('otplib');
 const { chromium } = require('playwright');
 const {
   openDb,
@@ -14,67 +13,8 @@ const {
   clearMemberFreeFields
 } = require('./lib/stadion-db');
 const { createSyncLogger } = require('./lib/logger');
-
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
-
-function createDebugLogger(enabled) {
-  return (...args) => {
-    if (enabled) {
-      console.log(...args);
-    }
-  };
-}
-
-function parseBool(value, fallback = false) {
-  if (value === undefined) return fallback;
-  return ['1', 'true', 'yes', 'y'].includes(String(value).toLowerCase());
-}
-
-/**
- * Login to Sportlink (reuses pattern from download-photos-from-sportlink.js)
- */
-async function loginToSportlink(page, logger) {
-  const username = readEnv('SPORTLINK_USERNAME');
-  const password = readEnv('SPORTLINK_PASSWORD');
-  const otpSecret = readEnv('SPORTLINK_OTP_SECRET');
-
-  if (!username || !password) {
-    throw new Error('Missing SPORTLINK_USERNAME or SPORTLINK_PASSWORD');
-  }
-
-  logger.verbose('Navigating to Sportlink login page...');
-  await page.goto('https://club.sportlink.com/', { waitUntil: 'domcontentloaded' });
-  await page.fill('#username', username);
-  await page.fill('#password', password);
-  await page.click('#kc-login');
-
-  logger.verbose('Waiting for OTP field...');
-  await page.waitForSelector('#otp', { timeout: 20000 });
-
-  if (!otpSecret) {
-    throw new Error('Missing SPORTLINK_OTP_SECRET');
-  }
-
-  const otpCode = await otplib.generate({ secret: otpSecret });
-  if (!otpCode) {
-    throw new Error('OTP generation failed');
-  }
-
-  await page.fill('#otp', otpCode);
-  await page.click('#kc-login');
-
-  logger.verbose('Waiting for login to complete...');
-  await page.waitForLoadState('networkidle');
-
-  try {
-    await page.waitForSelector('#panelHeaderTasks', { timeout: 30000 });
-    logger.verbose('Login successful');
-  } catch (error) {
-    throw new Error('Login failed: Could not find dashboard element');
-  }
-}
+const { loginToSportlink } = require('./lib/sportlink-login');
+const { createLoggerAdapter, createDebugLogger } = require('./lib/log-adapters');
 
 /**
  * Parse functions API response
@@ -362,18 +302,15 @@ async function runFunctionsDownload(options = {}) {
     // Tables are cleared atomically with upserts at the END of the download,
     // preventing race conditions where other syncs see empty tables mid-process.
 
-    const debugEnabled = parseBool(readEnv('DEBUG_LOG', 'false'));
+    const logDebug = createDebugLogger();
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
     });
     const page = await context.newPage();
 
-    if (debugEnabled) {
-      const logDebug = createDebugLogger(true);
-      page.on('request', r => logDebug('>>', r.method(), r.url()));
-      page.on('response', r => logDebug('<<', r.status(), r.url()));
-    }
+    page.on('request', r => logDebug('>>', r.method(), r.url()));
+    page.on('response', r => logDebug('<<', r.status(), r.url()));
 
     const allFunctions = [];
     const allCommittees = [];
@@ -381,7 +318,7 @@ async function runFunctionsDownload(options = {}) {
     const uniqueCommitteeNames = new Set();
 
     try {
-      await loginToSportlink(page, logger);
+      await loginToSportlink(page, { logger });
 
       // Process each member
       for (let i = 0; i < members.length; i++) {
@@ -498,7 +435,6 @@ async function runFunctionsDownload(options = {}) {
 
 module.exports = {
   runFunctionsDownload,
-  loginToSportlink,
   fetchMemberFunctions,
   fetchMemberDataFromOtherPage,
   parseFunctionsResponse,

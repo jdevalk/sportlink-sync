@@ -9,10 +9,8 @@ const {
   updateSyncState,
   upsertLapostaFields
 } = require('./laposta-db');
-
-function readEnv(name, fallback = '') {
-  return process.env[name] ?? fallback;
-}
+const { readEnv } = require('./lib/utils');
+const { createLoggerAdapter } = require('./lib/log-adapters');
 
 function getListConfig(listIndex) {
   const envKeys = ['LAPOSTA_LIST', 'LAPOSTA_LIST2', 'LAPOSTA_LIST3', 'LAPOSTA_LIST4'];
@@ -244,7 +242,7 @@ function lapostaMemberRequest(listId, member, actions) {
  */
 async function syncList(listIndex, options = {}) {
   const { logger, verbose = false, force = false } = options;
-  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
+  const { verbose: logVerbose } = createLoggerAdapter({ logger, verbose });
 
   const { envKey, listId } = getListConfig(listIndex);
 

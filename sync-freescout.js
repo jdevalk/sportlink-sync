@@ -1,19 +1,9 @@
 require('varlock/auto-load');
 
 const { createSyncLogger } = require('./lib/logger');
+const { formatDuration, formatTimestamp } = require('./lib/utils');
 const { runSubmit: runFreescoutSubmit } = require('./submit-freescout-sync');
 const { checkCredentials: checkFreescoutCredentials } = require('./lib/freescout-client');
-
-/**
- * Format duration in human-readable format
- */
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
-}
 
 /**
  * Print summary report for FreeScout sync
@@ -83,7 +73,7 @@ async function runFreescoutSync(options = {}) {
     if (!creds.configured) {
       logger.error('FreeScout credentials not configured');
       logger.error('Required: FREESCOUT_API_KEY and FREESCOUT_URL in .env');
-      stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+      stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
       logger.close();
@@ -114,7 +104,7 @@ async function runFreescoutSync(options = {}) {
     }
 
     // Complete
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
     printSummary(logger, stats);
@@ -129,7 +119,7 @@ async function runFreescoutSync(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    stats.completedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
     printSummary(logger, stats);
 

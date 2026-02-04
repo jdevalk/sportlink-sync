@@ -1,6 +1,7 @@
 require('varlock/auto-load');
 
-const { openDb, getMembersNeedingSyncWithPrevious, stableStringify } = require('./laposta-db');
+const { openDb, getMembersNeedingSyncWithPrevious } = require('./laposta-db');
+const { stableStringify } = require('./lib/utils');
 
 function parseArgs(argv) {
   const listIndex = argv[2] ? Number.parseInt(argv[2], 10) : null;

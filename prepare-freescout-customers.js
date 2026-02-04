@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { openDb: openStadionDb, getMemberFreeFieldsByKnvbId, getMemberWorkHistory, getAllTrackedMembers } = require('./lib/stadion-db');
 const { openDb: openFreescoutDb, getCustomerByKnvbId } = require('./lib/freescout-db');
+const { createLoggerAdapter } = require('./lib/log-adapters');
 
 // Nikki DB is optional - will be null if not available
 let openNikkiDb = null;
@@ -198,10 +199,7 @@ function prepareCustomer(member, freescoutDb, stadionDb, nikkiDb) {
 async function runPrepare(options = {}) {
   const { logger, verbose = false } = options;
 
-  // Use provided logger or create simple fallback
-  const log = logger ? logger.log.bind(logger) : console.log;
-  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
-  const logError = logger ? logger.error.bind(logger) : console.error;
+  const { log, verbose: logVerbose, error: logError } = createLoggerAdapter({ logger, verbose });
 
   let stadionDb = null;
   let freescoutDb = null;

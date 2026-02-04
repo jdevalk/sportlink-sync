@@ -1,6 +1,7 @@
 require('varlock/auto-load');
 
 const { openDb, getLatestSportlinkResults } = require('./laposta-db');
+const { createLoggerAdapter } = require('./lib/log-adapters');
 
 /**
  * Check if a team name is valid
@@ -40,10 +41,7 @@ function extractTeamName(member) {
 async function runPrepare(options = {}) {
   const { logger, verbose = false } = options;
 
-  // Use provided logger or create simple fallback
-  const log = logger ? logger.log.bind(logger) : console.log;
-  const logVerbose = logger ? logger.verbose.bind(logger) : (verbose ? console.log : () => {});
-  const logError = logger ? logger.error.bind(logger) : console.error;
+  const { log, verbose: logVerbose, error: logError } = createLoggerAdapter({ logger, verbose });
 
   try {
     // Load Sportlink data from SQLite
