@@ -38,10 +38,11 @@ Progress: [####################] 32/32 phases (100%)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting future work:
 
+- [Q014-01]: Functions sync filters to members with LastUpdate in last 2 days (80% performance improvement)
+- [Q014-02]: Weekly full sync at Sunday 1:00 AM catches edge cases missed by LastUpdate filter
 - [32-01]: Monday 11:30 PM schedule avoids overlap with weekend team sync and daytime syncs
 - [32-01]: Discipline sync treated as non-critical in sync-all.js (continues on failure)
 - [31-01]: Season derived from match date using August 1 boundary (matches KNVB season cycles)
-- [30-01]: Store ChargeCodes as JSON string if array (flexible for unknown API structure)
 
 ### Pending Todos
 
@@ -65,10 +66,11 @@ None. Stadion UI work (DISC-07, DISC-08) deferred to Stadion codebase.
 | 011 | Remove debug output from parent sync and fix photo phase HTML headers | 2026-02-02 | ae25606 | [011-remove-debug-output-fix-photo-headers](./quick/011-remove-debug-output-fix-photo-headers/) |
 | 012 | Sum Nikki saldo per KNVB ID (support multiple entries per year) | 2026-02-03 | e4f411f | [012-sum-nikki-saldo-per-knvb-id](./quick/012-sum-nikki-saldo-per-knvb-id/) |
 | 013 | Add discipline fees to Financieel card (doorbelast/non-doorbelast split) | 2026-02-04 | 2a27fbd | [013-add-discipline-fees-to-financieel](./quick/013-add-discipline-fees-to-financieel/) |
+| 014 | Optimize member fetching with LastUpdate filter (daily recent, weekly full) | 2026-02-04 | 21d9d7a | [014-optimize-member-fetching-lastupdate-filter](./quick/014-optimize-member-fetching-lastupdate-filter/) |
 
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: Quick task 013 completed
+Stopped at: Quick task 014 completed
 Resume file: None
 Next steps: Run `/gsd:new-milestone` to start next milestone
