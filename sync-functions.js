@@ -88,15 +88,16 @@ function printSummary(logger, stats) {
 }
 
 /**
- * Run functions sync pipeline (weekly)
+ * Run functions sync pipeline
  * - Download functions and committees from Sportlink
  * - Sync commissies to Stadion
  * - Sync commissie work history
  *
- * Uses cached member data from last people sync (hourly download)
+ * Daily: processes only members with recent updates (recentOnly=true)
+ * Weekly: full sync of all tracked members (recentOnly=false with --all flag)
  */
 async function runFunctionsSync(options = {}) {
-  const { verbose = false, force = false, withInvoice = false } = options;
+  const { verbose = false, force = false, withInvoice = false, all = false } = options;
 
   const logger = createSyncLogger({ verbose, prefix: 'functions' });
   const startTime = Date.now();
@@ -131,9 +132,10 @@ async function runFunctionsSync(options = {}) {
 
   try {
     // Step 1: Download functions from Sportlink
-    logger.verbose('Downloading functions from Sportlink...');
+    const syncMode = all ? 'full sync' : 'recent updates';
+    logger.verbose(`Downloading functions from Sportlink (${syncMode})...`);
     try {
-      const downloadResult = await runFunctionsDownload({ logger, verbose, withInvoice });
+      const downloadResult = await runFunctionsDownload({ logger, verbose, withInvoice, recentOnly: !all });
       stats.download.total = downloadResult.total || 0;
       stats.download.functionsCount = downloadResult.functionsCount || 0;
       stats.download.committeesCount = downloadResult.committeesCount || 0;
@@ -249,8 +251,9 @@ if (require.main === module) {
   const verbose = process.argv.includes('--verbose');
   const force = process.argv.includes('--force');
   const withInvoice = process.argv.includes('--with-invoice');
+  const all = process.argv.includes('--all');
 
-  runFunctionsSync({ verbose, force, withInvoice })
+  runFunctionsSync({ verbose, force, withInvoice, all })
     .then(result => {
       if (!result.success) {
         process.exitCode = 1;

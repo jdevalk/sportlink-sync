@@ -8,14 +8,15 @@ PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 echo "Sportlink Sync - Cron Installation"
 echo "==================================="
 echo ""
-echo "This will set up seven sync schedules:"
-echo "  - People sync:     4x daily (members, parents, birthdays, photos)"
-echo "  - Nikki sync:      daily at 7:00 AM"
-echo "  - FreeScout sync:  daily at 8:00 AM"
-echo "  - Team sync:       weekly on Sunday at 6:00 AM"
-echo "  - Functions sync:  daily at 7:15 AM"
-echo "  - Discipline sync: weekly on Monday at 11:30 PM"
-echo "  - Reverse sync:    every 15 minutes (Stadion -> Sportlink)"
+echo "This will set up eight sync schedules:"
+echo "  - People sync:            4x daily (members, parents, birthdays, photos)"
+echo "  - Nikki sync:             daily at 7:00 AM"
+echo "  - FreeScout sync:         daily at 8:00 AM"
+echo "  - Team sync:              weekly on Sunday at 6:00 AM"
+echo "  - Functions sync (daily): daily at 7:15 AM (recent updates only)"
+echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
+echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
+echo "  - Reverse sync:           every 15 minutes (Stadion -> Sportlink)"
 echo ""
 
 # Check if .env exists and has Postmark config
@@ -118,8 +119,11 @@ CRON_TZ=Europe/Amsterdam
 # Team sync: weekly on Sunday at 6:00 AM
 0 6 * * 0 $PROJECT_DIR/scripts/sync.sh teams
 
-# Functions sync: daily at 7:15 AM (after Nikki sync)
+# Functions sync (recent): daily at 7:15 AM (after Nikki sync)
 15 7 * * * $PROJECT_DIR/scripts/sync.sh functions
+
+# Functions sync (full): weekly on Sunday at 1:00 AM
+0 1 * * 0 $PROJECT_DIR/scripts/sync.sh functions --all
 
 # Discipline sync: weekly on Monday at 11:30 PM
 30 23 * * 1 $PROJECT_DIR/scripts/sync.sh discipline
@@ -134,13 +138,14 @@ CRON_TZ=Europe/Amsterdam
 echo "Cron jobs installed successfully!"
 echo ""
 echo "Scheduled jobs:"
-echo "  - People sync:     4x daily at 8am, 11am, 2pm, 5pm (members, parents, birthdays, photos)"
-echo "  - Nikki sync:      daily at 7:00 AM (nikki contributions)"
-echo "  - FreeScout sync:  daily at 8:00 AM (customer sync)"
-echo "  - Team sync:       weekly on Sunday at 6:00 AM"
-echo "  - Functions sync:  daily at 7:15 AM"
-echo "  - Discipline sync: weekly on Monday at 11:30 PM"
-echo "  - Reverse sync:    every 15 minutes (Stadion -> Sportlink)"
+echo "  - People sync:            4x daily at 8am, 11am, 2pm, 5pm (members, parents, birthdays, photos)"
+echo "  - Nikki sync:             daily at 7:00 AM (nikki contributions)"
+echo "  - FreeScout sync:         daily at 8:00 AM (customer sync)"
+echo "  - Team sync:              weekly on Sunday at 6:00 AM"
+echo "  - Functions sync (daily): daily at 7:15 AM (recent updates only)"
+echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
+echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
+echo "  - Reverse sync:           every 15 minutes (Stadion -> Sportlink)"
 echo ""
 echo "All times are Amsterdam timezone (Europe/Amsterdam)"
 echo ""
