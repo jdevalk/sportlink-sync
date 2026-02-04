@@ -118,6 +118,15 @@ Stadion members → freescout-sync.sqlite → FreeScout API (customers)
 - `scripts/install-cron.sh` - Interactive cron setup with credential prompts
 - `scripts/send-email.js` - Postmark email delivery for sync reports
 
+### Shared Utility Modules
+
+Common functionality is consolidated in `lib/`:
+
+- `lib/utils.js` - General utilities (hashing, formatting, env reading)
+- `lib/sportlink-login.js` - Sportlink authentication with TOTP 2FA
+- `lib/log-adapters.js` - Logger adapters for consistent logging patterns
+- `lib/http-client.js` - HTTP request utilities with timeout and error handling
+
 ## Setup
 
 Requires Node 18+ (for built-in `fetch`, `FormData`, and `Blob`).

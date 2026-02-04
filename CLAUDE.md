@@ -72,6 +72,34 @@ Runs all five pipelines sequentially. Used for manual full syncs or initial setu
 - `scripts/install-cron.sh` - Interactive cron setup with credential prompts
 - `scripts/send-email.js` - Postmark email delivery for sync reports
 
+### Shared Utility Modules
+
+Common functionality is consolidated in `lib/` to avoid duplication:
+
+- **`lib/utils.js`** - General utilities used across scripts:
+  - `stableStringify(value)` - Deterministic JSON serialization for hash computation
+  - `computeHash(data)` - SHA-256 hash computation
+  - `formatDuration(ms)` - Human-readable duration (e.g., "2m 30s")
+  - `formatTimestamp(date)` - Timestamp formatting for display
+  - `nowISO()` - Current ISO timestamp
+  - `readEnv(name, fallback)` - Environment variable reading with fallback
+  - `parseBool(value, fallback)` - Boolean parsing from strings
+
+- **`lib/sportlink-login.js`** - Sportlink authentication:
+  - `loginToSportlink(page, options)` - Complete login flow with TOTP 2FA
+  - Reads credentials from env vars or accepts them via options
+  - Used by all download-*-from-sportlink.js scripts
+
+- **`lib/log-adapters.js`** - Logger adapters for consistent logging:
+  - `createLoggerAdapter({ logger, verbose })` - Creates log/verbose/error functions
+  - `createDebugLogger()` - Debug logger based on DEBUG_LOG env var
+  - `isDebugEnabled()` - Check if debug logging is enabled
+
+- **`lib/http-client.js`** - HTTP request utilities:
+  - `makeRequest(config)` - Generic HTTP with timeout, JSON parsing, error handling
+  - `createBasicAuthHeader(username, password)` - Basic Auth header creation
+  - Used by stadion-client.js and freescout-client.js
+
 ### Data Flow
 
 Four parallel pipelines:
