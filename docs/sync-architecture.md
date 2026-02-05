@@ -1,5 +1,7 @@
 # Sync Architecture
 
+Sportlink Club is the member administration system used by Dutch sports clubs, mandated by the KNVB (Royal Dutch Football Association). It is the single source of truth for member data, but it lacks APIs and has a limited, dated web interface. This tool extracts member data from Sportlink and syncs it to the systems where it's actually needed: Laposta for email marketing, Stadion (a WordPress site) for club management, and FreeScout for helpdesk support. It also pulls contribution data from Nikki, a separate financial system. The goal is to keep all downstream systems in sync with Sportlink automatically, so club volunteers never have to enter the same data twice.
+
 This document describes what data flows from where to where, which fields are synced, on what schedule, and how change detection works.
 
 ## Table of Contents
