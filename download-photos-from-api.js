@@ -117,10 +117,15 @@ async function runPhotoDownload(options = {}) {
         result.downloaded++;
         logger.verbose(`  Saved ${path.basename(downloadResult.path)} (${downloadResult.bytes} bytes)`);
       } catch (error) {
-        result.failed++;
-        result.errors.push({ knvb_id: member.knvb_id, message: error.message });
-        logger.verbose(`  Failed: ${error.message}`);
-        // Continue to next member - don't change photo_state
+        // On 404, the photo no longer exists on Sportlink's CDN - clear state to stop retrying
+        if (error.message === 'HTTP 404') {
+          updatePhotoState(db, member.knvb_id, 'no_photo');
+          logger.verbose(`  Photo no longer exists (404), cleared photo state`);
+        } else {
+          result.failed++;
+          result.errors.push({ knvb_id: member.knvb_id, message: error.message });
+          logger.verbose(`  Failed: ${error.message}`);
+        }
       }
 
       // Small delay between downloads (rate limiting)

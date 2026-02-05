@@ -382,8 +382,14 @@ async function runPhotoSync(options = {}) {
             stadionDeleted = true;
             logger.verbose(`  Deleted from Stadion`);
           } catch (error) {
-            deleteError = error.message;
-            logger.verbose(`  Stadion delete failed: ${error.message}`);
+            // 404 means no photo exists on Stadion - that's the desired state
+            if (error.message.includes('404')) {
+              stadionDeleted = true;
+              logger.verbose(`  No photo on Stadion (404) - already clean`);
+            } else {
+              deleteError = error.message;
+              logger.verbose(`  Stadion delete failed: ${error.message}`);
+            }
             // Continue - clear state anyway
           }
         } else {
