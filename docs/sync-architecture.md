@@ -45,7 +45,7 @@ All times are **Europe/Amsterdam** timezone.
 |----------|----------|------|-------|
 | People | 4x daily | `0 8,11,14,17 * * *` | Members, parents, birthdays, photos |
 | Nikki | Daily | `0 7 * * *` | Contributions to Stadion |
-| Functions (recent) | Daily | `15 7 * * *` | Members updated in last 2 days + VOG-filtered volunteers |
+| Functions (recent) | 4x daily | `30 7,10,13,16 * * *` | 30 min before each people sync; members updated in last 2 days + VOG-filtered volunteers |
 | Functions (full) | Weekly Sunday | `0 1 * * 0` | All members with `--all` |
 | FreeScout | Daily | `0 8 * * *` | Stadion members to FreeScout customers |
 | Teams | Weekly Sunday | `0 6 * * 0` | Team creation + work history |
@@ -57,11 +57,10 @@ All times are **Europe/Amsterdam** timezone.
 ```
  Every hour    Reverse sync (Stadion -> Sportlink) [currently disabled]
  07:00         Nikki sync
- 07:15         Functions sync (recent only)
- 08:00         People sync (1st) + FreeScout sync
- 11:00         People sync (2nd)
- 14:00         People sync (3rd)
- 17:00         People sync (4th)
+ 07:30         Functions sync (recent) -> 08:00 People sync (1st) + FreeScout sync
+ 10:30         Functions sync (recent) -> 11:00 People sync (2nd)
+ 13:30         Functions sync (recent) -> 14:00 People sync (3rd)
+ 16:30         Functions sync (recent) -> 17:00 People sync (4th)
 ```
 
 ### Weekly
@@ -340,7 +339,7 @@ When a member is removed from a team, the entry is kept with `is_current: false`
 
 ## Pipeline 4: Functions (Commissies)
 
-Runs daily (recent updates) and weekly (full). Scrapes committee/function memberships and free fields from Sportlink via browser automation.
+Runs 4x daily (recent updates, 30 min before each people sync) and weekly (full). Scrapes committee/function memberships and free fields from Sportlink via browser automation. Running before the people sync ensures fresh free fields (FreeScout ID, VOG, financial block, photo URLs) are available.
 
 ```mermaid
 graph TD

@@ -13,7 +13,7 @@ echo "  - People sync:            4x daily (members, parents, birthdays, photos)
 echo "  - Nikki sync:             daily at 7:00 AM"
 echo "  - FreeScout sync:         daily at 8:00 AM"
 echo "  - Team sync:              weekly on Sunday at 6:00 AM"
-echo "  - Functions sync (daily): daily at 7:15 AM (recent updates only)"
+echo "  - Functions sync (recent):4x daily, 30 min before each people sync"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
 echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
 echo "  - Reverse sync:           hourly (Stadion -> Sportlink)"
@@ -119,8 +119,8 @@ CRON_TZ=Europe/Amsterdam
 # Team sync: weekly on Sunday at 6:00 AM
 0 6 * * 0 $PROJECT_DIR/scripts/sync.sh teams
 
-# Functions sync (recent): daily at 7:15 AM (after Nikki sync)
-15 7 * * * $PROJECT_DIR/scripts/sync.sh functions
+# Functions sync (recent): 4x daily, 30 min before each people sync
+30 7,10,13,16 * * * $PROJECT_DIR/scripts/sync.sh functions
 
 # Functions sync (full): weekly on Sunday at 1:00 AM
 0 1 * * 0 $PROJECT_DIR/scripts/sync.sh functions --all
@@ -142,7 +142,7 @@ echo "  - People sync:            4x daily at 8am, 11am, 2pm, 5pm (members, pare
 echo "  - Nikki sync:             daily at 7:00 AM (nikki contributions)"
 echo "  - FreeScout sync:         daily at 8:00 AM (customer sync)"
 echo "  - Team sync:              weekly on Sunday at 6:00 AM"
-echo "  - Functions sync (daily): daily at 7:15 AM (recent updates only)"
+echo "  - Functions sync (recent):4x daily, 30 min before each people sync"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
 echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
 echo "  - Reverse sync:           hourly (Stadion -> Sportlink)"

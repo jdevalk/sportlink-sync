@@ -239,7 +239,7 @@ After `npm run install-cron`, eight sync schedules are configured:
 - **Nikki sync:** Daily at 7:00 AM Amsterdam time
 - **FreeScout sync:** Daily at 8:00 AM Amsterdam time
 - **Team sync:** Weekly on Sunday at 6:00 AM
-- **Functions sync (recent):** Daily at 7:15 AM (after Nikki sync, recent updates only)
+- **Functions sync (recent):** 4x daily at 7:30am, 10:30am, 1:30pm, 4:30pm (30 min before each people sync)
 - **Functions sync (full):** Weekly on Sunday at 1:00 AM (all members with --all flag)
 - **Discipline sync:** Weekly on Monday at 11:30 PM
 - **Reverse sync:** Hourly (Stadion -> Sportlink) - **currently disabled**
