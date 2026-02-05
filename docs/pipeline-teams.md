@@ -8,23 +8,23 @@ Runs **weekly** on Sunday at 6:00 AM (Amsterdam time).
 
 ```bash
 scripts/sync.sh teams           # Production (with locking + email report)
-node sync-teams.js --verbose    # Direct execution (verbose)
+node pipelines/sync-teams.js --verbose    # Direct execution (verbose)
 ```
 
 ## Pipeline Flow
 
 ```
-sync-teams.js
-├── Step 1: download-teams-from-sportlink.js   → stadion-sync.sqlite
-├── Step 2: submit-stadion-teams.js            → Stadion WordPress API (teams)
-└── Step 3: submit-stadion-work-history.js     → Stadion WordPress API (person work_history)
+pipelines/sync-teams.js
+├── Step 1: steps/download-teams-from-sportlink.js   → stadion-sync.sqlite
+├── Step 2: steps/submit-stadion-teams.js            → Stadion WordPress API (teams)
+└── Step 3: steps/submit-stadion-work-history.js     → Stadion WordPress API (person work_history)
 ```
 
 ## Step-by-Step Details
 
 ### Step 1: Download Teams from Sportlink
 
-**Script:** `download-teams-from-sportlink.js`
+**Script:** `steps/download-teams-from-sportlink.js`
 **Function:** `runTeamDownload({ logger, verbose })`
 
 1. Launches headless Chromium via Playwright
@@ -46,7 +46,7 @@ sync-teams.js
 
 ### Step 2: Sync Teams to Stadion
 
-**Script:** `submit-stadion-teams.js`
+**Script:** `steps/submit-stadion-teams.js`
 **Function:** `runSync({ logger, verbose, force, currentSportlinkIds })`
 
 1. Reads all teams from `stadion-sync.sqlite` → `stadion_teams`
@@ -63,7 +63,7 @@ sync-teams.js
 
 ### Step 3: Sync Work History
 
-**Script:** `submit-stadion-work-history.js`
+**Script:** `steps/submit-stadion-work-history.js`
 **Function:** `runSync({ logger, verbose, force })`
 
 1. Reads team membership from `sportlink_team_members` joined with `stadion_teams` and `stadion_members`
@@ -130,11 +130,11 @@ The ACF `work_history` is a repeater field on person posts:
 
 | File | Purpose |
 |------|---------|
-| `sync-teams.js` | Pipeline orchestrator |
-| `download-teams-from-sportlink.js` | Sportlink team scraping (Playwright) |
-| `submit-stadion-teams.js` | Stadion team API sync |
-| `submit-stadion-work-history.js` | Stadion work history API sync |
-| `prepare-stadion-teams.js` | Team data preparation |
+| `pipelines/sync-teams.js` | Pipeline orchestrator |
+| `steps/download-teams-from-sportlink.js` | Sportlink team scraping (Playwright) |
+| `steps/submit-stadion-teams.js` | Stadion team API sync |
+| `steps/submit-stadion-work-history.js` | Stadion work history API sync |
+| `steps/prepare-stadion-teams.js` | Team data preparation |
 | `lib/stadion-db.js` | SQLite operations |
 | `lib/stadion-client.js` | Stadion HTTP client |
 | `lib/sportlink-login.js` | Sportlink authentication |

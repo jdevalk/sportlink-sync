@@ -8,16 +8,16 @@ Runs **daily** at 8:00 AM (Amsterdam time).
 
 ```bash
 scripts/sync.sh freescout           # Production (with locking + email report)
-node sync-freescout.js --verbose    # Direct execution (verbose)
+node pipelines/sync-freescout.js --verbose    # Direct execution (verbose)
 ```
 
 ## Pipeline Flow
 
 ```
-sync-freescout.js
+pipelines/sync-freescout.js
 ├── Check credentials (FREESCOUT_API_KEY + FREESCOUT_URL)
-└── submit-freescout-sync.js
-    ├── prepare-freescout-customers.js   → freescout-sync.sqlite
+└── steps/submit-freescout-sync.js
+    ├── steps/prepare-freescout-customers.js   → freescout-sync.sqlite
     └── Submit to FreeScout API          → FreeScout customers
 ```
 
@@ -25,11 +25,11 @@ sync-freescout.js
 
 ### Credential Check
 
-Before running, `sync-freescout.js` verifies that `FREESCOUT_API_KEY` and `FREESCOUT_URL` are configured in `.env`. If not, the pipeline exits with an error.
+Before running, `pipelines/sync-freescout.js` verifies that `FREESCOUT_API_KEY` and `FREESCOUT_URL` are configured in `.env`. If not, the pipeline exits with an error.
 
 ### Customer Preparation
 
-**Script:** `prepare-freescout-customers.js` (called internally by `submit-freescout-sync.js`)
+**Script:** `steps/prepare-freescout-customers.js` (called internally by `steps/submit-freescout-sync.js`)
 
 1. Reads member data from `stadion-sync.sqlite` → `stadion_members`
 2. Reads team assignments from `stadion-sync.sqlite` → `stadion_work_history`
@@ -44,7 +44,7 @@ Before running, `sync-freescout.js` verifies that `FREESCOUT_API_KEY` and `FREES
 
 ### Customer Sync
 
-**Script:** `submit-freescout-sync.js`
+**Script:** `steps/submit-freescout-sync.js`
 **Function:** `runSubmit({ logger, verbose, force })`
 
 1. Reads customers from `freescout-sync.sqlite` where `source_hash != last_synced_hash`
@@ -112,9 +112,9 @@ Field IDs are configurable via `FREESCOUT_FIELD_*` environment variables.
 
 | File | Purpose |
 |------|---------|
-| `sync-freescout.js` | Pipeline orchestrator |
-| `submit-freescout-sync.js` | FreeScout API sync + customer preparation |
-| `prepare-freescout-customers.js` | Customer data preparation |
+| `pipelines/sync-freescout.js` | Pipeline orchestrator |
+| `steps/submit-freescout-sync.js` | FreeScout API sync + customer preparation |
+| `steps/prepare-freescout-customers.js` | Customer data preparation |
 | `lib/freescout-db.js` | FreeScout SQLite operations |
 | `lib/freescout-client.js` | FreeScout HTTP client + credential check |
 | `lib/stadion-db.js` | Stadion data lookup |

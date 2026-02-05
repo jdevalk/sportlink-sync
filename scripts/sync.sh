@@ -34,15 +34,34 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# Parse sync type argument
-SYNC_TYPE="${1:-all}"
+# Parse sync type argument — show usage if none given
+if [ -z "$1" ]; then
+    echo ""
+    echo "Sportlink Sync — available pipelines:"
+    echo ""
+    echo "  scripts/sync.sh people           Members, parents, birthdays, photos (4x daily)"
+    echo "  scripts/sync.sh functions        Commissies + free fields, recent updates (4x daily)"
+    echo "  scripts/sync.sh functions --all  Full commissie sync, all members (weekly)"
+    echo "  scripts/sync.sh nikki            Nikki contributions (daily)"
+    echo "  scripts/sync.sh freescout        FreeScout customers (daily)"
+    echo "  scripts/sync.sh teams            Team rosters + work history (weekly)"
+    echo "  scripts/sync.sh discipline       Discipline cases (weekly)"
+    echo "  scripts/sync.sh invoice          Functions + invoice data (monthly)"
+    echo "  scripts/sync.sh reverse          Reverse sync, Stadion → Sportlink (disabled)"
+    echo "  scripts/sync.sh all              Run all pipelines sequentially"
+    echo ""
+    exit 0
+fi
+
+SYNC_TYPE="$1"
 
 # Validate sync type
 case "$SYNC_TYPE" in
     people|photos|teams|functions|invoice|nikki|freescout|reverse|discipline|all)
         ;;
     *)
-        echo "Usage: $0 {people|photos|teams|functions|invoice|nikki|freescout|reverse|discipline|all}" >&2
+        echo "Unknown sync type: $SYNC_TYPE" >&2
+        echo "Run without arguments to see available pipelines." >&2
         exit 1
         ;;
 esac
@@ -117,7 +136,7 @@ esac
 
 # Run sync with logging
 echo "Starting $SYNC_TYPE sync at $(date)" | tee -a "$LOG_FILE"
-node "$PROJECT_DIR/$SYNC_SCRIPT" $SYNC_FLAGS 2>&1 | tee -a "$LOG_FILE"
+node "$PROJECT_DIR/pipelines/$SYNC_SCRIPT" $SYNC_FLAGS 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
 # Send email report if configured

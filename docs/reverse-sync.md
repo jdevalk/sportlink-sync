@@ -10,8 +10,8 @@ When enabled: **hourly** via `scripts/sync.sh reverse`.
 
 ```bash
 scripts/sync.sh reverse                      # Production (with locking + email report)
-node detect-stadion-changes.js --verbose     # Detection only (no sync)
-node reverse-sync.js --verbose               # Contact field sync only
+node tools/detect-stadion-changes.js --verbose     # Detection only (no sync)
+node pipelines/reverse-sync.js --verbose               # Contact field sync only
 ```
 
 ## Architecture
@@ -192,9 +192,9 @@ Per-field modification timestamps added to the existing table:
 | `lib/reverse-sync-sportlink.js` | Sync to Sportlink (SQLite → Sportlink browser) |
 | `lib/conflict-resolver.js` | Timestamp-based conflict resolution |
 | `lib/sync-origin.js` | Constants and utilities for sync origin tracking |
-| `detect-stadion-changes.js` | CLI for running detection standalone |
-| `reverse-sync.js` | CLI for running contact field sync |
-| `reverse-sync-contact-fields.js` | CLI alias for contact field sync |
+| `tools/detect-stadion-changes.js` | CLI for running detection standalone |
+| `pipelines/reverse-sync.js` | CLI for running contact field sync |
+| `steps/reverse-sync-contact-fields.js` | CLI alias for contact field sync |
 
 ## Example Flow
 

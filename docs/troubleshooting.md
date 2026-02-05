@@ -11,8 +11,8 @@ Common issues and their solutions.
 **Fix:**
 ```bash
 # On the server
-node scripts/delete-duplicates.js --verbose   # Dry run first
-node scripts/delete-duplicates.js --apply      # Delete duplicates (keeps oldest per KNVB ID)
+node tools/delete-duplicates.js --verbose   # Dry run first
+node tools/delete-duplicates.js --apply      # Delete duplicates (keeps oldest per KNVB ID)
 ```
 
 **Prevention:** All sync scripts enforce a server check that blocks local execution. Always sync from `root@46.202.155.16:/home/sportlink/`.
@@ -102,7 +102,7 @@ rm /home/sportlink/.sync-people.lock   # Or whichever sync type
 **Diagnosis:**
 ```bash
 # Check if member exists in local database
-node show-sportlink-member.js member@example.com
+node tools/show-sportlink-member.js member@example.com
 
 # Check Stadion mapping
 sqlite3 stadion-sync.sqlite "SELECT knvb_id, stadion_id, last_synced_at FROM stadion_members WHERE email = 'member@example.com'"
@@ -112,7 +112,7 @@ sqlite3 stadion-sync.sqlite "SELECT knvb_id, stadion_id, last_synced_at FROM sta
 1. **No `stadion_id` yet:** Member was downloaded but sync failed. Run `scripts/sync.sh people` to retry.
 2. **Invalid `stadion_id`:** The WordPress post was deleted. Fix with:
    ```bash
-   node scripts/verify-stadion-data.js --fix --verbose
+   node tools/verify-stadion-data.js --fix --verbose
    ```
    Then re-run sync to recreate the member.
 3. **Member has no email:** Sportlink members without an email address may be skipped.
@@ -128,14 +128,14 @@ sqlite3 stadion-sync.sqlite "SELECT knvb_id, stadion_id, last_synced_at FROM sta
 **Fix:**
 ```bash
 # Verify which IDs are invalid
-node scripts/verify-stadion-data.js --verbose
+node tools/verify-stadion-data.js --verbose
 
 # Fix by nullifying invalid IDs (they'll be recreated on next sync)
-node scripts/verify-stadion-data.js --fix --verbose
+node tools/verify-stadion-data.js --fix --verbose
 
 # Or use validate-stadion-ids for a simpler check
-node validate-stadion-ids.js              # Dry run
-node validate-stadion-ids.js --apply      # Fix invalid IDs
+node tools/validate-stadion-ids.js              # Dry run
+node tools/validate-stadion-ids.js --apply      # Fix invalid IDs
 ```
 
 ---
@@ -150,7 +150,7 @@ node validate-stadion-ids.js --apply      # Fix invalid IDs
 sqlite3 stadion-sync.sqlite "SELECT photo_state, COUNT(*) FROM stadion_members GROUP BY photo_state"
 
 # Check consistency between files and database
-node check-photo-consistency.js --verbose
+node tools/check-photo-consistency.js --verbose
 ```
 
 **Common issues:**
@@ -165,13 +165,13 @@ node check-photo-consistency.js --verbose
 
 2. **Files missing for `downloaded` state:** Files were cleaned up but state wasn't updated:
    ```bash
-   node check-photo-consistency.js --fix
+   node tools/check-photo-consistency.js --fix
    ```
 
 3. **Members with photos marked `no_photo`:** State got out of sync:
    ```bash
-   node scripts/reset-photo-states.js         # Dry run
-   node scripts/reset-photo-states.js --apply  # Fix states
+   node tools/reset-photo-states.js         # Dry run
+   node tools/reset-photo-states.js --apply  # Fix states
    ```
 
 ---
@@ -184,7 +184,7 @@ node check-photo-consistency.js --verbose
 
 **If data was wiped:** Run a full functions sync to restore:
 ```bash
-ssh root@46.202.155.16 "cd /home/sportlink && node sync-functions.js --all --verbose"
+ssh root@46.202.155.16 "cd /home/sportlink && node pipelines/sync-functions.js --all --verbose"
 ```
 
 ---
@@ -196,15 +196,15 @@ ssh root@46.202.155.16 "cd /home/sportlink && node sync-functions.js --all --ver
 **Fix:**
 ```bash
 # Find orphaned birthdays
-node scripts/find-orphan-dates.js --verbose
-node scripts/find-orphan-dates.js --delete    # Remove them
+node tools/find-orphan-dates.js --verbose
+node tools/find-orphan-dates.js --delete    # Remove them
 
 # Find orphaned relationships
-node cleanup-orphan-relationships.js --verbose
-node cleanup-orphan-relationships.js --fix     # Remove them
+node tools/cleanup-orphan-relationships.js --verbose
+node tools/cleanup-orphan-relationships.js --fix     # Remove them
 
 # Find duplicate relationships
-node scripts/cleanup-duplicate-relationships.js
+node tools/cleanup-duplicate-relationships.js
 ```
 
 ---
@@ -248,8 +248,8 @@ npm run show-laposta-changes
    scripts/sync.sh all
    ```
 
-   **Warning:** Deleting `stadion-sync.sqlite` loses all `stadion_id` mappings. This means the next sync will create new WordPress posts instead of updating existing ones. Use `repopulate-stadion-ids.js` afterward to restore mappings:
+   **Warning:** Deleting `stadion-sync.sqlite` loses all `stadion_id` mappings. This means the next sync will create new WordPress posts instead of updating existing ones. Use `tools/repopulate-stadion-ids.js` afterward to restore mappings:
    ```bash
-   node repopulate-stadion-ids.js --verbose  # Dry run
-   node repopulate-stadion-ids.js             # Apply
+   node tools/repopulate-stadion-ids.js --verbose  # Dry run
+   node tools/repopulate-stadion-ids.js             # Apply
    ```

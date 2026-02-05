@@ -60,10 +60,10 @@ scripts/sync.sh all              # All pipelines sequentially
 Sync a specific member by KNVB ID:
 
 ```bash
-node sync-individual.js KNVB123456 --verbose          # Full sync
-node sync-individual.js KNVB123456 --dry-run --verbose # Preview only
-node sync-individual.js KNVB123456 --fetch --verbose   # Fetch fresh data from Sportlink first
-node sync-individual.js --search "Jan Jansen"          # Search by name
+node pipelines/sync-individual.js KNVB123456 --verbose          # Full sync
+node pipelines/sync-individual.js KNVB123456 --dry-run --verbose # Preview only
+node pipelines/sync-individual.js KNVB123456 --fetch --verbose   # Fetch fresh data from Sportlink first
+node pipelines/sync-individual.js --search "Jan Jansen"          # Search by name
 ```
 
 ### Direct Script Execution
@@ -71,13 +71,13 @@ node sync-individual.js --search "Jan Jansen"          # Search by name
 For debugging individual steps:
 
 ```bash
-node download-data-from-sportlink.js --verbose   # Download only
-node prepare-laposta-members.js --verbose         # Prepare Laposta data
-node submit-laposta-list.js --verbose             # Submit to Laposta
-node submit-stadion-sync.js --verbose             # Submit to Stadion
-node sync-important-dates.js --verbose            # Sync birthdays
-node download-photos-from-api.js --verbose        # Download photos
-node upload-photos-to-stadion.js --verbose        # Upload photos
+node steps/download-data-from-sportlink.js --verbose   # Download only
+node steps/prepare-laposta-members.js --verbose         # Prepare Laposta data
+node steps/submit-laposta-list.js --verbose             # Submit to Laposta
+node steps/submit-stadion-sync.js --verbose             # Submit to Stadion
+node steps/sync-important-dates.js --verbose            # Sync birthdays
+node steps/download-photos-from-api.js --verbose        # Download photos
+node steps/upload-photos-to-stadion.js --verbose        # Upload photos
 ```
 
 ## Database Inspection
@@ -86,15 +86,15 @@ node upload-photos-to-stadion.js --verbose        # Upload photos
 
 ```bash
 # Find member in Sportlink data
-node show-sportlink-member.js member@example.com
+node tools/show-sportlink-member.js member@example.com
 
 # Find member in Laposta tracking
-node show-laposta-member.js member@example.com
-node show-laposta-member.js member@example.com 2   # Specific list
+node tools/show-laposta-member.js member@example.com
+node tools/show-laposta-member.js member@example.com 2   # Specific list
 
 # Show pending Laposta changes
-node show-laposta-changes.js        # Changes only
-node show-laposta-changes.js --all  # All members with diffs
+node tools/show-laposta-changes.js        # Changes only
+node tools/show-laposta-changes.js --all  # All members with diffs
 ```
 
 ### Direct SQLite Queries
@@ -119,7 +119,7 @@ sqlite3 stadion-sync.sqlite "SELECT COUNT(*) FROM stadion_commissies WHERE stadi
 sqlite3 laposta-sync.sqlite "SELECT id, created_at FROM sportlink_runs ORDER BY id DESC LIMIT 5"
 
 # Nikki contributions with outstanding balance
-node show-nikki-contributions.js --outstanding
+node tools/show-nikki-contributions.js --outstanding
 
 # FreeScout customer count
 sqlite3 freescout-sync.sqlite "SELECT COUNT(*) FROM freescout_customers WHERE freescout_id IS NOT NULL"
@@ -144,8 +144,8 @@ Only run `npm install` if dependencies changed (check `package.json` diff).
 Checks that all tracked `stadion_id` values still point to valid WordPress posts:
 
 ```bash
-node scripts/verify-stadion-data.js --verbose     # Report only
-node scripts/verify-stadion-data.js --fix --verbose  # Fix invalid IDs
+node tools/verify-stadion-data.js --verbose     # Report only
+node tools/verify-stadion-data.js --fix --verbose  # Fix invalid IDs
 ```
 
 ### Repopulate Missing Stadion IDs
@@ -153,8 +153,8 @@ node scripts/verify-stadion-data.js --fix --verbose  # Fix invalid IDs
 If IDs were lost (e.g., database restored from backup):
 
 ```bash
-node repopulate-stadion-ids.js --dry-run --verbose  # Preview
-node repopulate-stadion-ids.js --verbose             # Apply
+node tools/repopulate-stadion-ids.js --dry-run --verbose  # Preview
+node tools/repopulate-stadion-ids.js --verbose             # Apply
 ```
 
 ### Validate Photo Consistency
@@ -162,8 +162,8 @@ node repopulate-stadion-ids.js --verbose             # Apply
 Check that photo files on disk match database state:
 
 ```bash
-node check-photo-consistency.js --verbose   # Report
-node check-photo-consistency.js --fix       # Fix mismatches
+node tools/check-photo-consistency.js --verbose   # Report
+node tools/check-photo-consistency.js --fix       # Fix mismatches
 ```
 
 ## Cleanup Operations
@@ -171,8 +171,8 @@ node check-photo-consistency.js --fix       # Fix mismatches
 ### Remove Duplicate Members
 
 ```bash
-node scripts/delete-duplicates.js --verbose   # Dry run
-node scripts/delete-duplicates.js --apply      # Delete duplicates
+node tools/delete-duplicates.js --verbose   # Dry run
+node tools/delete-duplicates.js --apply      # Delete duplicates
 ```
 
 ### Merge Duplicate Person Records
@@ -180,30 +180,30 @@ node scripts/delete-duplicates.js --apply      # Delete duplicates
 When a parent and member record exist for the same person:
 
 ```bash
-node scripts/merge-duplicate-person.js --parent=123 --member=456
+node tools/merge-duplicate-person.js --parent=123 --member=456
 ```
 
 ### Remove Orphaned Data
 
 ```bash
 # Orphaned birthdays (referencing deleted people)
-node scripts/find-orphan-dates.js --verbose
-node scripts/find-orphan-dates.js --delete
+node tools/find-orphan-dates.js --verbose
+node tools/find-orphan-dates.js --delete
 
 # Orphaned relationships
-node cleanup-orphan-relationships.js --verbose
-node cleanup-orphan-relationships.js --fix
+node tools/cleanup-orphan-relationships.js --verbose
+node tools/cleanup-orphan-relationships.js --fix
 
 # Duplicate relationships
-node scripts/cleanup-duplicate-relationships.js
+node tools/cleanup-duplicate-relationships.js
 ```
 
 ### Deduplicate Laposta Lists
 
 ```bash
-node dedupe-laposta-list.js              # Dry run, all lists
-node dedupe-laposta-list.js --apply      # Delete duplicates
-node dedupe-laposta-list.js 2 --apply    # List 2 only
+node tools/dedupe-laposta-list.js              # Dry run, all lists
+node tools/dedupe-laposta-list.js --apply      # Delete duplicates
+node tools/dedupe-laposta-list.js 2 --apply    # List 2 only
 ```
 
 ## Log Management

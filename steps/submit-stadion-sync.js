@@ -1,0 +1,854 @@
+require('varlock/auto-load');
+
+const { stadionRequest } = require('../lib/stadion-client');
+const { runPrepare } = require('./prepare-stadion-members');
+const { runPrepare: runPrepareParents } = require('./prepare-stadion-parents');
+const {
+  openDb,
+  upsertMembers,
+  getMembersNeedingSync,
+  updateSyncState,
+  deleteMember,
+  getMembersNotInList,
+  getAllTrackedMembers,
+  upsertParents,
+  getParentsNeedingSync,
+  updateParentSyncState,
+  deleteParent,
+  resetParentStadionIds,
+  getParentsNotInList,
+  updateVolunteerStatus
+} = require('../lib/stadion-db');
+const { resolveFieldConflicts, generateConflictSummary } = require('../lib/conflict-resolver');
+const { TRACKED_FIELDS } = require('../lib/sync-origin');
+const { extractFieldValue } = require('../lib/detect-stadion-changes');
+
+/**
+ * Extract tracked field values from member data.
+ * Handles both Sportlink format (data object from prepare-stadion-members.js)
+ * and Stadion format (ACF data from WordPress API).
+ *
+ * @param {Object} data - Member data with ACF fields
+ * @returns {Object} Object with field names as keys (using underscores)
+ */
+function extractTrackedFieldValues(data) {
+  const values = {};
+
+  for (const field of TRACKED_FIELDS) {
+    values[field] = extractFieldValue(data, field);
+  }
+
+  return values;
+}
+
+/**
+ * Apply conflict resolutions to update payload.
+ * Takes the original data object and modifies it with winning values from conflict resolution.
+ *
+ * @param {Object} originalData - Original update payload
+ * @param {Map} resolutions - Map of field -> {value, winner, reason}
+ * @returns {Object} Modified data with conflict resolutions applied
+ */
+function applyResolutions(originalData, resolutions) {
+  // Deep clone to avoid modifying original
+  const resolvedData = JSON.parse(JSON.stringify(originalData));
+
+  if (!resolvedData.acf) {
+    resolvedData.acf = {};
+  }
+
+  // Apply each resolution
+  for (const [field, resolution] of resolutions.entries()) {
+    const value = resolution.value;
+
+    // Convert field names: underscores to hyphens for ACF
+    // Contact fields need to be in contact_info array
+    if (['email', 'email2', 'mobile', 'phone'].includes(field)) {
+      if (!resolvedData.acf.contact_info) {
+        resolvedData.acf.contact_info = [];
+      }
+
+      const contactInfo = resolvedData.acf.contact_info;
+
+      if (field === 'email') {
+        const existing = contactInfo.findIndex(c => c.contact_type === 'email');
+        if (existing >= 0) {
+          contactInfo[existing].contact_value = value;
+        } else if (value !== null) {
+          contactInfo.push({ contact_type: 'email', contact_value: value });
+        }
+      } else if (field === 'email2') {
+        const existing = contactInfo.findIndex(c => c.contact_type === 'email2');
+        if (existing >= 0) {
+          contactInfo[existing].contact_value = value;
+        } else if (value !== null) {
+          contactInfo.push({ contact_type: 'email2', contact_value: value });
+        }
+      } else if (field === 'mobile') {
+        const existing = contactInfo.findIndex(c => c.contact_type === 'mobile');
+        if (existing >= 0) {
+          contactInfo[existing].contact_value = value;
+        } else if (value !== null) {
+          contactInfo.push({ contact_type: 'mobile', contact_value: value });
+        }
+      } else if (field === 'phone') {
+        const existing = contactInfo.findIndex(c => c.contact_type === 'phone');
+        if (existing >= 0) {
+          contactInfo[existing].contact_value = value;
+        } else if (value !== null) {
+          contactInfo.push({ contact_type: 'phone', contact_value: value });
+        }
+      }
+    } else {
+      // Direct ACF fields - convert underscores to hyphens
+      const acfFieldName = field.replace(/_/g, '-');
+      resolvedData.acf[acfFieldName] = value;
+    }
+  }
+
+  return resolvedData;
+}
+
+/**
+ * Log financial block status change as activity on person
+ * Uses Stadion's activity endpoint: POST /stadion/v1/people/{id}/activities
+ * @param {number} stadionId - WordPress person post ID
+ * @param {boolean} isBlocked - New financial block status
+ * @param {Object} options - Logger and verbose options
+ */
+async function logFinancialBlockActivity(stadionId, isBlocked, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  const activityText = isBlocked
+    ? 'Financiele blokkade ingesteld'
+    : 'Financiele blokkade opgeheven';
+
+  try {
+    await stadionRequest(
+      `stadion/v1/people/${stadionId}/activities`,
+      'POST',
+      {
+        content: activityText,
+        activity_type: 'financial_block_change',
+        activity_date: new Date().toISOString().split('T')[0]  // YYYY-MM-DD
+      },
+      options
+    );
+    logVerbose(`  Logged activity: ${activityText}`);
+  } catch (error) {
+    // Activity logging is nice-to-have, don't fail sync
+    logVerbose(`  Warning: Could not log activity: ${error.message}`);
+  }
+}
+
+/**
+ * Sync a single member to Stadion (create or update)
+ * Uses local stadion_id tracking - no API search needed
+ * @param {Object} member - Member record from database
+ * @param {Object} db - SQLite database connection
+ * @param {Object} options - Logger and verbose options
+ * @returns {Promise<{action: string, id: number}>}
+ */
+async function syncPerson(member, db, options) {
+  const { knvb_id, data, source_hash } = member;
+  let { stadion_id } = member; // Use let so we can clear it on 404
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  if (stadion_id) {
+    // UPDATE existing person (we know the ID from our database)
+    const endpoint = `wp/v2/people/${stadion_id}`;
+    logVerbose(`Updating existing person: ${stadion_id}`);
+    logVerbose(`  PUT ${endpoint}`);
+
+    // Get existing person to compare financial block status and resolve conflicts
+    let previousBlockStatus = false;
+    let existingData = null;
+    let conflicts = [];
+
+    try {
+      const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+      existingData = existing.body;
+      previousBlockStatus = existingData.acf?.['financiele-blokkade'] || false;
+    } catch (fetchError) {
+      // If we can't fetch, continue with update but skip activity comparison
+      if (fetchError.message && fetchError.message.includes('404')) {
+        // Person was deleted - reset tracking state and create fresh
+        logVerbose(`Person ${stadion_id} no longer exists (404) - will create fresh`);
+        updateSyncState(db, knvb_id, null, null); // Clear stadion_id and hash
+        stadion_id = null; // Clear local variable to trigger CREATE path
+      } else {
+        logVerbose(`  Could not fetch existing person for activity comparison: ${fetchError.message}`);
+      }
+    }
+
+    // Only proceed with update if person still exists (not 404 above)
+    if (stadion_id && existingData) {
+      // Resolve conflicts between Sportlink and Stadion data
+      let updateData = data;
+      try {
+        const sportlinkData = extractTrackedFieldValues(data);
+        const stadionData = extractTrackedFieldValues(existingData);
+
+        const resolution = resolveFieldConflicts(member, sportlinkData, stadionData, db, options.logger);
+        conflicts = resolution.conflicts;
+
+        if (conflicts.length > 0) {
+          logVerbose(`  Resolved ${conflicts.length} conflict(s) for ${knvb_id}`);
+          updateData = applyResolutions(data, resolution.resolutions);
+        }
+      } catch (conflictError) {
+        // Skip member if conflict resolution fails
+        console.error(`ERROR: Conflict resolution failed for ${knvb_id}:`, conflictError.message);
+        if (options.logger) {
+          options.logger.error(`Skipping ${knvb_id} due to conflict resolution error: ${conflictError.message}`);
+        }
+        return { action: 'skipped', id: stadion_id, conflicts: [], error: conflictError.message };
+      }
+
+      try {
+        const response = await stadionRequest(endpoint, 'PUT', updateData, options);
+        updateSyncState(db, knvb_id, source_hash, stadion_id);
+
+        // Capture volunteer status from Stadion
+        const volunteerStatus = existingData.acf?.['huidig-vrijwilliger'] === '1' ? 1 : 0;
+        updateVolunteerStatus(db, knvb_id, volunteerStatus);
+
+        // Compare financial block status and log activity if changed
+        const newBlockStatus = updateData.acf?.['financiele-blokkade'] || false;
+        if (previousBlockStatus !== newBlockStatus) {
+          await logFinancialBlockActivity(stadion_id, newBlockStatus, options);
+        }
+
+        return { action: 'updated', id: stadion_id, conflicts };
+      } catch (error) {
+        // Person was deleted from WordPress - reset tracking state and create fresh
+        if (error.message && error.message.includes('404')) {
+          logVerbose(`Person ${stadion_id} no longer exists (404) - will create fresh`);
+          updateSyncState(db, knvb_id, null, null); // Clear stadion_id and hash
+          stadion_id = null; // Clear local variable to trigger CREATE path
+        } else {
+          console.error(`API Error updating person "${knvb_id}" (ID: ${stadion_id}):`);
+          console.error(`  Status: ${error.message}`);
+          if (error.details) {
+            console.error(`  Code: ${error.details.code || 'unknown'}`);
+            console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
+            if (error.details.data) {
+              console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+            }
+          }
+          console.error(`  Payload: ${JSON.stringify(updateData, null, 2)}`);
+          throw error;
+        }
+      }
+    }
+  }
+
+  // CREATE new person (either never synced or was deleted from WordPress)
+  const endpoint = 'wp/v2/people';
+  logVerbose(`Creating new person for KNVB ID: ${knvb_id}`);
+  logVerbose(`  POST ${endpoint}`);
+  try {
+    const response = await stadionRequest(endpoint, 'POST', data, options);
+    const newId = response.body.id;
+    updateSyncState(db, knvb_id, source_hash, newId);
+
+    // Capture volunteer status from Stadion (newly created person defaults)
+    const createVolunteerStatus = response.body.acf?.['huidig-vrijwilliger'] === '1' ? 1 : 0;
+    updateVolunteerStatus(db, knvb_id, createVolunteerStatus);
+
+    // Log initial block status for newly created persons
+    const newBlockStatus = data.acf?.['financiele-blokkade'] || false;
+    if (newBlockStatus) {
+      await logFinancialBlockActivity(newId, true, options);
+    }
+
+    return { action: 'created', id: newId, conflicts: [] };
+  } catch (error) {
+    console.error(`API Error creating person "${knvb_id}":`);
+    console.error(`  Status: ${error.message}`);
+    if (error.details) {
+      console.error(`  Code: ${error.details.code || 'unknown'}`);
+      console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
+      if (error.details.data) {
+        console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+      }
+    }
+    console.error(`  Payload: ${JSON.stringify(data, null, 2)}`);
+    throw error;
+  }
+}
+
+/**
+ * Check if a relationship has a specific type.
+ * Handles both array format (what we write: [9]) and integer format (what API returns: 9).
+ * @param {Object} relationship - Relationship object with relationship_type
+ * @param {number} typeId - Relationship type ID to check for (8=parent, 9=child, 10=sibling)
+ * @returns {boolean}
+ */
+function hasRelationshipType(relationship, typeId) {
+  const type = relationship.relationship_type;
+  if (Array.isArray(type)) {
+    return type.includes(typeId);
+  }
+  return type === typeId;
+}
+
+/**
+ * Update children's parents relationship field (bidirectional linking)
+ * Preserves existing parent links, adds new one
+ */
+async function updateChildrenParentLinks(parentId, childStadionIds, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  for (const childId of childStadionIds) {
+    // Skip if child is the same as parent (prevent self-referential relationships)
+    if (childId === parentId) {
+      logVerbose(`Skipping self-referential parent link: ${parentId}`);
+      continue;
+    }
+
+    try {
+      // Get existing child record
+      const childResponse = await stadionRequest(
+        `wp/v2/people/${childId}`,
+        'GET',
+        null,
+        options
+      );
+
+      const existingRelationships = childResponse.body.acf?.relationships || [];
+      const hasParentLink = existingRelationships.some(r =>
+        r.related_person === parentId && hasRelationshipType(r, 8) // 8 = parent type
+      );
+
+      if (!hasParentLink) {
+        const newRelationship = {
+          related_person: parentId,
+          relationship_type: [8], // Parent relationship type term ID
+          relationship_label: ''
+        };
+        const mergedRelationships = [...existingRelationships, newRelationship];
+        await stadionRequest(
+          `wp/v2/people/${childId}`,
+          'PUT',
+          { acf: { relationships: mergedRelationships } },
+          options
+        );
+        logVerbose(`Linked parent ${parentId} to child ${childId}`);
+      }
+    } catch (error) {
+      logVerbose(`Failed to link parent to child ${childId}: ${error.message}`);
+      // Continue with other children
+    }
+  }
+}
+
+/**
+ * Search for an existing person in Stadion by email address
+ * @param {string} email - Email to search for
+ * @param {Object} options - Logger and verbose options
+ * @returns {Promise<number|null>} - Stadion person ID if found, null otherwise
+ */
+async function findPersonByEmail(email, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  try {
+    // Use dedicated email lookup endpoint
+    const response = await stadionRequest(
+      `stadion/v1/people/find-by-email?email=${encodeURIComponent(email)}`,
+      'GET',
+      null,
+      options
+    );
+
+    const personId = response.body?.id;
+    if (personId) {
+      logVerbose(`Found existing person ${personId} with email ${email}`);
+      return personId;
+    }
+    return null;
+  } catch (error) {
+    logVerbose(`Email lookup failed: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Sync a single parent to Stadion (create or update)
+ * Checks for existing person by email before creating new
+ * @param {Object} parent - Parent record from preparation
+ * @param {Object} db - SQLite database connection
+ * @param {Map} knvbIdToStadionId - Map of KNVB ID to Stadion post ID for children
+ * @param {Object} options - Logger and verbose options
+ * @returns {Promise<{action: string, id: number}>}
+ */
+async function syncParent(parent, db, knvbIdToStadionId, options) {
+  const { email, childKnvbIds, data, source_hash } = parent;
+  let { stadion_id } = parent;
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  // Resolve child KNVB IDs to Stadion post IDs (deduplicate to prevent duplicate relationships)
+  const childStadionIds = [...new Set(
+    childKnvbIds
+      .map(knvbId => knvbIdToStadionId.get(knvbId))
+      .filter(Boolean)
+  )];
+
+  // Build relationships array for children
+  const childRelationships = childStadionIds.map(childId => ({
+    related_person: childId,
+    relationship_type: [9], // Child relationship type term ID
+    relationship_label: ''
+  }));
+
+  // If no stadion_id yet, check if person already exists by email (e.g., they're also a member)
+  if (!stadion_id) {
+    const existingId = await findPersonByEmail(email, options);
+    if (existingId) {
+      logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
+      stadion_id = existingId;
+    }
+  }
+
+  if (stadion_id) {
+    // UPDATE existing person - only add child relationships, don't overwrite other data
+    logVerbose(`Updating existing person: ${stadion_id}`);
+
+    // Get existing data to merge relationships
+    let existingRelationships = [];
+    let existingFirstName = '';
+    let existingLastName = '';
+    let existingKnvbId = null;
+    try {
+      const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+      existingRelationships = existing.body.acf?.relationships || [];
+      existingFirstName = existing.body.acf?.first_name || '';
+      existingLastName = existing.body.acf?.last_name || '';
+      existingKnvbId = existing.body.acf?.['knvb-id'] || null;
+    } catch (e) {
+      // Person was deleted from WordPress - reset tracking state and create fresh
+      if (e.message && e.message.includes('404')) {
+        logVerbose(`Person ${stadion_id} no longer exists (404) - will create fresh`);
+        updateParentSyncState(db, email, null, null); // Clear stadion_id and hash
+        stadion_id = null; // Trigger create path below
+      } else {
+        logVerbose(`Could not fetch existing person: ${e.message}`);
+      }
+    }
+
+    // Only proceed with update if person still exists (stadion_id not cleared by 404)
+    if (stadion_id) {
+      // Merge: keep all existing relationships, add new child relationships (avoid duplicates and self-references)
+      const existingChildIds = existingRelationships
+        .filter(r => hasRelationshipType(r, 9)) // 9 = child type
+        .map(r => r.related_person);
+      const newChildRelationships = childRelationships.filter(r =>
+        r.related_person !== stadion_id && // Prevent self-referential relationships
+        !existingChildIds.includes(r.related_person)
+      );
+      const mergedRelationships = [...existingRelationships, ...newChildRelationships];
+
+      // Determine name to use:
+      // - If person has KNVB ID, they're a member - preserve their properly-split name
+      // - If no KNVB ID, they're a pure parent - update name from Sportlink
+      const isMember = !!existingKnvbId;
+      const firstName = isMember ? existingFirstName : (data.acf.first_name || existingFirstName);
+      const lastName = isMember ? existingLastName : (data.acf.last_name || existingLastName);
+
+      if (!isMember) {
+        logVerbose(`Pure parent - updating name from Sportlink: "${firstName} ${lastName}"`);
+      }
+
+      const updateData = {
+        acf: {
+          first_name: firstName,
+          last_name: lastName,
+          relationships: mergedRelationships
+        }
+      };
+
+      await stadionRequest(
+        `wp/v2/people/${stadion_id}`,
+        'PUT',
+        updateData,
+        options
+      );
+      updateParentSyncState(db, email, source_hash, stadion_id);
+
+      // Update children's parent relationship (bidirectional)
+      await updateChildrenParentLinks(stadion_id, childStadionIds, options);
+
+      return { action: 'updated', id: stadion_id };
+    }
+  }
+
+  if (!stadion_id) {
+    // CREATE new parent (either never synced or was deleted from WordPress)
+    logVerbose(`Creating new parent: ${email}`);
+    const createData = {
+      ...data,
+      acf: {
+        ...data.acf,
+        relationships: childRelationships
+      }
+    };
+
+    const response = await stadionRequest(
+      'wp/v2/people',
+      'POST',
+      createData,
+      options
+    );
+    const newId = response.body.id;
+    updateParentSyncState(db, email, source_hash, newId);
+
+    // Update children's parent relationship (bidirectional)
+    await updateChildrenParentLinks(newId, childStadionIds, options);
+
+    return { action: 'created', id: newId };
+  }
+}
+
+/**
+ * Delete parents that no longer have children in Sportlink
+ */
+async function deleteOrphanParents(db, currentParentEmails, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+  const deleted = [];
+  const errors = [];
+
+  const toDelete = getParentsNotInList(db, currentParentEmails);
+
+  for (const parent of toDelete) {
+    if (!parent.stadion_id) {
+      deleteParent(db, parent.email);
+      continue;
+    }
+
+    logVerbose(`Deleting orphan parent: ${parent.email}`);
+    try {
+      await stadionRequest(
+        `wp/v2/people/${parent.stadion_id}`,
+        'DELETE',
+        null,
+        options
+      );
+      deleteParent(db, parent.email);
+      deleted.push({ email: parent.email, stadion_id: parent.stadion_id });
+    } catch (error) {
+      // Ignore 404 errors - person already deleted from WordPress
+      if (error.details?.data?.status === 404) {
+        logVerbose(`  Already deleted from WordPress (404)`);
+        deleteParent(db, parent.email);
+        deleted.push({ email: parent.email, stadion_id: parent.stadion_id });
+      } else {
+        errors.push({ email: parent.email, message: error.message });
+      }
+    }
+  }
+
+  return { deleted, errors };
+}
+
+/**
+ * Sync parents to Stadion
+ * @param {Object} db - SQLite database connection
+ * @param {Map} knvbIdToStadionId - Map of member KNVB ID to Stadion post ID
+ * @param {Object} options - Logger, verbose, force options
+ * @returns {Promise<Object>} - Parent sync result
+ */
+async function syncParents(db, knvbIdToStadionId, options = {}) {
+  const { logger, verbose = false, force = false } = options;
+  const logVerbose = logger?.verbose.bind(logger) || (verbose ? console.log : () => {});
+
+  const result = {
+    total: 0,
+    synced: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    deleted: 0,
+    errors: []
+  };
+
+  // Prepare parents from Sportlink
+  const prepared = await runPrepareParents({ logger, verbose });
+  if (!prepared.success) {
+    result.errors.push({ message: prepared.error });
+    return result;
+  }
+
+  const parents = prepared.parents;
+  result.total = parents.length;
+
+  // Upsert to tracking database
+  upsertParents(db, parents);
+
+  // Get parents needing sync (includes stadion_id from database)
+  const needsSync = getParentsNeedingSync(db, force);
+  result.skipped = result.total - needsSync.length;
+
+  logVerbose(`${needsSync.length} parents need sync (${result.skipped} unchanged)`);
+
+  // Sync each parent
+  for (let i = 0; i < needsSync.length; i++) {
+    const parent = needsSync[i];
+    logVerbose(`Syncing parent ${i + 1}/${needsSync.length}: ${parent.email}`);
+
+    try {
+      const syncResult = await syncParent(parent, db, knvbIdToStadionId, options);
+      result.synced++;
+      if (syncResult.action === 'created') result.created++;
+      if (syncResult.action === 'updated') result.updated++;
+    } catch (error) {
+      console.error(`ERROR for parent ${parent.email}:`, error.message);
+      if (error.details) {
+        console.error('Error details:', JSON.stringify(error.details, null, 2));
+      }
+      result.errors.push({ email: parent.email, message: error.message, details: error.details });
+    }
+  }
+
+  // Delete orphan parents
+  const currentEmails = parents.map(p => p.email);
+  const deleteResult = await deleteOrphanParents(db, currentEmails, options);
+  result.deleted = deleteResult.deleted.length;
+  result.errors.push(...deleteResult.errors);
+
+  return result;
+}
+
+/**
+ * Delete members that were removed from Sportlink
+ * @param {Object} db - SQLite database connection
+ * @param {Array<string>} currentKnvbIds - Current KNVB IDs from Sportlink
+ * @param {Object} options - Logger and verbose options
+ * @returns {Promise<{deleted: Array, errors: Array}>}
+ */
+async function deleteRemovedMembers(db, currentKnvbIds, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+  const deleted = [];
+  const errors = [];
+
+  // Find members in DB but not in current Sportlink data
+  const toDelete = getMembersNotInList(db, currentKnvbIds);
+
+  for (const member of toDelete) {
+    if (!member.stadion_id) {
+      // Never synced to Stadion, just remove from tracking
+      deleteMember(db, member.knvb_id);
+      continue;
+    }
+
+    logVerbose(`Deleting from Stadion: ${member.knvb_id}`);
+    try {
+      await stadionRequest(
+        `wp/v2/people/${member.stadion_id}`,
+        'DELETE',
+        null,
+        options
+      );
+      deleteMember(db, member.knvb_id);
+      deleted.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
+    } catch (error) {
+      // Ignore 404 errors - person already deleted from WordPress
+      if (error.details?.data?.status === 404) {
+        logVerbose(`  Already deleted from WordPress (404)`);
+        deleteMember(db, member.knvb_id);
+        deleted.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
+      } else {
+        errors.push({ knvb_id: member.knvb_id, message: error.message });
+      }
+    }
+  }
+
+  return { deleted, errors };
+}
+
+/**
+ * Main sync orchestration
+ * @param {Object} options
+ * @param {Object} [options.logger] - Logger instance
+ * @param {boolean} [options.verbose=false] - Verbose mode
+ * @param {boolean} [options.force=false] - Force sync all members
+ * @param {boolean} [options.includeMembers=true] - Include member sync
+ * @param {boolean} [options.includeParents=true] - Include parent sync
+ * @returns {Promise<Object>} - Sync result
+ */
+async function runSync(options = {}) {
+  const { logger, verbose = false, force = false, includeMembers = true, includeParents = true } = options;
+  const logVerbose = logger?.verbose.bind(logger) || (verbose ? console.log : () => {});
+  const logError = logger?.error.bind(logger) || console.error;
+
+  const result = {
+    success: true,
+    total: 0,
+    synced: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    deleted: 0,
+    conflicts: 0,
+    errors: []
+  };
+
+  try {
+    const db = openDb();
+    try {
+      // Members sync
+      if (includeMembers) {
+        // Step 1: Prepare members from Sportlink
+        const prepared = await runPrepare({ logger, verbose });
+        if (!prepared.success) {
+          result.success = false;
+          result.errors.push({ message: prepared.error || 'Prepare failed' });
+          return result;
+        }
+
+        const members = prepared.members;
+        result.total = members.length;
+
+        // Step 2: Upsert to tracking database
+        upsertMembers(db, members);
+
+        // Step 3: Get members needing sync (hash changed or force)
+        // This now includes stadion_id from database for each member
+        const needsSync = getMembersNeedingSync(db, force);
+        result.skipped = result.total - needsSync.length;
+
+        logVerbose(`${needsSync.length} members need sync (${result.skipped} unchanged)`);
+
+        // Step 4: Sync each member
+        const allConflicts = [];
+        for (let i = 0; i < needsSync.length; i++) {
+          const member = needsSync[i];
+          logVerbose(`Syncing ${i + 1}/${needsSync.length}: ${member.knvb_id}`);
+
+          try {
+            const syncResult = await syncPerson(member, db, options);
+            result.synced++;
+            if (syncResult.action === 'created') result.created++;
+            if (syncResult.action === 'updated') result.updated++;
+            if (syncResult.action === 'skipped') result.skipped++;
+
+            // Aggregate conflicts from this member
+            if (syncResult.conflicts && syncResult.conflicts.length > 0) {
+              allConflicts.push(...syncResult.conflicts);
+            }
+          } catch (error) {
+            result.errors.push({
+              knvb_id: member.knvb_id,
+              email: member.email,
+              message: error.message
+            });
+          }
+        }
+
+        // Step 5: Delete members removed from Sportlink
+        const currentKnvbIds = members.map(m => m.knvb_id);
+        const deleteResult = await deleteRemovedMembers(db, currentKnvbIds, options);
+        result.deleted = deleteResult.deleted.length;
+        result.errors.push(...deleteResult.errors);
+
+        // Generate and log conflict summary for email report
+        if (allConflicts.length > 0) {
+          const summary = generateConflictSummary(allConflicts);
+          if (logger) {
+            logger.log(''); // Blank line separator
+            logger.log(summary); // "CONFLICTS DETECTED AND RESOLVED" section
+          }
+          result.conflicts = allConflicts.length;
+        }
+      }
+
+      // Parents sync
+      if (includeParents) {
+        // Build KNVB ID to Stadion ID mapping from ALL tracked members
+        const knvbIdToStadionId = new Map();
+        const allMembers = getAllTrackedMembers(db);
+        allMembers.forEach(m => {
+          if (m.knvb_id && m.stadion_id) {
+            knvbIdToStadionId.set(m.knvb_id, m.stadion_id);
+          }
+        });
+
+        logVerbose('Starting parent sync...');
+        const parentResult = await syncParents(db, knvbIdToStadionId, options);
+        result.parents = parentResult;
+      }
+
+    } finally {
+      db.close();
+    }
+
+    result.success = result.errors.length === 0;
+    return result;
+
+  } catch (error) {
+    result.success = false;
+    result.errors.push({ message: error.message });
+    logError(`Sync error: ${error.message}`);
+    return result;
+  }
+}
+
+module.exports = { runSync };
+
+// CLI entry point
+if (require.main === module) {
+  const verbose = process.argv.includes('--verbose');
+  const force = process.argv.includes('--force');
+  const parentsOnly = process.argv.includes('--parents-only');
+  const skipParents = process.argv.includes('--skip-parents');
+  const resetParents = process.argv.includes('--reset-parents');
+
+  // Handle --reset-parents: clear parent tracking so they'll be re-discovered by email
+  if (resetParents) {
+    const db = openDb();
+    const count = resetParentStadionIds(db);
+    db.close();
+    console.log(`Reset ${count} parent tracking record(s). They will be re-discovered by email on next sync.`);
+    if (!parentsOnly && !process.argv.includes('--sync')) {
+      process.exit(0);
+    }
+  }
+
+  const options = {
+    verbose,
+    force,
+    includeMembers: !parentsOnly,
+    includeParents: !skipParents
+  };
+
+  runSync(options)
+    .then(result => {
+      if (options.includeMembers) {
+        console.log(`Stadion sync: ${result.synced}/${result.total} synced`);
+        console.log(`  Created: ${result.created}`);
+        console.log(`  Updated: ${result.updated}`);
+        console.log(`  Skipped: ${result.skipped}`);
+        console.log(`  Deleted: ${result.deleted}`);
+      }
+      if (result.parents) {
+        console.log(`Parents: ${result.parents.synced}/${result.parents.total} synced`);
+        console.log(`  Created: ${result.parents.created}`);
+        console.log(`  Updated: ${result.parents.updated}`);
+        console.log(`  Skipped: ${result.parents.skipped}`);
+        console.log(`  Deleted: ${result.parents.deleted}`);
+      }
+      if (result.errors.length > 0) {
+        console.error(`  Errors: ${result.errors.length}`);
+        result.errors.forEach(e => console.error(`    - ${e.knvb_id || e.email}: ${e.message}`));
+        process.exitCode = 1;
+      }
+      if (result.parents?.errors.length > 0) {
+        console.error(`  Parent errors: ${result.parents.errors.length}`);
+        result.parents.errors.forEach(e => console.error(`    - ${e.email}: ${e.message}`));
+        process.exitCode = 1;
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err.message);
+      process.exitCode = 1;
+    });
+}

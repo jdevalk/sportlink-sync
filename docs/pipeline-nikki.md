@@ -8,22 +8,22 @@ Runs **daily** at 7:00 AM (Amsterdam time).
 
 ```bash
 scripts/sync.sh nikki           # Production (with locking + email report)
-node sync-nikki.js --verbose    # Direct execution (verbose)
+node pipelines/sync-nikki.js --verbose    # Direct execution (verbose)
 ```
 
 ## Pipeline Flow
 
 ```
-sync-nikki.js
-├── Step 1: download-nikki-contributions.js    → nikki-sync.sqlite
-└── Step 2: sync-nikki-to-stadion.js           → Stadion WordPress API
+pipelines/sync-nikki.js
+├── Step 1: steps/download-nikki-contributions.js    → nikki-sync.sqlite
+└── Step 2: steps/sync-nikki-to-stadion.js           → Stadion WordPress API
 ```
 
 ## Step-by-Step Details
 
 ### Step 1: Download Nikki Contributions
 
-**Script:** `download-nikki-contributions.js`
+**Script:** `steps/download-nikki-contributions.js`
 **Function:** `runNikkiDownload({ logger, verbose })`
 
 1. Launches headless Chromium via Playwright
@@ -43,7 +43,7 @@ sync-nikki.js
 
 ### Step 2: Sync to Stadion
 
-**Script:** `sync-nikki-to-stadion.js`
+**Script:** `steps/sync-nikki-to-stadion.js`
 **Function:** `runNikkiStadionSync({ logger, verbose, force })`
 
 1. Groups contributions by `knvb_id` and `year`
@@ -113,9 +113,9 @@ Result for Stadion:
 
 | File | Purpose |
 |------|---------|
-| `sync-nikki.js` | Pipeline orchestrator |
-| `download-nikki-contributions.js` | Nikki web scraping (Playwright) |
-| `sync-nikki-to-stadion.js` | Stadion API sync |
+| `pipelines/sync-nikki.js` | Pipeline orchestrator |
+| `steps/download-nikki-contributions.js` | Nikki web scraping (Playwright) |
+| `steps/sync-nikki-to-stadion.js` | Stadion API sync |
 | `lib/nikki-db.js` | Nikki SQLite operations |
 | `lib/stadion-db.js` | Stadion ID lookup |
 | `lib/stadion-client.js` | Stadion HTTP client |

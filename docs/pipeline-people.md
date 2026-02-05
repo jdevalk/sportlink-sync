@@ -8,20 +8,20 @@ Runs **4x daily** at 8:00, 11:00, 14:00, and 17:00 (Amsterdam time).
 
 ```bash
 scripts/sync.sh people          # Production (with locking + email report)
-node sync-people.js --verbose   # Direct execution (verbose)
+node pipelines/sync-people.js --verbose   # Direct execution (verbose)
 ```
 
 ## Pipeline Flow
 
 ```
-sync-people.js
-├── Step 1: download-data-from-sportlink.js    → laposta-sync.sqlite, stadion-sync.sqlite
-├── Step 2: prepare-laposta-members.js         → laposta-sync.sqlite (members table)
-├── Step 3: submit-laposta-list.js             → Laposta API
-├── Step 4: submit-stadion-sync.js             → Stadion WordPress API (members + parents)
-├── Step 5: sync-important-dates.js            → Stadion WordPress API (birthdays)
-├── Step 6: download-photos-from-api.js        → photos/ directory
-├── Step 7: upload-photos-to-stadion.js        → Stadion WordPress API (media)
+pipelines/sync-people.js
+├── Step 1: steps/download-data-from-sportlink.js    → laposta-sync.sqlite, stadion-sync.sqlite
+├── Step 2: steps/prepare-laposta-members.js         → laposta-sync.sqlite (members table)
+├── Step 3: steps/submit-laposta-list.js             → Laposta API
+├── Step 4: steps/submit-stadion-sync.js             → Stadion WordPress API (members + parents)
+├── Step 5: steps/sync-important-dates.js            → Stadion WordPress API (birthdays)
+├── Step 6: steps/download-photos-from-api.js        → photos/ directory
+├── Step 7: steps/upload-photos-to-stadion.js        → Stadion WordPress API (media)
 └── Step 8: lib/reverse-sync-sportlink.js      → Sportlink Club (currently disabled)
 ```
 
@@ -29,7 +29,7 @@ sync-people.js
 
 ### Step 1: Download from Sportlink
 
-**Script:** `download-data-from-sportlink.js`
+**Script:** `steps/download-data-from-sportlink.js`
 **Function:** `runDownload({ logger, verbose })`
 
 1. Launches headless Chromium via Playwright
@@ -48,11 +48,11 @@ sync-people.js
 
 ### Step 2: Prepare Laposta Members
 
-**Script:** `prepare-laposta-members.js`
+**Script:** `steps/prepare-laposta-members.js`
 **Function:** `runPrepare({ logger, verbose })`
 
 1. Reads latest Sportlink results from `laposta-sync.sqlite` → `sportlink_runs`
-2. Applies field mappings from `field-mapping.json` to transform Sportlink fields to Laposta custom fields
+2. Applies field mappings from `config/field-mapping.json` to transform Sportlink fields to Laposta custom fields
 3. Handles parent extraction: creates separate list entries for `EmailAddressParent1` / `EmailAddressParent2`
 4. Deduplicates parent entries across lists
 5. Computes `source_hash` for each member (SHA-256 of email + custom fields)
@@ -60,14 +60,14 @@ sync-people.js
 
 **Output:** `{ success, lists: [{ total }], excluded }`
 
-**Key transformations** (configured in `field-mapping.json`):
+**Key transformations** (configured in `config/field-mapping.json`):
 - `GenderCode`: "Male" → "M", "Female" → "V"
 - `UnionTeams`: comma-separated team list
 - Parent entries: creates person entries with `oudervan` (child names) field
 
 ### Step 3: Submit to Laposta
 
-**Script:** `submit-laposta-list.js`
+**Script:** `steps/submit-laposta-list.js`
 **Function:** `runSubmit({ logger, verbose, force })`
 
 1. Reads members from `laposta-sync.sqlite` where `source_hash != last_synced_hash`
@@ -84,7 +84,7 @@ sync-people.js
 
 ### Step 4: Sync to Stadion
 
-**Script:** `submit-stadion-sync.js`
+**Script:** `steps/submit-stadion-sync.js`
 **Function:** `runSync({ logger, verbose, force })`
 
 1. Reads members from `stadion-sync.sqlite` where `source_hash != last_synced_hash`
@@ -106,7 +106,7 @@ sync-people.js
 
 ### Step 5: Birthday Sync
 
-**Script:** `sync-important-dates.js`
+**Script:** `steps/sync-important-dates.js`
 **Function:** `runSync({ logger, verbose, force })`
 
 1. Reads all members with `DateOfBirth` from `stadion-sync.sqlite`
@@ -120,7 +120,7 @@ sync-people.js
 
 ### Step 6: Photo Download
 
-**Script:** `download-photos-from-api.js`
+**Script:** `steps/download-photos-from-api.js`
 **Function:** `runPhotoDownload({ logger, verbose, force })`
 
 1. Queries `stadion_members` for members with `photo_state = 'pending_download'`
@@ -133,7 +133,7 @@ sync-people.js
 
 ### Step 7: Photo Upload
 
-**Script:** `upload-photos-to-stadion.js`
+**Script:** `steps/upload-photos-to-stadion.js`
 **Function:** `runPhotoSync({ logger, verbose })`
 
 1. Queries `stadion_members` for `photo_state = 'downloaded'` or `'pending_upload'`
@@ -155,7 +155,7 @@ Detects field changes made in Stadion and pushes them back to Sportlink via brow
 
 ### Sportlink → Laposta
 
-See `field-mapping.json` for the complete mapping. Key fields:
+See `config/field-mapping.json` for the complete mapping. Key fields:
 
 | Laposta Field | Sportlink Source |
 |---|---|
@@ -218,18 +218,18 @@ See `field-mapping.json` for the complete mapping. Key fields:
 
 | File | Purpose |
 |------|---------|
-| `sync-people.js` | Pipeline orchestrator |
-| `download-data-from-sportlink.js` | Sportlink browser automation |
-| `prepare-laposta-members.js` | Field transformation for Laposta |
-| `submit-laposta-list.js` | Laposta API sync |
-| `submit-stadion-sync.js` | Stadion WordPress API sync |
-| `prepare-stadion-members.js` | Stadion member data preparation |
-| `prepare-stadion-parents.js` | Parent extraction and dedup |
-| `sync-important-dates.js` | Birthday sync |
-| `download-photos-from-api.js` | Photo download |
-| `upload-photos-to-stadion.js` | Photo upload/delete |
-| `field-mapping.json` | Laposta field mapping config |
-| `laposta-db.js` | Laposta SQLite operations |
+| `pipelines/sync-people.js` | Pipeline orchestrator |
+| `steps/download-data-from-sportlink.js` | Sportlink browser automation |
+| `steps/prepare-laposta-members.js` | Field transformation for Laposta |
+| `steps/submit-laposta-list.js` | Laposta API sync |
+| `steps/submit-stadion-sync.js` | Stadion WordPress API sync |
+| `steps/prepare-stadion-members.js` | Stadion member data preparation |
+| `steps/prepare-stadion-parents.js` | Parent extraction and dedup |
+| `steps/sync-important-dates.js` | Birthday sync |
+| `steps/download-photos-from-api.js` | Photo download |
+| `steps/upload-photos-to-stadion.js` | Photo upload/delete |
+| `config/field-mapping.json` | Laposta field mapping config |
+| `lib/laposta-db.js` | Laposta SQLite operations |
 | `lib/stadion-db.js` | Stadion SQLite operations |
 | `lib/stadion-client.js` | Stadion HTTP client |
 | `lib/laposta-client.js` | Laposta HTTP client |

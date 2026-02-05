@@ -116,7 +116,7 @@ DEBUG_LOG=false
 Run a test download to confirm Sportlink credentials work:
 
 ```bash
-node download-data-from-sportlink.js --verbose
+node steps/download-data-from-sportlink.js --verbose
 ```
 
 This should:
@@ -137,7 +137,7 @@ Run a full sync to populate all databases and downstream systems:
 
 ```bash
 # Run the full sync (all pipelines)
-node sync-all.js --verbose
+node pipelines/sync-all.js --verbose
 ```
 
 This takes a while on first run because:
@@ -245,8 +245,8 @@ This happens when sync runs from multiple machines (each has its own SQLite data
 
 To clean up duplicates:
 ```bash
-node scripts/delete-duplicates.js --verbose      # Dry run
-node scripts/delete-duplicates.js --apply         # Actually delete
+node tools/delete-duplicates.js --verbose      # Dry run
+node tools/delete-duplicates.js --apply         # Actually delete
 ```
 
 ### Sync reports not arriving

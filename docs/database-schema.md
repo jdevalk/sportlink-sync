@@ -27,7 +27,7 @@ All databases are stored in the project root directory on the server at `/home/s
 
 | Database | Purpose | Module |
 |---|---|---|
-| `laposta-sync.sqlite` | Laposta email list sync + Sportlink run history | `laposta-db.js` |
+| `laposta-sync.sqlite` | Laposta email list sync + Sportlink run history | `lib/laposta-db.js` |
 | `stadion-sync.sqlite` | Stadion WordPress sync (members, teams, commissies, photos, discipline, reverse sync) | `lib/stadion-db.js` |
 | `nikki-sync.sqlite` | Nikki contribution tracking | `lib/nikki-db.js` |
 | `freescout-sync.sqlite` | FreeScout customer sync | `lib/freescout-db.js` |
@@ -65,7 +65,7 @@ WHERE last_synced_hash IS NULL OR last_synced_hash != source_hash
 
 **Purpose:** Tracks email list synchronization between Sportlink and Laposta marketing platform.
 
-**Module:** `laposta-db.js`
+**Module:** `lib/laposta-db.js`
 
 ### sportlink_runs
 

@@ -8,22 +8,22 @@ Runs **weekly** on Monday at 11:30 PM (Amsterdam time).
 
 ```bash
 scripts/sync.sh discipline           # Production (with locking + email report)
-node sync-discipline.js --verbose    # Direct execution (verbose)
+node pipelines/sync-discipline.js --verbose    # Direct execution (verbose)
 ```
 
 ## Pipeline Flow
 
 ```
-sync-discipline.js
-├── Step 1: download-discipline-cases.js       → stadion-sync.sqlite
-└── Step 2: submit-stadion-discipline.js       → Stadion WordPress API
+pipelines/sync-discipline.js
+├── Step 1: steps/download-discipline-cases.js       → stadion-sync.sqlite
+└── Step 2: steps/submit-stadion-discipline.js       → Stadion WordPress API
 ```
 
 ## Step-by-Step Details
 
 ### Step 1: Download Discipline Cases
 
-**Script:** `download-discipline-cases.js`
+**Script:** `steps/download-discipline-cases.js`
 **Function:** `runDownload({ logger, verbose })`
 
 1. Launches headless Chromium via Playwright
@@ -44,7 +44,7 @@ sync-discipline.js
 
 ### Step 2: Sync Cases to Stadion
 
-**Script:** `submit-stadion-discipline.js`
+**Script:** `steps/submit-stadion-discipline.js`
 **Function:** `runSync({ logger, verbose, force })`
 
 1. Reads cases from `stadion-sync.sqlite` → `discipline_cases`
@@ -128,9 +128,9 @@ Generated as: `"{person_name} - {match_description} - {match_date}"`
 
 | File | Purpose |
 |------|---------|
-| `sync-discipline.js` | Pipeline orchestrator |
-| `download-discipline-cases.js` | Sportlink discipline case scraping (Playwright) |
-| `submit-stadion-discipline.js` | Stadion discipline case API sync |
+| `pipelines/sync-discipline.js` | Pipeline orchestrator |
+| `steps/download-discipline-cases.js` | Sportlink discipline case scraping (Playwright) |
+| `steps/submit-stadion-discipline.js` | Stadion discipline case API sync |
 | `lib/discipline-db.js` | Discipline SQLite operations |
 | `lib/stadion-db.js` | Stadion member ID lookup |
 | `lib/stadion-client.js` | Stadion HTTP client |

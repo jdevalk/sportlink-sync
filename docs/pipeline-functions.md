@@ -16,26 +16,26 @@ The recent sync runs 30 minutes before each People sync to ensure fresh free fie
 ```bash
 scripts/sync.sh functions           # Recent updates (production)
 scripts/sync.sh functions --all     # Full sync (production)
-node sync-functions.js --verbose    # Recent (direct)
-node sync-functions.js --all --verbose  # Full (direct)
+node pipelines/sync-functions.js --verbose    # Recent (direct)
+node pipelines/sync-functions.js --all --verbose  # Full (direct)
 ```
 
 ## Pipeline Flow
 
 ```
-sync-functions.js
-├── Step 1: download-functions-from-sportlink.js   → stadion-sync.sqlite
+pipelines/sync-functions.js
+├── Step 1: steps/download-functions-from-sportlink.js   → stadion-sync.sqlite
 │   ├── Scrape /functions tab (committees, club functions)
 │   └── Scrape /other tab (free fields: FreeScout ID, VOG, financial block, photo URL)
-├── Step 2: submit-stadion-commissies.js           → Stadion WordPress API (commissies)
-└── Step 3: submit-stadion-commissie-work-history.js → Stadion WordPress API (person work_history)
+├── Step 2: steps/submit-stadion-commissies.js           → Stadion WordPress API (commissies)
+└── Step 3: steps/submit-stadion-commissie-work-history.js → Stadion WordPress API (person work_history)
 ```
 
 ## Step-by-Step Details
 
 ### Step 1: Download Functions from Sportlink
 
-**Script:** `download-functions-from-sportlink.js`
+**Script:** `steps/download-functions-from-sportlink.js`
 **Function:** `runFunctionsDownload({ logger, verbose, withInvoice, recentOnly, days })`
 
 1. Launches headless Chromium via Playwright
@@ -66,7 +66,7 @@ sync-functions.js
 
 ### Step 2: Sync Commissies to Stadion
 
-**Script:** `submit-stadion-commissies.js`
+**Script:** `steps/submit-stadion-commissies.js`
 **Function:** `runSync({ logger, verbose, force, currentCommissieNames })`
 
 1. Reads unique committee names from `sportlink_member_committees`
@@ -81,7 +81,7 @@ sync-functions.js
 
 ### Step 3: Sync Commissie Work History
 
-**Script:** `submit-stadion-commissie-work-history.js`
+**Script:** `steps/submit-stadion-commissie-work-history.js`
 **Function:** `runSync({ logger, verbose, force })`
 
 1. Reads committee memberships from `sportlink_member_committees` joined with `stadion_commissies` and `stadion_members`
@@ -160,10 +160,10 @@ These are scraped during the functions pipeline but consumed by the People pipel
 
 | File | Purpose |
 |------|---------|
-| `sync-functions.js` | Pipeline orchestrator |
-| `download-functions-from-sportlink.js` | Sportlink function/committee scraping (Playwright) |
-| `submit-stadion-commissies.js` | Stadion commissie API sync |
-| `submit-stadion-commissie-work-history.js` | Stadion commissie work history sync |
+| `pipelines/sync-functions.js` | Pipeline orchestrator |
+| `steps/download-functions-from-sportlink.js` | Sportlink function/committee scraping (Playwright) |
+| `steps/submit-stadion-commissies.js` | Stadion commissie API sync |
+| `steps/submit-stadion-commissie-work-history.js` | Stadion commissie work history sync |
 | `lib/stadion-db.js` | SQLite operations |
 | `lib/stadion-client.js` | Stadion HTTP client |
 | `lib/sportlink-login.js` | Sportlink authentication |

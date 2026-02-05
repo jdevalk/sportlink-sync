@@ -77,6 +77,18 @@ NIKKI_API_KEY=               # Nikki API key (optional)
 NIKKI_URL=                   # Nikki URL (optional)
 ```
 
+## Directory Layout
+
+```
+pipelines/     Pipeline orchestrators (entry points called by sync.sh)
+steps/         Pipeline step scripts (download-*, prepare-*, submit-*, upload-*)
+tools/         Inspection + maintenance scripts (show-*, cleanup-*, validate-*)
+lib/           Shared libraries (DB layers, API clients, utilities)
+config/        Configuration files (field-mapping.json, sportlink-fields.json)
+scripts/       Shell scripts (sync.sh, install-cron.sh) + send-email.js
+docs/          Documentation
+```
+
 ## Code Patterns
 
 ### Module/CLI Hybrid
@@ -92,7 +104,7 @@ if (require.main === module) { runDownload({ verbose: true }); }
 ### Logging
 
 ```javascript
-const { createSyncLogger } = require('./lib/logger');
+const { createSyncLogger } = require('../lib/logger');
 const logger = createSyncLogger({ verbose });
 logger.log('Always shown');
 logger.verbose('Only in verbose mode');

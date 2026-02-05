@@ -123,20 +123,20 @@ graph TD
     CAL[Stadion Calendar API]
     PH[Stadion Photo API]
 
-    SL -->|download-data-from-sportlink.js| DB1
-    SL -->|download-data-from-sportlink.js| DB2
-    DB1 -->|prepare-laposta-members.js| LP_PREP[Prepared Laposta members]
-    LP_PREP -->|submit-laposta-list.js| LP
-    DB2 -->|submit-stadion-sync.js| ST
-    DB2 -->|sync-important-dates.js| CAL
-    SL -->|download-photos-from-api.js| DB2
+    SL -->|steps/download-data-from-sportlink.js| DB1
+    SL -->|steps/download-data-from-sportlink.js| DB2
+    DB1 -->|steps/prepare-laposta-members.js| LP_PREP[Prepared Laposta members]
+    LP_PREP -->|steps/submit-laposta-list.js| LP
+    DB2 -->|steps/submit-stadion-sync.js| ST
+    DB2 -->|steps/sync-important-dates.js| CAL
+    SL -->|steps/download-photos-from-api.js| DB2
     DB2 -->|photo_url| PHOTOS[photos/ directory]
-    PHOTOS -->|upload-photos-to-stadion.js| PH
+    PHOTOS -->|steps/upload-photos-to-stadion.js| PH
 ```
 
 ### Sportlink to Laposta: Field Mapping
 
-Source: Sportlink `SearchMembers` internal request. Destination: Laposta custom fields. Configured in `field-mapping.json`.
+Source: Sportlink `SearchMembers` internal request. Destination: Laposta custom fields. Configured in `config/field-mapping.json`.
 
 | Laposta Field | Sportlink Field | Notes |
 |---|---|---|
@@ -267,8 +267,8 @@ graph LR
     DB[(nikki-sync.sqlite)]
     ST[Stadion WordPress API<br>PUT /wp/v2/people]
 
-    NK -->|download-nikki-contributions.js<br>Playwright scraping| DB
-    DB -->|sync-nikki-to-stadion.js| ST
+    NK -->|steps/download-nikki-contributions.js<br>Playwright scraping| DB
+    DB -->|steps/sync-nikki-to-stadion.js| ST
 ```
 
 ### Nikki to SQLite: Fields Extracted
@@ -311,9 +311,9 @@ graph TD
     ST_T[Stadion Teams API<br>wp/v2/teams]
     ST_P[Stadion People API<br>wp/v2/people<br>work_history field]
 
-    SL -->|download-teams-from-sportlink.js| DB
-    DB -->|submit-stadion-teams.js| ST_T
-    DB -->|submit-stadion-work-history.js| ST_P
+    SL -->|steps/download-teams-from-sportlink.js| DB
+    DB -->|steps/submit-stadion-teams.js| ST_T
+    DB -->|steps/submit-stadion-work-history.js| ST_P
 ```
 
 ### Sportlink to Stadion Teams: Field Mapping
@@ -357,11 +357,11 @@ graph TD
     ST_P[Stadion People API<br>wp/v2/people<br>work_history field]
     PP[People Pipeline<br>uses free fields]
 
-    SL -->|download-functions-from-sportlink.js<br>functions + committees| DB
-    SL -->|download-functions-from-sportlink.js<br>free fields from /other page| DB
-    DB -->|submit-stadion-commissies.js| ST_C
-    DB -->|submit-stadion-commissie-work-history.js| ST_P
-    DB -.->|free fields used by<br>prepare-stadion-members.js| PP
+    SL -->|steps/download-functions-from-sportlink.js<br>functions + committees| DB
+    SL -->|steps/download-functions-from-sportlink.js<br>free fields from /other page| DB
+    DB -->|steps/submit-stadion-commissies.js| ST_C
+    DB -->|steps/submit-stadion-commissie-work-history.js| ST_P
+    DB -.->|free fields used by<br>steps/prepare-stadion-members.js| PP
 ```
 
 ### Daily vs Full Mode
@@ -419,9 +419,9 @@ graph LR
     DB_F[(freescout-sync.sqlite)]
     FS[FreeScout API]
 
-    DB_S -->|prepare-freescout-customers.js| DB_F
-    DB_N -->|prepare-freescout-customers.js| DB_F
-    DB_F -->|submit-freescout-sync.js| FS
+    DB_S -->|steps/prepare-freescout-customers.js| DB_F
+    DB_N -->|steps/prepare-freescout-customers.js| DB_F
+    DB_F -->|steps/submit-freescout-sync.js| FS
 ```
 
 ### Stadion/Nikki to FreeScout: Field Mapping
@@ -459,8 +459,8 @@ graph LR
     DB[(stadion-sync.sqlite)]
     ST[Stadion WordPress API]
 
-    SL -->|download-discipline-cases.js| DB
-    DB -->|submit-stadion-discipline.js| ST
+    SL -->|steps/download-discipline-cases.js| DB
+    DB -->|steps/submit-stadion-discipline.js| ST
 ```
 
 Cases are linked to person posts in Stadion using `knvb_id` -> `stadion_id` mapping.
@@ -480,7 +480,7 @@ graph LR
     SL[Sportlink Browser<br>Playwright automation]
 
     ST -->|Detect field changes| DET
-    DET -->|reverse-sync.js| SL
+    DET -->|pipelines/reverse-sync.js| SL
 ```
 
 ### Fields Synced Back

@@ -1,0 +1,378 @@
+require('varlock/auto-load');
+
+const { stadionRequest } = require('../lib/stadion-client');
+const {
+  openDb: openDisciplineDb,
+  getCasesNeedingSync,
+  updateCaseSyncState,
+  getSeasonFromDate,
+  getAllCases
+} = require('../lib/discipline-db');
+const { openDb: openStadionDb } = require('../lib/stadion-db');
+
+/**
+ * Convert date string to ACF Ymd format (e.g., "2026-01-15" -> "20260115")
+ * @param {string} dateString - Date in various formats (ISO, etc.)
+ * @returns {string} - Date in Ymd format, or empty string if invalid
+ */
+function toAcfDateFormat(dateString) {
+  if (!dateString) return '';
+
+  // Try to parse the date
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}${month}${day}`;
+}
+
+/**
+ * Build knvb_id -> stadion_id lookup map from stadion-sync.sqlite
+ * @returns {Map<string, number>} - Map of KNVB ID to Stadion person ID
+ */
+function buildPersonLookup() {
+  const db = openStadionDb();
+  const stmt = db.prepare('SELECT knvb_id, stadion_id FROM stadion_members WHERE stadion_id IS NOT NULL');
+  const rows = stmt.all();
+  db.close();
+
+  const lookup = new Map();
+  rows.forEach(row => {
+    lookup.set(row.knvb_id, row.stadion_id);
+  });
+  return lookup;
+}
+
+/**
+ * Fetch person name from Stadion for title construction
+ * @param {number} stadionId - WordPress person post ID
+ * @param {Object} options - Logger options
+ * @param {Map<number, string>} cache - Cache for person names
+ * @returns {Promise<string>} - Person name
+ */
+async function fetchPersonName(stadionId, options, cache) {
+  if (cache.has(stadionId)) {
+    return cache.get(stadionId);
+  }
+
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  try {
+    const response = await stadionRequest(`wp/v2/people/${stadionId}`, 'GET', null, options);
+    const person = response.body;
+    let name = person.title?.rendered || person.title;
+
+    // If title not available, construct from ACF
+    if (!name && person.acf) {
+      const firstName = person.acf.first_name || '';
+      const lastName = person.acf.last_name || '';
+      name = `${firstName} ${lastName}`.trim();
+    }
+
+    if (!name) {
+      name = `Person ${stadionId}`;
+    }
+
+    cache.set(stadionId, name);
+    return name;
+  } catch (error) {
+    logVerbose(`  Error fetching person ${stadionId}: ${error.message}`);
+    const fallbackName = `Person ${stadionId}`;
+    cache.set(stadionId, fallbackName);
+    return fallbackName;
+  }
+}
+
+/**
+ * Get or create season term in Stadion WordPress
+ * @param {string} seasonName - Season string (e.g., "2025-2026")
+ * @param {Object} options - Logger options
+ * @param {Map<string, number>} cache - Cache for season term IDs
+ * @returns {Promise<number>} - Term ID
+ */
+async function getOrCreateSeasonTermId(seasonName, options, cache) {
+  if (cache.has(seasonName)) {
+    return cache.get(seasonName);
+  }
+
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  try {
+    // Try to fetch existing term
+    const response = await stadionRequest(`wp/v2/seizoen?slug=${seasonName}`, 'GET', null, options);
+    const terms = response.body;
+
+    if (terms && terms.length > 0) {
+      const termId = terms[0].id;
+      cache.set(seasonName, termId);
+      logVerbose(`  Found existing season term: ${seasonName} (ID: ${termId})`);
+      return termId;
+    }
+
+    // Create new term
+    const createResponse = await stadionRequest('wp/v2/seizoen', 'POST', {
+      name: seasonName,
+      slug: seasonName
+    }, options);
+    const termId = createResponse.body.id;
+    cache.set(seasonName, termId);
+    logVerbose(`  Created new season term: ${seasonName} (ID: ${termId})`);
+    return termId;
+  } catch (error) {
+    console.error(`Error getting/creating season term "${seasonName}": ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Build case title from person name, match description, and date
+ * @param {string} personName - Person name
+ * @param {string} matchDescription - Match description
+ * @param {string} matchDate - Match date (ISO format)
+ * @returns {string} - Formatted title
+ */
+function buildCaseTitle(personName, matchDescription, matchDate) {
+  return `${personName} - ${matchDescription} - ${matchDate}`;
+}
+
+/**
+ * Sync a single discipline case to Stadion (create or update)
+ * @param {Object} caseData - Case record from database
+ * @param {number} personStadionId - Stadion person post ID
+ * @param {number} seasonTermId - Season term ID
+ * @param {string} personName - Person name for title
+ * @param {Object} db - Discipline database connection
+ * @param {Object} options - Logger and verbose options
+ * @returns {Promise<{action: string, id: number}>}
+ */
+async function syncCase(caseData, personStadionId, seasonTermId, personName, db, options) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
+  let { stadion_id } = caseData;
+  const { dossier_id, source_hash, last_synced_hash, match_date, match_description } = caseData;
+
+  // Check if update needed (unless force)
+  if (stadion_id && !options.force && source_hash === last_synced_hash) {
+    logVerbose(`Case unchanged, skipping: ${dossier_id}`);
+    return { action: 'skipped', id: stadion_id };
+  }
+
+  // Build ACF fields payload
+  // Note: Date fields use ACF date_picker with Ymd return format (e.g., "20260115")
+  const acfFields = {
+    'dossier_id': dossier_id,
+    'person': personStadionId,
+    'match_date': toAcfDateFormat(match_date),
+    'match_description': match_description || '',
+    'team_name': caseData.team_name || '',
+    'charge_codes': caseData.charge_codes || '',
+    'charge_description': caseData.charge_description || '',
+    'sanction_description': caseData.sanction_description || '',
+    'processing_date': toAcfDateFormat(caseData.processing_date),
+    'administrative_fee': caseData.administrative_fee ? parseFloat(caseData.administrative_fee) : null,
+    'is_charged': caseData.is_charged === 1
+  };
+
+  const title = buildCaseTitle(personName, match_description || 'Unknown Match', match_date || 'Unknown Date');
+  const season = getSeasonFromDate(match_date);
+
+  const payload = {
+    title: title,
+    status: 'publish',
+    seizoen: [seasonTermId],
+    acf: acfFields
+  };
+
+  if (stadion_id) {
+    // UPDATE existing case
+    const endpoint = `wp/v2/discipline-cases/${stadion_id}`;
+    logVerbose(`Updating discipline case: ${stadion_id} - ${dossier_id}`);
+    logVerbose(`  PUT ${endpoint}`);
+    logVerbose(`  Payload: ${JSON.stringify(payload, null, 2)}`);
+
+    try {
+      const response = await stadionRequest(endpoint, 'PUT', payload, options);
+      updateCaseSyncState(db, dossier_id, source_hash, stadion_id, season);
+      return { action: 'updated', id: stadion_id };
+    } catch (error) {
+      // Check if case was deleted in WordPress (404)
+      if (error.details?.code === 'rest_post_invalid_id' || error.details?.data?.status === 404) {
+        logVerbose(`Case ${dossier_id} (ID: ${stadion_id}) no longer exists in WordPress, recreating...`);
+        // Clear the stadion_id so we fall through to create
+        stadion_id = null;
+        updateCaseSyncState(db, dossier_id, null, null, null);
+      } else {
+        console.error(`API Error updating case "${dossier_id}" (ID: ${stadion_id}):`);
+        console.error(`  Status: ${error.message}`);
+        if (error.details) {
+          console.error(`  Code: ${error.details.code || 'unknown'}`);
+          console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
+          if (error.details.data) {
+            console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+          }
+        }
+        throw error;
+      }
+    }
+  }
+
+  // CREATE new case (or recreate if deleted from WordPress)
+  if (!stadion_id) {
+    const endpoint = 'wp/v2/discipline-cases';
+    logVerbose(`Creating new discipline case: ${dossier_id}`);
+    logVerbose(`  POST ${endpoint}`);
+    logVerbose(`  Payload: ${JSON.stringify(payload, null, 2)}`);
+
+    try {
+      const response = await stadionRequest(endpoint, 'POST', payload, options);
+      const newId = response.body.id;
+      updateCaseSyncState(db, dossier_id, source_hash, newId, season);
+      return { action: 'created', id: newId };
+    } catch (error) {
+      console.error(`API Error creating case "${dossier_id}":`);
+      console.error(`  Status: ${error.message}`);
+      if (error.details) {
+        console.error(`  Code: ${error.details.code || 'unknown'}`);
+        console.error(`  Message: ${error.details.message || JSON.stringify(error.details)}`);
+        if (error.details.data) {
+          console.error(`  Data: ${JSON.stringify(error.details.data)}`);
+        }
+      }
+      throw error;
+    }
+  }
+}
+
+/**
+ * Main sync orchestration for discipline cases
+ * @param {Object} options
+ * @param {Object} [options.logger] - Logger instance
+ * @param {boolean} [options.verbose] - Verbose mode
+ * @param {boolean} [options.force] - Force sync all cases
+ * @returns {Promise<Object>} - Result object with counts
+ */
+async function runSync(options = {}) {
+  const { logger, verbose = false, force = false } = options;
+  const logVerbose = logger?.verbose.bind(logger) || (verbose ? console.log : () => {});
+  const log = logger?.log.bind(logger) || console.log;
+
+  log('Starting discipline case sync to Stadion...');
+
+  // Build person lookup map
+  logVerbose('Building person lookup map from stadion-sync.sqlite...');
+  const personLookup = buildPersonLookup();
+  logVerbose(`  Loaded ${personLookup.size} person mappings`);
+
+  // Initialize caches
+  const personNameCache = new Map();
+  const seasonTermCache = new Map();
+
+  // Open discipline database
+  const db = openDisciplineDb();
+
+  // Get cases needing sync
+  const cases = getCasesNeedingSync(db, force);
+  log(`Found ${cases.length} cases needing sync${force ? ' (force mode)' : ''}`);
+
+  const results = {
+    success: true,
+    total: cases.length,
+    synced: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    skipped_no_person: 0,
+    errors: []
+  };
+
+  for (const caseData of cases) {
+    const { dossier_id, public_person_id, match_date } = caseData;
+
+    // Look up person stadion_id
+    const personStadionId = personLookup.get(public_person_id);
+    if (!personStadionId) {
+      logVerbose(`Skipping case ${dossier_id}: person ${public_person_id} not yet synced to Stadion`);
+      results.skipped_no_person++;
+      continue;
+    }
+
+    try {
+      // Fetch person name (cached)
+      const personName = await fetchPersonName(personStadionId, options, personNameCache);
+
+      // Derive season from match date
+      const season = getSeasonFromDate(match_date);
+      if (!season) {
+        logVerbose(`Skipping case ${dossier_id}: no match date`);
+        results.skipped++;
+        continue;
+      }
+
+      // Get or create season term (cached)
+      const seasonTermId = await getOrCreateSeasonTermId(season, options, seasonTermCache);
+
+      // Sync the case
+      const result = await syncCase(caseData, personStadionId, seasonTermId, personName, db, options);
+
+      if (result.action === 'created') {
+        results.created++;
+        results.synced++;
+      } else if (result.action === 'updated') {
+        results.updated++;
+        results.synced++;
+      } else if (result.action === 'skipped') {
+        results.skipped++;
+      }
+    } catch (error) {
+      results.errors.push({
+        dossier_id,
+        message: error.message
+      });
+      console.error(`Error syncing case ${dossier_id}: ${error.message}`);
+    }
+  }
+
+  db.close();
+
+  log('Discipline case sync complete.');
+  log(`  Synced: ${results.synced}/${results.total}`);
+  log(`  Created: ${results.created}`);
+  log(`  Updated: ${results.updated}`);
+  log(`  Skipped (unchanged): ${results.skipped}`);
+  log(`  Skipped (no person): ${results.skipped_no_person}`);
+  if (results.errors.length > 0) {
+    log(`  Errors: ${results.errors.length}`);
+    results.success = false;
+  }
+
+  return results;
+}
+
+module.exports = { runSync };
+
+// CLI entry point
+if (require.main === module) {
+  const verbose = process.argv.includes('--verbose');
+  const force = process.argv.includes('--force');
+
+  runSync({ verbose, force })
+    .then(result => {
+      console.log(`Discipline cases sync: ${result.synced}/${result.total} synced`);
+      console.log(`  Created: ${result.created}`);
+      console.log(`  Updated: ${result.updated}`);
+      console.log(`  Skipped (unchanged): ${result.skipped}`);
+      console.log(`  Skipped (no person): ${result.skipped_no_person}`);
+      if (result.errors.length > 0) {
+        console.error(`  Errors: ${result.errors.length}`);
+        result.errors.forEach(e => console.error(`    - ${e.dossier_id}: ${e.message}`));
+        process.exitCode = 1;
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err.message);
+      process.exitCode = 1;
+    });
+}
