@@ -1,0 +1,234 @@
+# People Pipeline
+
+Syncs member data from Sportlink Club to Laposta email marketing lists and Stadion WordPress, including photos and birthdays.
+
+## Schedule
+
+Runs **4x daily** at 8:00, 11:00, 14:00, and 17:00 (Amsterdam time).
+
+```bash
+scripts/sync.sh people          # Production (with locking + email report)
+node sync-people.js --verbose   # Direct execution (verbose)
+```
+
+## Pipeline Flow
+
+```
+sync-people.js
+├── Step 1: download-data-from-sportlink.js    → laposta-sync.sqlite, stadion-sync.sqlite
+├── Step 2: prepare-laposta-members.js         → laposta-sync.sqlite (members table)
+├── Step 3: submit-laposta-list.js             → Laposta API
+├── Step 4: submit-stadion-sync.js             → Stadion WordPress API (members + parents)
+├── Step 5: sync-important-dates.js            → Stadion WordPress API (birthdays)
+├── Step 6: download-photos-from-api.js        → photos/ directory
+├── Step 7: upload-photos-to-stadion.js        → Stadion WordPress API (media)
+└── Step 8: lib/reverse-sync-sportlink.js      → Sportlink Club (currently disabled)
+```
+
+## Step-by-Step Details
+
+### Step 1: Download from Sportlink
+
+**Script:** `download-data-from-sportlink.js`
+**Function:** `runDownload({ logger, verbose })`
+
+1. Launches headless Chromium via Playwright
+2. Logs into `https://club.sportlink.com/` using `lib/sportlink-login.js`
+3. Handles TOTP 2FA with `lib/totp.js`
+4. Calls Sportlink `SearchMembers` API to get all members
+5. Calls `MemberHeader` API for each member (photo URLs, financial block status)
+6. Stores raw JSON results in `laposta-sync.sqlite` → `sportlink_runs` table
+7. Upserts member data into `stadion-sync.sqlite` → `stadion_members` table
+
+**Output:** `{ success, memberCount }`
+
+**Databases written:**
+- `laposta-sync.sqlite`: `sportlink_runs` (full JSON dump)
+- `stadion-sync.sqlite`: `stadion_members` (per-member data with `source_hash`)
+
+### Step 2: Prepare Laposta Members
+
+**Script:** `prepare-laposta-members.js`
+**Function:** `runPrepare({ logger, verbose })`
+
+1. Reads latest Sportlink results from `laposta-sync.sqlite` → `sportlink_runs`
+2. Applies field mappings from `field-mapping.json` to transform Sportlink fields to Laposta custom fields
+3. Handles parent extraction: creates separate list entries for `EmailAddressParent1` / `EmailAddressParent2`
+4. Deduplicates parent entries across lists
+5. Computes `source_hash` for each member (SHA-256 of email + custom fields)
+6. Upserts into `laposta-sync.sqlite` → `members` table
+
+**Output:** `{ success, lists: [{ total }], excluded }`
+
+**Key transformations** (configured in `field-mapping.json`):
+- `GenderCode`: "Male" → "M", "Female" → "V"
+- `UnionTeams`: comma-separated team list
+- Parent entries: creates person entries with `oudervan` (child names) field
+
+### Step 3: Submit to Laposta
+
+**Script:** `submit-laposta-list.js`
+**Function:** `runSubmit({ logger, verbose, force })`
+
+1. Reads members from `laposta-sync.sqlite` where `source_hash != last_synced_hash`
+2. For each changed member, calls Laposta API:
+   - **New member** (no existing Laposta record): `POST /api/v2/member`
+   - **Updated member**: `POST /api/v2/member` with update
+3. Updates `last_synced_hash` on success
+4. Rate limited: 2s delay between API calls
+
+**Output:** `{ lists: [{ index, listId, total, synced, added, updated, errors }] }`
+
+**CLI flags:**
+- `--force`: Sync all members regardless of hash (ignores change detection)
+
+### Step 4: Sync to Stadion
+
+**Script:** `submit-stadion-sync.js`
+**Function:** `runSync({ logger, verbose, force })`
+
+1. Reads members from `stadion-sync.sqlite` where `source_hash != last_synced_hash`
+2. Reads free fields from `sportlink_member_free_fields` table (FreeScout ID, VOG date, financial block)
+3. Builds WordPress API payload with ACF fields (see field mappings below)
+4. For each changed member:
+   - **No `stadion_id`**: `POST /wp/v2/people` (create new person)
+   - **Has `stadion_id`**: `PUT /wp/v2/people/{stadion_id}` (update existing)
+5. Stores returned WordPress post ID as `stadion_id`
+6. Updates `last_synced_hash` on success
+7. Then processes **parent members** (from `stadion_parents` table):
+   - Identified by email (no KNVB ID)
+   - Linked to children via ACF `relationships` field
+   - Deduplicated across multiple children's parent fields
+
+**Output:** `{ total, synced, created, updated, skipped, errors, parents: { ... } }`
+
+**Important:** `first_name` and `last_name` are required on every PUT request, even for partial ACF updates.
+
+### Step 5: Birthday Sync
+
+**Script:** `sync-important-dates.js`
+**Function:** `runSync({ logger, verbose, force })`
+
+1. Reads all members with `DateOfBirth` from `stadion-sync.sqlite`
+2. For each member with a birth date and a `stadion_id`:
+   - Creates/updates an `important_date` post in Stadion
+   - Links to the person via `acf.related_people`
+   - Sets `acf.is_recurring = true` for annual display
+3. Uses hash-based change detection to skip unchanged dates
+
+**Output:** `{ total, synced, created, updated, skipped, errors }`
+
+### Step 6: Photo Download
+
+**Script:** `download-photos-from-api.js`
+**Function:** `runPhotoDownload({ logger, verbose, force })`
+
+1. Queries `stadion_members` for members with `photo_state = 'pending_download'`
+2. Downloads each photo via HTTP from the `photo_url` stored in `stadion_members`
+3. Saves to `photos/{knvb_id}.{ext}`
+4. Updates `photo_state` to `'downloaded'`
+5. Rate limited: 200ms between downloads, 1s exponential backoff on errors
+
+**Output:** `{ downloaded, errors }`
+
+### Step 7: Photo Upload
+
+**Script:** `upload-photos-to-stadion.js`
+**Function:** `runPhotoSync({ logger, verbose })`
+
+1. Queries `stadion_members` for `photo_state = 'downloaded'` or `'pending_upload'`
+2. Uploads each photo to `POST /wp-json/stadion/v1/people/{stadion_id}/photo` (multipart form-data)
+3. Updates `photo_state` to `'synced'` on success
+4. Also handles photo **deletion**: members with `photo_state = 'pending_delete'` get their Stadion photo removed
+5. Rate limited: 2s between uploads/deletes
+
+**Output:** `{ upload: { synced, skipped, errors }, delete: { deleted, errors } }`
+
+### Step 8: Reverse Sync (Currently Disabled)
+
+**Script:** `lib/reverse-sync-sportlink.js`
+**Function:** `runReverseSync({ logger, verbose })`
+
+Detects field changes made in Stadion and pushes them back to Sportlink via browser automation. Currently disabled pending fixes.
+
+## Field Mappings
+
+### Sportlink → Laposta
+
+See `field-mapping.json` for the complete mapping. Key fields:
+
+| Laposta Field | Sportlink Source |
+|---|---|
+| *(email)* | `Email` |
+| `voornaam` | `FirstName` |
+| `achternaam` | `LastName` |
+| `geboortedatum` | `DateOfBirth` |
+| `team` | `UnionTeams` |
+| `geslacht` | `GenderCode` (Male→M, Female→V) |
+| `relatiecode` | `PublicPersonId` (KNVB ID) |
+
+### Sportlink → Stadion Members
+
+| Stadion ACF Field | Source |
+|---|---|
+| `first_name` | `FirstName` |
+| `last_name` | `Infix` + `LastName` |
+| `knvb-id` | `PublicPersonId` |
+| `gender` | `GenderCode` (Male→male, Female→female) |
+| `birth_year` | Year from `DateOfBirth` |
+| `contact_info` (repeater) | `Email`, `Mobile`, `Telephone` |
+| `addresses` (repeater) | `StreetName` + `AddressNumber`, `ZipCode`, `City` |
+| `lid-sinds` | `MemberSince` |
+| `leeftijdsgroep` | `AgeClassDescription` |
+| `type-lid` | `TypeOfMemberDescription` |
+| `freescout-id` | From `sportlink_member_free_fields.freescout_id` |
+| `datum-vog` | From `sportlink_member_free_fields.vog_datum` |
+| `financiele-blokkade` | From `sportlink_member_free_fields.has_financial_block` |
+
+## Database Tables Used
+
+| Database | Table | Usage |
+|---|---|---|
+| `laposta-sync.sqlite` | `sportlink_runs` | Raw download results |
+| `laposta-sync.sqlite` | `members` | Prepared Laposta members with hashes |
+| `laposta-sync.sqlite` | `laposta_fields` | Cached field definitions |
+| `stadion-sync.sqlite` | `stadion_members` | Member → WordPress ID mapping + hashes |
+| `stadion-sync.sqlite` | `stadion_parents` | Parent → WordPress ID mapping |
+| `stadion-sync.sqlite` | `stadion_important_dates` | Birthday → WordPress ID mapping |
+| `stadion-sync.sqlite` | `sportlink_member_free_fields` | Free fields (read by Step 4) |
+
+## CLI Flags
+
+| Flag | Effect |
+|------|--------|
+| `--verbose` | Detailed per-member logging |
+| `--force` | Skip change detection, sync all members |
+
+## Error Handling
+
+- Each step runs in a try/catch; failures are logged but don't stop the pipeline
+- Stadion sync failure is non-critical (Laposta sync still completes)
+- Photo download/upload failures are non-critical
+- All errors are collected and included in the email summary report
+- Exit code 1 if any errors occurred
+
+## Source Files
+
+| File | Purpose |
+|------|---------|
+| `sync-people.js` | Pipeline orchestrator |
+| `download-data-from-sportlink.js` | Sportlink browser automation |
+| `prepare-laposta-members.js` | Field transformation for Laposta |
+| `submit-laposta-list.js` | Laposta API sync |
+| `submit-stadion-sync.js` | Stadion WordPress API sync |
+| `prepare-stadion-members.js` | Stadion member data preparation |
+| `prepare-stadion-parents.js` | Parent extraction and dedup |
+| `sync-important-dates.js` | Birthday sync |
+| `download-photos-from-api.js` | Photo download |
+| `upload-photos-to-stadion.js` | Photo upload/delete |
+| `field-mapping.json` | Laposta field mapping config |
+| `laposta-db.js` | Laposta SQLite operations |
+| `lib/stadion-db.js` | Stadion SQLite operations |
+| `lib/stadion-client.js` | Stadion HTTP client |
+| `lib/laposta-client.js` | Laposta HTTP client |
+| `lib/sportlink-login.js` | Sportlink authentication |

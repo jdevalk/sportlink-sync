@@ -1,0 +1,121 @@
+# Nikki Pipeline
+
+Syncs member contribution/dues data from the Nikki accounting system to Stadion WordPress ACF fields.
+
+## Schedule
+
+Runs **daily** at 7:00 AM (Amsterdam time).
+
+```bash
+scripts/sync.sh nikki           # Production (with locking + email report)
+node sync-nikki.js --verbose    # Direct execution (verbose)
+```
+
+## Pipeline Flow
+
+```
+sync-nikki.js
+├── Step 1: download-nikki-contributions.js    → nikki-sync.sqlite
+└── Step 2: sync-nikki-to-stadion.js           → Stadion WordPress API
+```
+
+## Step-by-Step Details
+
+### Step 1: Download Nikki Contributions
+
+**Script:** `download-nikki-contributions.js`
+**Function:** `runNikkiDownload({ logger, verbose })`
+
+1. Launches headless Chromium via Playwright
+2. Navigates to the Nikki web application
+3. Scrapes the HTML contribution table:
+   - Extracts `knvb_id`, `year`, `nikki_id`, `saldo`, `status` per row
+   - Parses European currency format (e.g., "EUR 1.234,56" → 1234.56)
+4. Exports CSV data for `hoofdsom` (total amount) values
+5. A single member can have **multiple contribution lines per year** (e.g., separate amounts for different family members)
+6. Each line is stored as a separate row in SQLite, keyed by `(knvb_id, year, nikki_id)`
+7. Computes `source_hash` per contribution record
+8. Upserts into `nikki-sync.sqlite` → `nikki_contributions` table
+
+**Output:** `{ success, count }`
+
+**Database written:** `nikki-sync.sqlite` → `nikki_contributions`
+
+### Step 2: Sync to Stadion
+
+**Script:** `sync-nikki-to-stadion.js`
+**Function:** `runNikkiStadionSync({ logger, verbose, force })`
+
+1. Groups contributions by `knvb_id` and `year`
+2. For members with multiple lines per year: **sums** `saldo` and `hoofdsom` across all lines
+3. Looks up `stadion_id` from `stadion-sync.sqlite` → `stadion_members` (cross-database lookup)
+4. Skips members without a `stadion_id` (not yet synced to Stadion)
+5. For each member with changes, sends `PUT /wp/v2/people/{stadion_id}` with:
+   - `first_name` and `last_name` (always required by Stadion API)
+   - Per-year Nikki ACF fields (up to 4 years of history)
+6. Rate limited: 500ms between updates
+
+**Output:** `{ updated, skipped, noStadionId, errors }`
+
+**Important:** The PUT request must include `first_name` and `last_name` even when only updating Nikki fields. This requires a GET request first to fetch existing required fields.
+
+## Field Mappings
+
+### Nikki → Stadion ACF Fields
+
+For each contribution year, three ACF fields are written per person:
+
+| Stadion ACF Field | Source | Example |
+|---|---|---|
+| `_nikki_{YEAR}_total` | Sum of `hoofdsom` for that year | `_nikki_2025_total`: 1500.00 |
+| `_nikki_{YEAR}_saldo` | Sum of `saldo` for that year | `_nikki_2025_saldo`: 250.00 |
+| `_nikki_{YEAR}_status` | `status` value | `_nikki_2025_status`: "Betaald" |
+
+Up to 4 years of history are retained (e.g., 2023, 2024, 2025, 2026).
+
+### Data Aggregation
+
+When a member has multiple contribution lines for the same year:
+
+```
+Member KNVB123 in 2025:
+  Line 1: saldo=100, hoofdsom=500, status="Betaald"
+  Line 2: saldo=150, hoofdsom=750, status="Open"
+
+Result for Stadion:
+  _nikki_2025_saldo = 250 (100 + 150)
+  _nikki_2025_total = 1250 (500 + 750)
+  _nikki_2025_status = "Open" (worst status takes priority)
+```
+
+## Database Tables Used
+
+| Database | Table | Usage |
+|---|---|---|
+| `nikki-sync.sqlite` | `nikki_contributions` | Contribution records per member per year |
+| `stadion-sync.sqlite` | `stadion_members` | KNVB ID → Stadion ID lookup (read-only) |
+
+## CLI Flags
+
+| Flag | Effect |
+|------|--------|
+| `--verbose` | Detailed per-member logging |
+| `--force` | Re-sync all members regardless of change detection |
+
+## Error Handling
+
+- Download failure is logged but doesn't prevent reporting
+- Members without a `stadion_id` are skipped (counted separately as `noStadionId`)
+- Individual member update failures don't stop the pipeline
+- All errors collected in summary report
+
+## Source Files
+
+| File | Purpose |
+|------|---------|
+| `sync-nikki.js` | Pipeline orchestrator |
+| `download-nikki-contributions.js` | Nikki web scraping (Playwright) |
+| `sync-nikki-to-stadion.js` | Stadion API sync |
+| `lib/nikki-db.js` | Nikki SQLite operations |
+| `lib/stadion-db.js` | Stadion ID lookup |
+| `lib/stadion-client.js` | Stadion HTTP client |

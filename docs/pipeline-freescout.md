@@ -1,0 +1,122 @@
+# FreeScout Pipeline
+
+Syncs Stadion member data to FreeScout helpdesk as customers, enriching support tickets with member context.
+
+## Schedule
+
+Runs **daily** at 8:00 AM (Amsterdam time).
+
+```bash
+scripts/sync.sh freescout           # Production (with locking + email report)
+node sync-freescout.js --verbose    # Direct execution (verbose)
+```
+
+## Pipeline Flow
+
+```
+sync-freescout.js
+├── Check credentials (FREESCOUT_API_KEY + FREESCOUT_URL)
+└── submit-freescout-sync.js
+    ├── prepare-freescout-customers.js   → freescout-sync.sqlite
+    └── Submit to FreeScout API          → FreeScout customers
+```
+
+## Step-by-Step Details
+
+### Credential Check
+
+Before running, `sync-freescout.js` verifies that `FREESCOUT_API_KEY` and `FREESCOUT_URL` are configured in `.env`. If not, the pipeline exits with an error.
+
+### Customer Preparation
+
+**Script:** `prepare-freescout-customers.js` (called internally by `submit-freescout-sync.js`)
+
+1. Reads member data from `stadion-sync.sqlite` → `stadion_members`
+2. Reads team assignments from `stadion-sync.sqlite` → `stadion_work_history`
+3. Reads contribution data from `nikki-sync.sqlite` → `nikki_contributions`
+4. Builds customer records with:
+   - Name, email, phone from Stadion member data
+   - Team memberships (comma-separated)
+   - KNVB ID, member since date
+   - Latest Nikki contribution balance and status
+5. Computes `source_hash` per customer
+6. Upserts into `freescout-sync.sqlite` → `freescout_customers`
+
+### Customer Sync
+
+**Script:** `submit-freescout-sync.js`
+**Function:** `runSubmit({ logger, verbose, force })`
+
+1. Reads customers from `freescout-sync.sqlite` where `source_hash != last_synced_hash`
+2. For each changed customer:
+   - **No `freescout_id`**: `POST /api/customers` (create new customer)
+   - **Has `freescout_id`**: `PUT /api/customers/{freescout_id}` (update existing)
+3. After creating/updating, syncs **custom fields** via `PUT /api/customers/{id}/customer_fields`
+4. Stores returned FreeScout customer ID as `freescout_id`
+5. Updates `last_synced_hash` on success
+6. Rate limited: exponential backoff on 5xx errors (1s, 2s, 4s)
+
+**Output:** `{ total, synced, created, updated, skipped, deleted, errors }`
+
+## Field Mappings
+
+### Standard Customer Fields
+
+Sent to `POST/PUT /api/customers`:
+
+| FreeScout Field | Source | Origin |
+|---|---|---|
+| `firstName` | `acf.first_name` | `stadion_members.data_json` |
+| `lastName` | `acf.last_name` | `stadion_members.data_json` |
+| `emails[].value` | Email from `contact_info` repeater | `stadion_members.data_json` |
+| `phones[].value` | Mobile from `contact_info` repeater | `stadion_members.data_json` |
+
+### Custom Fields
+
+Sent to `PUT /api/customers/{id}/customer_fields`:
+
+| FreeScout Custom Field | Field ID | Source | Origin |
+|---|---|---|---|
+| `union_teams` | 1 | All current team names, comma-separated | `stadion_work_history` |
+| `public_person_id` | 4 | KNVB ID | `stadion_members` |
+| `member_since` | 5 | `acf['lid-sinds']` | `stadion_members` |
+| `nikki_saldo` | 7 | Most recent year's outstanding balance | `nikki_contributions` |
+| `nikki_status` | 8 | Most recent year's payment status | `nikki_contributions` |
+
+Field IDs are configurable via `FREESCOUT_FIELD_*` environment variables.
+
+## Database Tables Used
+
+| Database | Table | Usage |
+|---|---|---|
+| `stadion-sync.sqlite` | `stadion_members` | Member data (name, contact, KNVB ID) |
+| `stadion-sync.sqlite` | `stadion_work_history` | Current team assignments |
+| `nikki-sync.sqlite` | `nikki_contributions` | Financial contribution data |
+| `freescout-sync.sqlite` | `freescout_customers` | Customer → FreeScout ID mapping + hashes |
+
+## CLI Flags
+
+| Flag | Effect |
+|------|--------|
+| `--verbose` | Detailed per-customer logging |
+| `--force` | Skip change detection, sync all customers |
+
+## Error Handling
+
+- Missing credentials cause immediate exit (not a silent skip)
+- Individual customer sync failures don't stop the pipeline
+- 5xx errors trigger exponential backoff (up to 3 retries)
+- All errors collected in summary report
+
+## Source Files
+
+| File | Purpose |
+|------|---------|
+| `sync-freescout.js` | Pipeline orchestrator |
+| `submit-freescout-sync.js` | FreeScout API sync + customer preparation |
+| `prepare-freescout-customers.js` | Customer data preparation |
+| `lib/freescout-db.js` | FreeScout SQLite operations |
+| `lib/freescout-client.js` | FreeScout HTTP client + credential check |
+| `lib/stadion-db.js` | Stadion data lookup |
+| `lib/nikki-db.js` | Nikki contribution lookup |
+| `lib/http-client.js` | HTTP request utilities |
