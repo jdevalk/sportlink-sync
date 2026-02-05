@@ -11,6 +11,7 @@ const {
   computeSourceHash
 } = require('./laposta-db');
 const { normalizeEmail, isValidEmail, buildChildFullName, hasValue } = require('./lib/parent-dedupe');
+const { openDb: openStadionDb, getVolunteerStatusMap } = require('./lib/stadion-db');
 const { readEnv, parseCliArgs } = require('./lib/utils');
 const { createLoggerAdapter } = require('./lib/log-adapters');
 
@@ -309,6 +310,9 @@ function buildMemberEntry(params) {
       memberNameMap,
       isStandaloneParent
     });
+
+    // Parents are never volunteers themselves
+    customFields.huidigvrijwilliger = '0';
   }
 
   // Handle primary/alternative entries that share email with parent
@@ -404,7 +408,7 @@ function buildAggregationMaps(members, mapping) {
  * @param {Object} aggregationMaps - Maps from buildAggregationMaps
  * @returns {{listMembers: Array[], excludedCount: number}}
  */
-function processMembers(members, mapping, aggregationMaps) {
+function processMembers(members, mapping, aggregationMaps, volunteerStatusMap) {
   const { parentNamesMap, parentTeamsMap, parentAgeClassMap, memberNameMap } = aggregationMaps;
 
   // Build set of primary emails
@@ -436,6 +440,15 @@ function processMembers(members, mapping, aggregationMaps) {
 
   members.forEach(member => {
     const baseCustomFields = buildBaseCustomFields(member, mapping);
+
+    // Add volunteer status from Stadion (not in field-mapping.json, comes from Stadion DB)
+    const knvbId = member.PublicPersonId;
+    if (knvbId && volunteerStatusMap.has(String(knvbId))) {
+      baseCustomFields.huidigvrijwilliger = String(volunteerStatusMap.get(String(knvbId)));
+    } else {
+      baseCustomFields.huidigvrijwilliger = '0';
+    }
+
     const dedupeLocal = new Set();
     const primaryEmail = member.Email;
     const normalizedPrimary = isValidEmail(primaryEmail) ? normalizeEmail(primaryEmail) : '';
@@ -525,7 +538,21 @@ async function runPrepare(options = {}) {
 
     // Build aggregation maps and process members
     const aggregationMaps = buildAggregationMaps(members, mapping);
-    const { listMembers, excludedCount } = processMembers(members, mapping, aggregationMaps);
+
+    // Load volunteer status from Stadion DB
+    let volunteerStatusMap = new Map();
+    try {
+      const stadionDb = openStadionDb();
+      try {
+        volunteerStatusMap = getVolunteerStatusMap(stadionDb);
+      } finally {
+        stadionDb.close();
+      }
+    } catch (e) {
+      logVerbose('Could not load volunteer status from Stadion DB, defaulting all to 0');
+    }
+
+    const { listMembers, excludedCount } = processMembers(members, mapping, aggregationMaps, volunteerStatusMap);
 
     // Persist to database and calculate update counts
     const db = openDb();
