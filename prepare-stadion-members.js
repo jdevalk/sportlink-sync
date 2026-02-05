@@ -32,7 +32,7 @@ function extractBirthYear(dateOfBirth) {
  */
 function buildName(member) {
   const firstName = (member.FirstName || '').trim();
-  const infix = (member.Infix || '').trim();
+  const infix = (member.Infix || '').trim().toLowerCase();
   const lastName = (member.LastName || '').trim();
 
   return {
