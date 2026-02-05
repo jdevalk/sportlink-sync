@@ -492,21 +492,21 @@ graph TD
     M --> N[14. FreeScout sync]
     N --> O[15. Discipline sync]
 
-    style A fill:#f96,stroke:#333
-    style B fill:#f96,stroke:#333
-    style C fill:#f96,stroke:#333
-    style D fill:#9cf,stroke:#333
-    style E fill:#9cf,stroke:#333
-    style F fill:#9cf,stroke:#333
-    style G fill:#9cf,stroke:#333
-    style H fill:#9cf,stroke:#333
-    style I fill:#9cf,stroke:#333
-    style J fill:#9cf,stroke:#333
-    style K fill:#9cf,stroke:#333
-    style L fill:#9cf,stroke:#333
-    style M fill:#9cf,stroke:#333
-    style N fill:#9cf,stroke:#333
-    style O fill:#9cf,stroke:#333
+    style A fill:#f96,stroke:#333,color:#000
+    style B fill:#f96,stroke:#333,color:#000
+    style C fill:#f96,stroke:#333,color:#000
+    style D fill:#9cf,stroke:#333,color:#000
+    style E fill:#9cf,stroke:#333,color:#000
+    style F fill:#9cf,stroke:#333,color:#000
+    style G fill:#9cf,stroke:#333,color:#000
+    style H fill:#9cf,stroke:#333,color:#000
+    style I fill:#9cf,stroke:#333,color:#000
+    style J fill:#9cf,stroke:#333,color:#000
+    style K fill:#9cf,stroke:#333,color:#000
+    style L fill:#9cf,stroke:#333,color:#000
+    style M fill:#9cf,stroke:#333,color:#000
+    style N fill:#9cf,stroke:#333,color:#000
+    style O fill:#9cf,stroke:#333,color:#000
 ```
 
 Steps 1-3 (orange) are critical: failure stops execution. Steps 4-15 (blue) are non-critical: failures are logged but execution continues.
