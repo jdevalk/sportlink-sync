@@ -620,41 +620,44 @@ async function runFunctionsDownload(options = {}) {
       await browser.close();
     }
 
-    // Store to database - atomic clear + upsert to prevent race conditions
-    // Other syncs that read these tables will see either old data or new data, never empty
-    const atomicReplace = db.transaction(() => {
-      // Clear and replace functions
-      clearMemberFunctions(db);
+    // Store to database
+    // Full sync: atomic clear + replace (ensures stale data is removed)
+    // Recent-only: upsert only (preserve existing data for members not in this run)
+    const storeResults = db.transaction(() => {
+      if (!recentOnly) {
+        // Full sync: clear all tables first
+        clearMemberFunctions(db);
+        clearMemberCommittees(db);
+        clearMemberFreeFields(db);
+        if (withInvoice) {
+          clearMemberInvoiceData(db);
+        }
+      }
+
       if (allFunctions.length > 0) {
         upsertMemberFunctions(db, allFunctions);
       }
       result.functionsCount = allFunctions.length;
 
-      // Clear and replace committees
-      clearMemberCommittees(db);
       if (allCommittees.length > 0) {
         upsertMemberCommittees(db, allCommittees);
       }
       result.committeesCount = allCommittees.length;
 
-      // Clear and replace free fields (includes photo URLs)
-      clearMemberFreeFields(db);
       if (allFreeFields.length > 0) {
         upsertMemberFreeFields(db, allFreeFields);
       }
       result.freeFieldsCount = allFreeFields.length;
 
-      // Clear and replace invoice data (only when --with-invoice is set)
+      if (withInvoice && allInvoiceData.length > 0) {
+        upsertMemberInvoiceData(db, allInvoiceData);
+      }
       if (withInvoice) {
-        clearMemberInvoiceData(db);
-        if (allInvoiceData.length > 0) {
-          upsertMemberInvoiceData(db, allInvoiceData);
-        }
         result.invoiceDataCount = allInvoiceData.length;
       }
     });
 
-    atomicReplace();
+    storeResults();
 
     // Create commissie records from unique committee names
     // Plus add "Verenigingsbreed" for club-level functions
