@@ -26,19 +26,19 @@ function extractBirthYear(dateOfBirth) {
 }
 
 /**
- * Build name fields, merging Dutch tussenvoegsel into last name
+ * Build name fields, separating Dutch tussenvoegsel (infix) as its own field
  * @param {Object} member - Sportlink member record
- * @returns {{first_name: string, last_name: string}}
+ * @returns {{first_name: string, infix: string, last_name: string}}
  */
 function buildName(member) {
   const firstName = (member.FirstName || '').trim();
   const infix = (member.Infix || '').trim();
   const lastName = (member.LastName || '').trim();
-  const fullLastName = [infix, lastName].filter(Boolean).join(' ');
 
   return {
     first_name: firstName,
-    last_name: fullLastName
+    infix: infix,
+    last_name: lastName
   };
 }
 
@@ -146,6 +146,7 @@ function preparePerson(sportlinkMember, freeFields = null, invoiceData = null) {
   };
 
   // Only add optional fields if they have values
+  if (name.infix) acf.infix = name.infix;
   if (gender) acf.gender = gender;
   if (birthYear) acf.birth_year = birthYear;
 
