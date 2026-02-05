@@ -37,6 +37,10 @@ graph LR
     SYNC -->|Reverse sync| SL
 ```
 
+### Why Browser Automation?
+
+Neither Sportlink Club nor Nikki provide APIs. All data is extracted by automating their web applications using **Playwright (headless Chromium)**. The sync tool logs in, navigates pages, and intercepts internal requests (like `SearchMembers`, `MemberHeader`, `UnionTeams`) that the web app makes to its own backend. For committee memberships, free fields, and discipline cases, it scrapes the rendered HTML directly. Nikki is similar — contribution data is scraped from HTML tables and CSV exports. The reverse sync also uses browser automation to fill in Sportlink's web forms.
+
 ## Schedules
 
 All times are **Europe/Amsterdam** timezone.
@@ -108,7 +112,7 @@ Runs 4x daily. Downloads member data from Sportlink, syncs to Laposta (email mar
 
 ```mermaid
 graph TD
-    SL[Sportlink API<br>SearchMembers + MemberHeader]
+    SL[Sportlink Club<br>SearchMembers + MemberHeader]
     DB1[(laposta-sync.sqlite)]
     DB2[(stadion-sync.sqlite)]
     LP[Laposta API]
@@ -129,7 +133,7 @@ graph TD
 
 ### Sportlink to Laposta: Field Mapping
 
-Source: Sportlink `SearchMembers` API. Destination: Laposta custom fields. Configured in `field-mapping.json`.
+Source: Sportlink `SearchMembers` internal request. Destination: Laposta custom fields. Configured in `field-mapping.json`.
 
 | Laposta Field | Sportlink Field | Notes |
 |---|---|---|
@@ -166,7 +170,7 @@ Parent emails create separate Laposta list entries (deduplicated across lists).
 
 ### Sportlink to Stadion Members: Field Mapping
 
-Source: Sportlink `SearchMembers` API + free fields from SQLite. Destination: Stadion `wp/v2/people` ACF fields.
+Source: Sportlink `SearchMembers` internal request + free fields from SQLite. Destination: Stadion `wp/v2/people` ACF fields.
 
 **Core person fields:**
 
@@ -243,7 +247,7 @@ Source: `DateOfBirth`. Destination: `wp/v2/important-dates`.
 
 Photos flow in two steps:
 
-1. **Download**: `photo_url` from Sportlink `MemberHeader` API -> saved to `photos/{knvb_id}.{ext}`
+1. **Download**: `photo_url` from Sportlink `MemberHeader` internal request -> saved to `photos/{knvb_id}.{ext}`
 2. **Upload**: `POST /wp-json/stadion/v1/people/{stadion_id}/photo` (multipart form-data)
 
 Photo states tracked in `stadion_members.photo_state`: `pending_download` -> `downloaded` -> `synced`. Removed photos go through `pending_delete` -> `no_photo`.
@@ -299,7 +303,7 @@ Runs weekly on Sunday at 6:00 AM. Downloads team rosters from Sportlink, creates
 
 ```mermaid
 graph TD
-    SL[Sportlink API<br>UnionTeams + ClubTeams]
+    SL[Sportlink Club<br>UnionTeams + ClubTeams]
     DB[(stadion-sync.sqlite)]
     ST_T[Stadion Teams API<br>wp/v2/teams]
     ST_P[Stadion People API<br>wp/v2/people<br>work_history field]
@@ -311,7 +315,7 @@ graph TD
 
 ### Sportlink to Stadion Teams: Field Mapping
 
-Source: Sportlink `UnionTeams` / `ClubTeams` API. Destination: `wp/v2/teams`.
+Source: Sportlink `UnionTeams` / `ClubTeams` internal requests. Destination: `wp/v2/teams`.
 
 | Stadion Field | Sportlink Field | Notes |
 |---|---|---|
@@ -389,9 +393,9 @@ Links members to commissies via the ACF `work_history` repeater on person posts.
 
 ### Free Fields (scraped during Functions pipeline, used by People pipeline)
 
-Scraped from the member's `/other` page via two Sportlink APIs:
+Scraped from the member's `/other` page via two internal Sportlink requests:
 
-| Sportlink API | Sportlink Field | SQLite Column | Used By |
+| Internal Request | Sportlink Field | SQLite Column | Used By |
 |---|---|---|---|
 | `MemberFreeFields` | `Remarks3.Value` | `freescout_id` | People pipeline -> Stadion `freescout-id` |
 | `MemberFreeFields` | `Remarks8.Value` | `vog_datum` | People pipeline -> Stadion `datum-vog` |
