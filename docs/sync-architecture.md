@@ -8,18 +8,18 @@ This document describes what data flows from where to where, which fields are sy
 graph LR
     SL[Sportlink Club]
     NK[Nikki]
+    SYNC[Sportlink Sync Tool<br>+ SQLite databases]
     ST[Stadion WordPress]
     LP[Laposta]
     FS[FreeScout]
 
-    SL -->|People Pipeline<br>4x daily| LP
-    SL -->|People Pipeline<br>4x daily| ST
-    SL -->|Teams Pipeline<br>weekly| ST
-    SL -->|Functions Pipeline<br>daily + weekly| ST
-    SL -->|Discipline Pipeline<br>weekly| ST
-    NK -->|Nikki Pipeline<br>daily| ST
-    ST -->|FreeScout Pipeline<br>daily| FS
-    ST -->|Reverse Sync<br>every 15 min| SL
+    SL -->|Members, teams,<br>functions, discipline| SYNC
+    NK -->|Contributions| SYNC
+    SYNC -->|Members, custom fields| LP
+    SYNC -->|Members, parents, teams,<br>commissies, work history,<br>photos, birthdays| ST
+    SYNC -->|Customers| FS
+    ST -->|Field changes| SYNC
+    SYNC -->|Reverse sync| SL
 ```
 
 ## Schedules
