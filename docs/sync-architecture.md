@@ -471,48 +471,6 @@ The `stadion_id` mapping (knvb_id -> WordPress post ID) is critical: without it,
 
 ---
 
-## Full Sync Order
-
-When running `scripts/sync.sh all`, pipelines execute sequentially:
-
-```mermaid
-graph TD
-    A[1. Download from Sportlink] --> B[2. Prepare Laposta members]
-    B --> C[3. Submit to Laposta]
-    C --> D[4. Stadion members sync]
-    D --> E[5. Download teams]
-    E --> F[6. Submit teams to Stadion]
-    F --> G[7. Team work history sync]
-    G --> H[8. Download functions]
-    H --> I[9. Submit commissies to Stadion]
-    I --> J[10. Commissie work history sync]
-    J --> K[11. Download photos]
-    K --> L[12. Upload/delete photos]
-    L --> M[13. Birthday sync]
-    M --> N[14. FreeScout sync]
-    N --> O[15. Discipline sync]
-
-    style A fill:#f96,stroke:#333,color:#000
-    style B fill:#f96,stroke:#333,color:#000
-    style C fill:#f96,stroke:#333,color:#000
-    style D fill:#9cf,stroke:#333,color:#000
-    style E fill:#9cf,stroke:#333,color:#000
-    style F fill:#9cf,stroke:#333,color:#000
-    style G fill:#9cf,stroke:#333,color:#000
-    style H fill:#9cf,stroke:#333,color:#000
-    style I fill:#9cf,stroke:#333,color:#000
-    style J fill:#9cf,stroke:#333,color:#000
-    style K fill:#9cf,stroke:#333,color:#000
-    style L fill:#9cf,stroke:#333,color:#000
-    style M fill:#9cf,stroke:#333,color:#000
-    style N fill:#9cf,stroke:#333,color:#000
-    style O fill:#9cf,stroke:#333,color:#000
-```
-
-Steps 1-3 (orange) are critical: failure stops execution. Steps 4-15 (blue) are non-critical: failures are logged but execution continues.
-
----
-
 ## Locking
 
 Each sync type uses `flock` via `scripts/sync.sh` to prevent overlapping runs of the same type. Different sync types can run in parallel. Lock files: `.sync-{type}.lock` in the project directory.
