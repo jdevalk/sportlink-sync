@@ -242,7 +242,7 @@ After `npm run install-cron`, eight sync schedules are configured:
 - **Functions sync (recent):** Daily at 7:15 AM (after Nikki sync, recent updates only)
 - **Functions sync (full):** Weekly on Sunday at 1:00 AM (all members with --all flag)
 - **Discipline sync:** Weekly on Monday at 11:30 PM
-- **Reverse sync:** Every 15 minutes (Stadion -> Sportlink)
+- **Reverse sync:** Hourly (Stadion -> Sportlink) - **currently disabled**
 
 Each sync:
 - Runs via scripts/sync.sh wrapper

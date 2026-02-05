@@ -16,7 +16,7 @@ echo "  - Team sync:              weekly on Sunday at 6:00 AM"
 echo "  - Functions sync (daily): daily at 7:15 AM (recent updates only)"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
 echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
-echo "  - Reverse sync:           every 15 minutes (Stadion -> Sportlink)"
+echo "  - Reverse sync:           hourly (Stadion -> Sportlink)"
 echo ""
 
 # Check if .env exists and has Postmark config
@@ -128,8 +128,8 @@ CRON_TZ=Europe/Amsterdam
 # Discipline sync: weekly on Monday at 11:30 PM
 30 23 * * 1 $PROJECT_DIR/scripts/sync.sh discipline
 
-# Reverse sync: every 15 minutes (Stadion -> Sportlink)
-*/15 * * * * $PROJECT_DIR/scripts/sync.sh reverse
+# Reverse sync: hourly (Stadion -> Sportlink)
+0 * * * * $PROJECT_DIR/scripts/sync.sh reverse
 "
 
 # Install crontab (remove old entries first)
@@ -145,7 +145,7 @@ echo "  - Team sync:              weekly on Sunday at 6:00 AM"
 echo "  - Functions sync (daily): daily at 7:15 AM (recent updates only)"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
 echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
-echo "  - Reverse sync:           every 15 minutes (Stadion -> Sportlink)"
+echo "  - Reverse sync:           hourly (Stadion -> Sportlink)"
 echo ""
 echo "All times are Amsterdam timezone (Europe/Amsterdam)"
 echo ""

@@ -30,17 +30,17 @@ All times are **Europe/Amsterdam** timezone.
 |----------|----------|------|-------|
 | People | 4x daily | `0 8,11,14,17 * * *` | Members, parents, birthdays, photos |
 | Nikki | Daily | `0 7 * * *` | Contributions to Stadion |
-| Functions (recent) | Daily | `15 7 * * *` | Only members updated in last 2 days |
+| Functions (recent) | Daily | `15 7 * * *` | Members updated in last 2 days + VOG-filtered volunteers |
 | Functions (full) | Weekly Sunday | `0 1 * * 0` | All members with `--all` |
 | FreeScout | Daily | `0 8 * * *` | Stadion members to FreeScout customers |
 | Teams | Weekly Sunday | `0 6 * * 0` | Team creation + work history |
 | Discipline | Weekly Monday | `30 23 * * 1` | Discipline cases |
-| Reverse Sync | Every 15 min | `*/15 * * * *` | Stadion changes back to Sportlink |
+| Reverse Sync | Hourly | `0 * * * *` | Stadion changes back to Sportlink (**currently disabled**) |
 
 ### Daily Timeline
 
 ```
- Every 15 min  Reverse sync (Stadion -> Sportlink)
+ Every hour    Reverse sync (Stadion -> Sportlink) [currently disabled]
  07:00         Nikki sync
  07:15         Functions sync (recent only)
  08:00         People sync (1st) + FreeScout sync
@@ -87,7 +87,8 @@ graph TD
     LP_PREP -->|submit-laposta-list.js| LP
     DB2 -->|submit-stadion-sync.js| ST
     DB2 -->|sync-important-dates.js| CAL
-    SL -->|download-photos-from-api.js| PHOTOS[photos/ directory]
+    SL -->|download-photos-from-api.js| DB2
+    DB2 -->|photo_url| PHOTOS[photos/ directory]
     PHOTOS -->|upload-photos-to-stadion.js| PH
 ```
 
@@ -229,16 +230,20 @@ graph LR
 
 ### Nikki to SQLite: Fields Extracted
 
+A single person can have **multiple contribution lines per year** in Nikki (e.g. separate amounts for different family members or contribution types). Each line is stored as a separate row in SQLite, keyed by `(knvb_id, year, nikki_id)`.
+
 | Source | Field | Type | Notes |
 |---|---|---|---|
 | HTML table | `knvb_id` | string | Member number column |
 | HTML table | `year` | integer | Year column |
-| HTML table | `nikki_id` | string | Nikki internal ID |
+| HTML table | `nikki_id` | string | Nikki internal ID (unique per contribution line) |
 | HTML table | `saldo` | number | Balance, parsed from European format (e.g. "EUR 1.234,56" -> 1234.56) |
 | HTML table | `status` | string | Contribution status (e.g. "Betaald") |
 | CSV export | `hoofdsom` | number | Total amount, parsed from European format |
 
 ### SQLite to Stadion: Field Mapping
+
+When a person has multiple contribution lines for a year, `saldo` and `hoofdsom` are **summed** across all lines for that member+year combination.
 
 For each contribution year, three ACF fields are written per person:
 
@@ -421,7 +426,9 @@ Cases are linked to person posts in Stadion using `knvb_id` -> `stadion_id` mapp
 
 ## Reverse Sync (Stadion to Sportlink)
 
-Runs every 15 minutes. Detects field changes in Stadion and pushes them back to Sportlink via browser automation.
+> **Status: currently disabled.** Needs to be fixed and re-enabled.
+
+Scheduled hourly. Detects field changes in Stadion and pushes them back to Sportlink via browser automation.
 
 ```mermaid
 graph LR
