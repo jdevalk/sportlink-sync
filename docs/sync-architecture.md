@@ -74,7 +74,7 @@ All times are **Europe/Amsterdam** timezone.
 
 ## API Load Management
 
-Every pipeline is designed to minimize API calls and avoid overloading external services.
+Every pipeline is designed to keep data as fresh as possible while minimizing API calls and avoiding overload on external services.
 
 ### Selective Sync via Hash-Based Change Detection
 
