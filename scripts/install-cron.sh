@@ -9,7 +9,7 @@ echo "Sportlink Sync - Cron Installation"
 echo "==================================="
 echo ""
 echo "This will set up eight sync schedules:"
-echo "  - People sync:            4x daily (members, parents, birthdays, photos)"
+echo "  - People sync:            4x daily (members, parents, photos)"
 echo "  - Nikki sync:             daily at 7:00 AM"
 echo "  - FreeScout sync:         daily at 8:00 AM"
 echo "  - Team sync:              weekly on Sunday at 6:00 AM"
@@ -107,7 +107,7 @@ CRON_ENTRIES="
 # Sportlink Sync automation (installed $(date +%Y-%m-%d))
 CRON_TZ=Europe/Amsterdam
 
-# People sync: 4x daily during work hours (members, parents, birthdays, photos)
+# People sync: 4x daily during work hours (members, parents, photos)
 0 8,11,14,17 * * * $PROJECT_DIR/scripts/sync.sh people
 
 # Nikki sync: daily at 7:00 AM
@@ -138,7 +138,7 @@ CRON_TZ=Europe/Amsterdam
 echo "Cron jobs installed successfully!"
 echo ""
 echo "Scheduled jobs:"
-echo "  - People sync:            4x daily at 8am, 11am, 2pm, 5pm (members, parents, birthdays, photos)"
+echo "  - People sync:            4x daily at 8am, 11am, 2pm, 5pm (members, parents, photos)"
 echo "  - Nikki sync:             daily at 7:00 AM (nikki contributions)"
 echo "  - FreeScout sync:         daily at 8:00 AM (customer sync)"
 echo "  - Team sync:              weekly on Sunday at 6:00 AM"

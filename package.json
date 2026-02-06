@@ -40,8 +40,6 @@
     "sync-commissies-verbose": "node steps/submit-stadion-commissies.js --verbose",
     "sync-commissie-work-history": "node steps/submit-stadion-commissie-work-history.js",
     "sync-commissie-work-history-verbose": "node steps/submit-stadion-commissie-work-history.js --verbose",
-    "sync-birthdays": "node steps/sync-important-dates.js",
-    "sync-birthdays-verbose": "node steps/sync-important-dates.js --verbose",
     "download-nikki": "node steps/download-nikki-contributions.js",
     "download-nikki-verbose": "node steps/download-nikki-contributions.js --verbose",
     "show-nikki": "node tools/show-nikki-contributions.js",

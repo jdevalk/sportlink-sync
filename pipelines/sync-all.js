@@ -12,7 +12,6 @@ const { runSync: runTeamSync } = require('../steps/submit-stadion-teams');
 const { runSync: runWorkHistorySync } = require('../steps/submit-stadion-work-history');
 const { runPhotoDownload } = require('../steps/download-photos-from-api');
 const { runPhotoSync } = require('../steps/upload-photos-to-stadion');
-const { runSync: runBirthdaySync } = require('../steps/sync-important-dates');
 const { runFunctionsDownload } = require('../steps/download-functions-from-sportlink');
 const { runSync: runCommissieSync } = require('../steps/submit-stadion-commissies');
 const { runSync: runCommissieWorkHistorySync } = require('../steps/submit-stadion-commissie-work-history');
@@ -185,23 +184,6 @@ function printSummary(logger, stats) {
   logger.log(`Coverage: ${stats.photos.coverage.members_with_photos} of ${stats.photos.coverage.total_members} members have photos`);
   logger.log('');
 
-  logger.log('BIRTHDAY SYNC');
-  logger.log(minorDivider);
-  const birthdaySyncText = stats.birthdays.total > 0
-    ? `${stats.birthdays.synced}/${stats.birthdays.total}`
-    : '0 changes';
-  logger.log(`Birthdays synced: ${birthdaySyncText}`);
-  if (stats.birthdays.created > 0) {
-    logger.log(`  Created: ${stats.birthdays.created}`);
-  }
-  if (stats.birthdays.updated > 0) {
-    logger.log(`  Updated: ${stats.birthdays.updated}`);
-  }
-  if (stats.birthdays.deleted > 0) {
-    logger.log(`  Deleted: ${stats.birthdays.deleted}`);
-  }
-  logger.log('');
-
   logger.log('FREESCOUT SYNC');
   logger.log(minorDivider);
   if (stats.freescout.total > 0) {
@@ -260,8 +242,7 @@ function printSummary(logger, stats) {
     ...stats.photos.download.errors,
     ...stats.photos.upload.errors,
     ...stats.photos.delete.errors,
-    ...stats.birthdays.errors,
-    ...stats.freescout.errors,
+...stats.freescout.errors,
     ...stats.discipline.errors
   ];
   if (allErrors.length > 0) {
@@ -334,15 +315,6 @@ async function runSyncAll(options = {}) {
         members_with_photos: 0,
         total_members: 0
       }
-    },
-    birthdays: {
-      total: 0,
-      synced: 0,
-      created: 0,
-      updated: 0,
-      skipped: 0,
-      deleted: 0,
-      errors: []
     },
     teams: {
       total: 0,
@@ -740,33 +712,7 @@ async function runSyncAll(options = {}) {
       logger.verbose(`Could not calculate photo coverage: ${err.message}`);
     }
 
-    // Step 7: Birthday Sync (NON-CRITICAL)
-    logger.verbose('Syncing birthdays to Stadion...');
-    try {
-      const birthdayResult = await runBirthdaySync({ logger, verbose, force });
-
-      stats.birthdays = {
-        total: birthdayResult.total,
-        synced: birthdayResult.synced,
-        created: birthdayResult.created,
-        updated: birthdayResult.updated,
-        skipped: birthdayResult.skipped,
-        deleted: birthdayResult.deleted,
-        errors: (birthdayResult.errors || []).map(e => ({
-          knvb_id: e.knvb_id,
-          message: e.message,
-          system: 'birthday-sync'
-        }))
-      };
-    } catch (err) {
-      logger.error(`Birthday sync failed: ${err.message}`);
-      stats.birthdays.errors.push({
-        message: `Birthday sync failed: ${err.message}`,
-        system: 'birthday-sync'
-      });
-    }
-
-    // Step 8: FreeScout Sync (NON-CRITICAL, only if credentials configured)
+    // Step 7: FreeScout Sync (NON-CRITICAL, only if credentials configured)
     const freescoutCreds = checkFreescoutCredentials();
     if (freescoutCreds.configured) {
       logger.verbose('Syncing to FreeScout...');
@@ -798,7 +744,7 @@ async function runSyncAll(options = {}) {
       logger.verbose('FreeScout sync skipped (credentials not configured)');
     }
 
-    // Step 9: Discipline Sync (NON-CRITICAL, weekly pipeline included for completeness)
+    // Step 8: Discipline Sync (NON-CRITICAL, weekly pipeline included for completeness)
     logger.verbose('Syncing discipline cases to Stadion...');
     try {
       const disciplineResult = await runDisciplinePipelineSync({ verbose, force });
@@ -847,7 +793,6 @@ async function runSyncAll(options = {}) {
                stats.photos.download.errors.length === 0 &&
                stats.photos.upload.errors.length === 0 &&
                stats.photos.delete.errors.length === 0 &&
-               stats.birthdays.errors.length === 0 &&
                stats.freescout.errors.length === 0 &&
                stats.discipline.errors.length === 0,
       stats
