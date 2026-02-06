@@ -1,6 +1,6 @@
 # Functions Pipeline
 
-Scrapes committee and club-level function memberships from Sportlink, creates commissie posts in Stadion WordPress, and links members to commissies via work history. Also scrapes free fields (FreeScout ID, VOG date, financial block) used by the People pipeline.
+Scrapes committee and club-level function memberships from Sportlink, creates commissie posts in Rondo Club WordPress, and links members to commissies via work history. Also scrapes free fields (FreeScout ID, VOG date, financial block) used by the People pipeline.
 
 ## Schedule
 
@@ -24,11 +24,11 @@ node pipelines/sync-functions.js --all --verbose  # Full (direct)
 
 ```
 pipelines/sync-functions.js
-├── Step 1: steps/download-functions-from-sportlink.js   → data/stadion-sync.sqlite
+├── Step 1: steps/download-functions-from-sportlink.js   → data/rondo-sync.sqlite
 │   ├── Scrape /functions tab (committees, club functions)
 │   └── Scrape /other tab (free fields: FreeScout ID, VOG, financial block, photo URL)
-├── Step 2: steps/submit-stadion-commissies.js           → Stadion WordPress API (commissies)
-└── Step 3: steps/submit-stadion-commissie-work-history.js → Stadion WordPress API (person work_history)
+├── Step 2: steps/submit-rondo-club-commissies.js           → Rondo Club WordPress API (commissies)
+└── Step 3: steps/submit-rondo-club-commissie-work-history.js → Rondo Club WordPress API (person work_history)
 ```
 
 ## Step-by-Step Details
@@ -41,7 +41,7 @@ pipelines/sync-functions.js
 1. Launches headless Chromium via Playwright
 2. Logs into Sportlink Club
 3. Determines which members to process:
-   - **Recent mode** (`recentOnly: true`, default): Only members with `LastUpdate` within the last N days (default 2), plus VOG-filtered volunteers from Stadion API
+   - **Recent mode** (`recentOnly: true`, default): Only members with `LastUpdate` within the last N days (default 2), plus VOG-filtered volunteers from Rondo Club API
    - **Full mode** (`recentOnly: false`, `--all` flag): All tracked members from `stadion_members`
 4. For each member, scrapes two pages:
    - **`/functions` tab**: Extracts committee memberships and club-level functions
@@ -50,7 +50,7 @@ pipelines/sync-functions.js
    - **`/other` tab**: Extracts free fields via two Sportlink APIs:
      - `MemberFreeFields` API: `Remarks3` (FreeScout ID), `Remarks8` (VOG date)
      - `MemberHeader` API: `HasFinancialTransferBlockOwnClub`, `Photo.Url`, `Photo.PhotoDate`
-5. Stores data in `data/stadion-sync.sqlite`:
+5. Stores data in `data/rondo-sync.sqlite`:
    - `sportlink_member_functions`: Club-level functions per member
    - `sportlink_member_committees`: Committee memberships per member
    - `sportlink_member_free_fields`: Free fields per member
@@ -64,9 +64,9 @@ pipelines/sync-functions.js
 
 **Critical gotcha:** Never use clear+replace in recent mode. This was a bug that wiped data for members not in the current run, causing downstream hash mismatches. Fixed in commit `9d0136e`.
 
-### Step 2: Sync Commissies to Stadion
+### Step 2: Sync Commissies to Rondo Club
 
-**Script:** `steps/submit-stadion-commissies.js`
+**Script:** `steps/submit-rondo-club-commissies.js`
 **Function:** `runSync({ logger, verbose, force, currentCommissieNames })`
 
 1. Reads unique committee names from `sportlink_member_committees`
@@ -81,14 +81,14 @@ pipelines/sync-functions.js
 
 ### Step 3: Sync Commissie Work History
 
-**Script:** `steps/submit-stadion-commissie-work-history.js`
+**Script:** `steps/submit-rondo-club-commissie-work-history.js`
 **Function:** `runSync({ logger, verbose, force })`
 
 1. Reads committee memberships from `sportlink_member_committees` joined with `stadion_commissies` and `stadion_members`
 2. Also reads club functions from `sportlink_member_functions` (mapped to "Verenigingsbreed" commissie)
 3. Compares against `stadion_commissie_work_history` table
 4. For each member with changes:
-   - Fetches current `work_history` ACF repeater from Stadion
+   - Fetches current `work_history` ACF repeater from Rondo Club
    - Adds new commissie assignments
    - Ends removed assignments (sets `is_current: false`)
    - Only modifies sync-created entries (manual entries preserved)
@@ -99,14 +99,14 @@ pipelines/sync-functions.js
 
 ## Field Mappings
 
-### Sportlink → Stadion Commissies
+### Sportlink → Rondo Club Commissies
 
-| Stadion Field | Source | Notes |
+| Rondo Club Field | Source | Notes |
 |---|---|---|
 | `title` | Committee name | Post title |
 | `status` | Hardcoded `publish` | Always published |
 
-### Sportlink → Stadion Commissie Work History
+### Sportlink → Rondo Club Commissie Work History
 
 | Repeater Field | Source | Notes |
 |---|---|---|
@@ -120,7 +120,7 @@ pipelines/sync-functions.js
 
 These are scraped during the functions pipeline but consumed by the People pipeline:
 
-| Sportlink API | Sportlink Field | SQLite Column | Stadion ACF Field |
+| Sportlink API | Sportlink Field | SQLite Column | Rondo Club ACF Field |
 |---|---|---|---|
 | `MemberFreeFields` | `Remarks3.Value` | `freescout_id` | `freescout-id` |
 | `MemberFreeFields` | `Remarks8.Value` | `vog_datum` | `datum-vog` |
@@ -132,12 +132,12 @@ These are scraped during the functions pipeline but consumed by the People pipel
 
 | Database | Table | Usage |
 |---|---|---|
-| `stadion-sync.sqlite` | `sportlink_member_functions` | Club-level functions per member |
-| `stadion-sync.sqlite` | `sportlink_member_committees` | Committee memberships per member |
-| `stadion-sync.sqlite` | `sportlink_member_free_fields` | Free fields (FreeScout ID, VOG, etc.) |
-| `stadion-sync.sqlite` | `stadion_commissies` | Commissie → WordPress ID mapping |
-| `stadion-sync.sqlite` | `stadion_commissie_work_history` | Tracks sync-created work history entries |
-| `stadion-sync.sqlite` | `stadion_members` | KNVB ID → Stadion ID lookup |
+| `rondo-sync.sqlite` | `sportlink_member_functions` | Club-level functions per member |
+| `rondo-sync.sqlite` | `sportlink_member_committees` | Committee memberships per member |
+| `rondo-sync.sqlite` | `sportlink_member_free_fields` | Free fields (FreeScout ID, VOG, etc.) |
+| `rondo-sync.sqlite` | `stadion_commissies` | Commissie → WordPress ID mapping |
+| `rondo-sync.sqlite` | `stadion_commissie_work_history` | Tracks sync-created work history entries |
+| `rondo-sync.sqlite` | `stadion_members` | KNVB ID → Rondo Club ID lookup |
 
 ## CLI Flags
 
@@ -162,8 +162,8 @@ These are scraped during the functions pipeline but consumed by the People pipel
 |------|---------|
 | `pipelines/sync-functions.js` | Pipeline orchestrator |
 | `steps/download-functions-from-sportlink.js` | Sportlink function/committee scraping (Playwright) |
-| `steps/submit-stadion-commissies.js` | Stadion commissie API sync |
-| `steps/submit-stadion-commissie-work-history.js` | Stadion commissie work history sync |
-| `lib/stadion-db.js` | SQLite operations |
-| `lib/stadion-client.js` | Stadion HTTP client |
+| `steps/submit-rondo-club-commissies.js` | Rondo Club commissie API sync |
+| `steps/submit-rondo-club-commissie-work-history.js` | Rondo Club commissie work history sync |
+| `lib/rondo-club-db.js` | SQLite operations |
+| `lib/rondo-club-client.js` | Rondo Club HTTP client |
 | `lib/sportlink-login.js` | Sportlink authentication |

@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers setting up Sportlink Sync from scratch on a fresh server.
+This guide covers setting up Rondo Sync from scratch on a fresh server.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ This guide covers setting up Sportlink Sync from scratch on a fresh server.
 - **Network:** Outbound HTTPS access to:
   - `club.sportlink.com` (Sportlink Club)
   - `api.laposta.nl` (Laposta email marketing)
-  - Your Stadion WordPress instance
+  - Your Rondo Club WordPress instance
   - `api.postmarkapp.com` (email delivery)
   - `nikki-online.nl` (Nikki contributions, if used)
   - Your FreeScout instance (if used)
@@ -26,7 +26,7 @@ You'll need credentials for:
 |---------|--------------|-----------------|
 | Sportlink Club | Username, password, TOTP secret | Club administrator |
 | Laposta | API key, list ID(s) | Laposta dashboard -> Account -> API |
-| Stadion WordPress | URL, username, application password | WordPress admin -> Users -> Profile -> Application Passwords |
+| Rondo Club WordPress | URL, username, application password | WordPress admin -> Users -> Profile -> Application Passwords |
 | Postmark | Server API token, verified sender email | Postmark dashboard -> Servers -> API Tokens |
 | FreeScout (optional) | API key, instance URL | FreeScout admin panel |
 | Nikki (optional) | API key, URL | Nikki administrator |
@@ -88,7 +88,7 @@ LAPOSTA_LIST2=                         # Optional second list
 LAPOSTA_LIST3=                         # Optional third list
 LAPOSTA_LIST4=                         # Optional fourth list
 
-# Stadion WordPress
+# Rondo Club WordPress
 STADION_URL=https://your-stadion-site.nl
 STADION_USERNAME=your-wp-username
 STADION_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
@@ -141,7 +141,7 @@ node pipelines/sync-all.js --verbose
 ```
 
 This takes a while on first run because:
-- All members need to be created in Stadion (not just updated)
+- All members need to be created in Rondo Club (not just updated)
 - All teams and commissies need to be created
 - All photos need to be downloaded and uploaded
 - All member birthdates need to be synced
@@ -183,7 +183,7 @@ crontab -l
 ├── .env                          # Credentials (not in git)
 ├── data/                         # SQLite databases (created on first run)
 │   ├── laposta-sync.sqlite       # Laposta sync state
-│   ├── stadion-sync.sqlite       # Stadion sync state
+│   ├── rondo-sync.sqlite       # Rondo Club sync state
 │   ├── nikki-sync.sqlite         # Nikki sync state
 │   └── freescout-sync.sqlite     # FreeScout sync state
 ├── photos/                       # Downloaded member photos
@@ -207,18 +207,18 @@ git pull
 npm install  # Only needed if dependencies changed
 ```
 
-## Stadion WordPress Requirements
+## Rondo Club WordPress Requirements
 
-The Stadion WordPress site needs:
+The Rondo Club WordPress site needs:
 
 - **ACF Pro** plugin for custom fields and REST API integration
-- **Stadion theme** with custom post types: `person`, `team`, `commissie`, `discipline_case`
+- **Rondo Club theme** with custom post types: `person`, `team`, `commissie`, `discipline_case`
 - **REST API** enabled with `show_in_rest` on all custom post types and ACF field groups
 - **Application Passwords** enabled for the sync user
-- Custom endpoints provided by the Stadion theme:
-  - `GET /wp-json/stadion/v1/people/filtered` (for VOG-filtered volunteers)
-  - `POST /wp-json/stadion/v1/people/{id}/photo` (for photo uploads)
-  - `GET /wp-json/stadion/v1/current-season` (for discipline cases)
+- Custom endpoints provided by the Rondo Club theme:
+  - `GET /wp-json/rondo/v1/people/filtered` (for VOG-filtered volunteers)
+  - `POST /wp-json/rondo/v1/people/{id}/photo` (for photo uploads)
+  - `GET /wp-json/rondo/v1/current-season` (for discipline cases)
 
 Refer to `~/Code/stadion/docs/` for full Stadion API documentation.
 
@@ -240,7 +240,7 @@ Run `npx playwright install chromium` to install/reinstall the browser.
   timedatectl status
   ```
 
-### Duplicate entries in Stadion
+### Duplicate entries in Rondo Club
 
 This happens when sync runs from multiple machines (each has its own SQLite database with different `stadion_id` mappings). **Always sync from the production server only.**
 

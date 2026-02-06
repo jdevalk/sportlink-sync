@@ -1,6 +1,6 @@
 # Teams Pipeline
 
-Downloads team rosters from Sportlink, creates team posts in Stadion WordPress, and links members to teams via work history.
+Downloads team rosters from Sportlink, creates team posts in Rondo Club WordPress, and links members to teams via work history.
 
 ## Schedule
 
@@ -15,9 +15,9 @@ node pipelines/sync-teams.js --verbose    # Direct execution (verbose)
 
 ```
 pipelines/sync-teams.js
-├── Step 1: steps/download-teams-from-sportlink.js   → data/stadion-sync.sqlite
-├── Step 2: steps/submit-stadion-teams.js            → Stadion WordPress API (teams)
-└── Step 3: steps/submit-stadion-work-history.js     → Stadion WordPress API (person work_history)
+├── Step 1: steps/download-teams-from-sportlink.js   → data/rondo-sync.sqlite
+├── Step 2: steps/submit-rondo-club-teams.js            → Rondo Club WordPress API (teams)
+└── Step 3: steps/submit-rondo-club-work-history.js     → Rondo Club WordPress API (person work_history)
 ```
 
 ## Step-by-Step Details
@@ -35,27 +35,27 @@ pipelines/sync-teams.js
 4. For each team, fetches the team roster:
    - Players with their roles (Speler, Keeper, etc.)
    - Staff members with their roles (Trainer, Leider, etc.)
-5. Stores team metadata in `data/stadion-sync.sqlite` → `stadion_teams`:
+5. Stores team metadata in `data/rondo-sync.sqlite` → `stadion_teams`:
    - `team_name`, `sportlink_id`, `game_activity`, `gender`, `player_count`, `staff_count`
-6. Stores team membership in `data/stadion-sync.sqlite` → `sportlink_team_members`:
+6. Stores team membership in `data/rondo-sync.sqlite` → `sportlink_team_members`:
    - `sportlink_team_id`, `sportlink_person_id`, `member_type` (player/staff), `role_description`
 
 **Output:** `{ success, teamCount, memberCount }`
 
 **Rate limiting:** 500ms-1.5s random jitter between member scrapes.
 
-### Step 2: Sync Teams to Stadion
+### Step 2: Sync Teams to Rondo Club
 
-**Script:** `steps/submit-stadion-teams.js`
+**Script:** `steps/submit-rondo-club-teams.js`
 **Function:** `runSync({ logger, verbose, force, currentSportlinkIds })`
 
-1. Reads all teams from `data/stadion-sync.sqlite` → `stadion_teams`
+1. Reads all teams from `data/rondo-sync.sqlite` → `stadion_teams`
 2. For each team where `source_hash != last_synced_hash`:
    - **No `stadion_id`**: `POST /wp/v2/teams` (create new team)
    - **Has `stadion_id`**: `PUT /wp/v2/teams/{stadion_id}` (update existing)
 3. Stores returned WordPress post ID as `stadion_id`
 4. Updates `last_synced_hash` on success
-5. Detects **orphan teams** (teams in Stadion DB but not in current Sportlink download) and optionally removes them
+5. Detects **orphan teams** (teams in Rondo Club DB but not in current Sportlink download) and optionally removes them
 
 **Output:** `{ total, synced, created, updated, skipped, deleted, errors }`
 
@@ -63,13 +63,13 @@ pipelines/sync-teams.js
 
 ### Step 3: Sync Work History
 
-**Script:** `steps/submit-stadion-work-history.js`
+**Script:** `steps/submit-rondo-club-work-history.js`
 **Function:** `runSync({ logger, verbose, force })`
 
 1. Reads team membership from `sportlink_team_members` joined with `stadion_teams` and `stadion_members`
 2. Compares current team assignments against `stadion_work_history` table
 3. For each member with changes:
-   - Fetches current `work_history` ACF repeater from Stadion
+   - Fetches current `work_history` ACF repeater from Rondo Club
    - Adds new team assignments (creates new rows in the repeater)
    - Ends removed assignments (sets `is_current: false`, `end_date: today`)
    - Only modifies sync-created entries (manual entries are preserved)
@@ -78,20 +78,20 @@ pipelines/sync-teams.js
 
 **Output:** `{ total, synced, created, ended, skipped, errors }`
 
-**Important:** The work history sync only touches entries it previously created (tracked via `stadion_work_history` table). Manually added work history entries in Stadion are left untouched.
+**Important:** The work history sync only touches entries it previously created (tracked via `stadion_work_history` table). Manually added work history entries in Rondo Club are left untouched.
 
 ## Field Mappings
 
-### Sportlink → Stadion Teams
+### Sportlink → Rondo Club Teams
 
-| Stadion Field | Sportlink Source | Notes |
+| Rondo Club Field | Sportlink Source | Notes |
 |---|---|---|
 | `title` | `TeamName` / `Name` | Post title |
 | `acf.publicteamid` | `PublicTeamId` | Sportlink team identifier |
 | `acf.activiteit` | `GameActivityDescription` | "Veld" or "Zaal" |
 | `acf.gender` | `Gender` | Mannen→male, Vrouwen→female, Gemengd→skipped |
 
-### Sportlink → Stadion Work History
+### Sportlink → Rondo Club Work History
 
 The ACF `work_history` is a repeater field on person posts:
 
@@ -107,10 +107,10 @@ The ACF `work_history` is a repeater field on person posts:
 
 | Database | Table | Usage |
 |---|---|---|
-| `stadion-sync.sqlite` | `stadion_teams` | Team → WordPress ID mapping + metadata |
-| `stadion-sync.sqlite` | `sportlink_team_members` | Raw team roster data from Sportlink |
-| `stadion-sync.sqlite` | `stadion_work_history` | Tracks which work_history entries sync created |
-| `stadion-sync.sqlite` | `stadion_members` | KNVB ID → Stadion ID lookup (for work history) |
+| `rondo-sync.sqlite` | `stadion_teams` | Team → WordPress ID mapping + metadata |
+| `rondo-sync.sqlite` | `sportlink_team_members` | Raw team roster data from Sportlink |
+| `rondo-sync.sqlite` | `stadion_work_history` | Tracks which work_history entries sync created |
+| `rondo-sync.sqlite` | `stadion_members` | KNVB ID → Rondo Club ID lookup (for work history) |
 
 ## CLI Flags
 
@@ -123,7 +123,7 @@ The ACF `work_history` is a repeater field on person posts:
 
 - Team download failure doesn't prevent team sync (uses cached data)
 - Individual team sync failures don't stop the pipeline
-- Work history sync skips members not yet in Stadion (counted as `skipped`)
+- Work history sync skips members not yet in Rondo Club (counted as `skipped`)
 - All errors collected in summary report
 
 ## Source Files
@@ -132,9 +132,9 @@ The ACF `work_history` is a repeater field on person posts:
 |------|---------|
 | `pipelines/sync-teams.js` | Pipeline orchestrator |
 | `steps/download-teams-from-sportlink.js` | Sportlink team scraping (Playwright) |
-| `steps/submit-stadion-teams.js` | Stadion team API sync |
-| `steps/submit-stadion-work-history.js` | Stadion work history API sync |
+| `steps/submit-rondo-club-teams.js` | Rondo Club team API sync |
+| `steps/submit-rondo-club-work-history.js` | Rondo Club work history API sync |
 | `steps/prepare-stadion-teams.js` | Team data preparation |
-| `lib/stadion-db.js` | SQLite operations |
-| `lib/stadion-client.js` | Stadion HTTP client |
+| `lib/rondo-club-db.js` | SQLite operations |
+| `lib/rondo-club-client.js` | Rondo Club HTTP client |
 | `lib/sportlink-login.js` | Sportlink authentication |

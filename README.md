@@ -1,6 +1,6 @@
-# Sportlink Sync
+# Rondo Sync
 
-Sportlink Club is the member administration system used by Dutch sports clubs, mandated by the KNVB (Royal Dutch Football Association). It is the single source of truth for member data, but it lacks APIs. This tool extracts member data via browser automation (Playwright with headless Chromium and TOTP 2FA) and syncs it to Laposta (email marketing), Stadion (WordPress), FreeScout (helpdesk), and more. It also pulls contribution data from Nikki, a separate financial system.
+Sportlink Club is the member administration system used by Dutch sports clubs, mandated by the KNVB (Royal Dutch Football Association). It is the single source of truth for member data, but it lacks APIs. This tool extracts member data via browser automation (Playwright with headless Chromium and TOTP 2FA) and syncs it to Laposta (email marketing), Rondo Club (WordPress), FreeScout (helpdesk), and more. It also pulls contribution data from Nikki, a separate financial system.
 
 Hash-based change detection ensures only actual changes are synced. Club volunteers never have to enter the same data twice.
 
@@ -10,8 +10,8 @@ Hash-based change detection ensures only actual changes are synced. Club volunte
 graph LR
     SL[Sportlink Club]
     NK[Nikki]
-    SYNC[Sportlink Sync Tool<br>+ SQLite databases]
-    ST[Stadion WordPress]
+    SYNC[Rondo Sync Tool<br>+ SQLite databases]
+    ST[Rondo Club WordPress]
     LP[Laposta]
     FS[FreeScout]
 
@@ -28,12 +28,12 @@ graph LR
 
 | Pipeline | Schedule | What it syncs |
 |----------|----------|---------------|
-| People | 4x daily | Members, parents, photos → Laposta + Stadion |
-| Functions | 4x daily + weekly full | Commissies, free fields, work history → Stadion |
-| Nikki | Daily | Financial contributions → Stadion |
+| People | 4x daily | Members, parents, photos → Laposta + Rondo Club |
+| Functions | 4x daily + weekly full | Commissies, free fields, work history → Rondo Club |
+| Nikki | Daily | Financial contributions → Rondo Club |
 | FreeScout | Daily | Members → FreeScout helpdesk customers |
-| Teams | Weekly | Team rosters + work history → Stadion |
-| Discipline | Weekly | Discipline cases → Stadion |
+| Teams | Weekly | Team rosters + work history → Rondo Club |
+| Discipline | Weekly | Discipline cases → Rondo Club |
 
 ## Daily Timeline
 
@@ -59,7 +59,7 @@ All times are Europe/Amsterdam timezone.
 - **Locking** — flock-based concurrency prevention per pipeline
 - **Email reports** — HTML summaries after every sync via Postmark
 - **Photo sync** — downloads member photos and uploads to WordPress with state machine
-- **Reverse sync** — can push Stadion changes back to Sportlink (currently disabled)
+- **Reverse sync** — can push Rondo Club changes back to Sportlink (currently disabled)
 
 ## Quick Start
 
@@ -88,13 +88,13 @@ See [Installation Guide](docs/installation.md) for full setup instructions.
 |----------|----------|
 | [Installation](docs/installation.md) | Prerequisites, server setup, initial sync, cron |
 | [Architecture](docs/sync-architecture.md) | System overview, schedules, field mappings, data flow |
-| [People Pipeline](docs/pipeline-people.md) | 7-step flow, Laposta + Stadion field mappings |
-| [Nikki Pipeline](docs/pipeline-nikki.md) | Contribution download + Stadion sync |
+| [People Pipeline](docs/pipeline-people.md) | 7-step flow, Laposta + Rondo Club field mappings |
+| [Nikki Pipeline](docs/pipeline-nikki.md) | Contribution download + Rondo Club sync |
 | [Teams Pipeline](docs/pipeline-teams.md) | Team download + work history |
 | [Functions Pipeline](docs/pipeline-functions.md) | Commissies, free fields, daily vs full mode |
 | [FreeScout Pipeline](docs/pipeline-freescout.md) | Customer sync with custom fields |
 | [Discipline Pipeline](docs/pipeline-discipline.md) | Discipline cases + season taxonomy |
-| [Reverse Sync](docs/reverse-sync.md) | Stadion → Sportlink (currently disabled) |
+| [Reverse Sync](docs/reverse-sync.md) | Rondo Club → Sportlink (currently disabled) |
 | [Database Schema](docs/database-schema.md) | All 4 databases, 21 tables |
 | [Operations](docs/operations.md) | Server ops, monitoring, deploys |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |

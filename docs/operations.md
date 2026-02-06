@@ -45,13 +45,13 @@ ls -la .sync-*.lock
 ### Individual Pipelines
 
 ```bash
-scripts/sync.sh people           # Members, parents, photos → Laposta + Stadion
-scripts/sync.sh nikki            # Nikki contributions → Stadion
-scripts/sync.sh freescout        # Stadion members → FreeScout customers
-scripts/sync.sh teams            # Teams + work history → Stadion
+scripts/sync.sh people           # Members, parents, photos → Laposta + Rondo Club
+scripts/sync.sh nikki            # Nikki contributions → Rondo Club
+scripts/sync.sh freescout        # Rondo Club members → FreeScout customers
+scripts/sync.sh teams            # Teams + work history → Rondo Club
 scripts/sync.sh functions        # Commissies + free fields (recent updates)
 scripts/sync.sh functions --all  # Commissies + free fields (all members)
-scripts/sync.sh discipline       # Discipline cases → Stadion
+scripts/sync.sh discipline       # Discipline cases → Rondo Club
 scripts/sync.sh all              # All pipelines sequentially
 ```
 
@@ -74,7 +74,7 @@ For debugging individual steps:
 node steps/download-data-from-sportlink.js --verbose   # Download only
 node steps/prepare-laposta-members.js --verbose         # Prepare Laposta data
 node steps/submit-laposta-list.js --verbose             # Submit to Laposta
-node steps/submit-stadion-sync.js --verbose             # Submit to Stadion (includes birthdate)
+node steps/submit-rondo-club-sync.js --verbose             # Submit to Rondo Club (includes birthdate)
 node steps/download-photos-from-api.js --verbose        # Download photos
 node steps/upload-photos-to-stadion.js --verbose        # Upload photos
 ```
@@ -100,19 +100,19 @@ node tools/show-laposta-changes.js --all  # All members with diffs
 
 ```bash
 # Member count
-sqlite3 data/stadion-sync.sqlite "SELECT COUNT(*) FROM stadion_members"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_members"
 
 # Members needing sync (hash mismatch)
-sqlite3 data/stadion-sync.sqlite "SELECT COUNT(*) FROM stadion_members WHERE last_synced_hash IS NULL OR last_synced_hash != source_hash"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_members WHERE last_synced_hash IS NULL OR last_synced_hash != source_hash"
 
 # Photo state distribution
-sqlite3 data/stadion-sync.sqlite "SELECT photo_state, COUNT(*) FROM stadion_members GROUP BY photo_state"
+sqlite3 data/rondo-sync.sqlite "SELECT photo_state, COUNT(*) FROM stadion_members GROUP BY photo_state"
 
 # Team count
-sqlite3 data/stadion-sync.sqlite "SELECT COUNT(*) FROM stadion_teams WHERE stadion_id IS NOT NULL"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_teams WHERE stadion_id IS NOT NULL"
 
 # Commissie count
-sqlite3 data/stadion-sync.sqlite "SELECT COUNT(*) FROM stadion_commissies WHERE stadion_id IS NOT NULL"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_commissies WHERE stadion_id IS NOT NULL"
 
 # Recent Sportlink downloads
 sqlite3 data/laposta-sync.sqlite "SELECT id, created_at FROM sportlink_runs ORDER BY id DESC LIMIT 5"
@@ -138,7 +138,7 @@ Only run `npm install` if dependencies changed (check `package.json` diff).
 
 ## Data Validation
 
-### Verify Stadion ID Mappings
+### Verify Rondo Club ID Mappings
 
 Checks that all tracked `stadion_id` values still point to valid WordPress posts:
 
@@ -147,13 +147,13 @@ node tools/verify-stadion-data.js --verbose     # Report only
 node tools/verify-stadion-data.js --fix --verbose  # Fix invalid IDs
 ```
 
-### Repopulate Missing Stadion IDs
+### Repopulate Missing Rondo Club IDs
 
 If IDs were lost (e.g., database restored from backup):
 
 ```bash
-node tools/repopulate-stadion-ids.js --dry-run --verbose  # Preview
-node tools/repopulate-stadion-ids.js --verbose             # Apply
+node tools/repopulate-rondo-club-ids.js --dry-run --verbose  # Preview
+node tools/repopulate-rondo-club-ids.js --verbose             # Apply
 ```
 
 ### Validate Photo Consistency

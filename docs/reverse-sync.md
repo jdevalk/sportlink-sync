@@ -1,6 +1,6 @@
-# Reverse Sync (Stadion → Sportlink)
+# Reverse Sync (Rondo Club → Sportlink)
 
-Detects field changes made in Stadion WordPress and pushes them back to Sportlink Club via browser automation.
+Detects field changes made in Rondo Club WordPress and pushes them back to Sportlink Club via browser automation.
 
 **Status: currently disabled.** The detection and sync code is complete but needs testing and re-enabling.
 
@@ -20,7 +20,7 @@ The reverse sync operates in two phases:
 
 ```
 Phase 1: Change Detection (hourly)
-    Stadion WordPress API → lib/detect-stadion-changes.js → stadion_change_detections table
+    Rondo Club WordPress API → lib/detect-rondo-club-changes.js → stadion_change_detections table
 
 Phase 2: Sync to Sportlink (when unsynced changes exist)
     stadion_change_detections → lib/reverse-sync-sportlink.js → Sportlink Browser (Playwright)
@@ -28,7 +28,7 @@ Phase 2: Sync to Sportlink (when unsynced changes exist)
 
 ## Tracked Fields
 
-| Field | Stadion ACF Location | Sportlink Page | Sportlink Selector | Type |
+| Field | Rondo Club ACF Location | Sportlink Page | Sportlink Selector | Type |
 |---|---|---|---|---|
 | `email` | `contact_info` repeater (type=email) | /general | `input[name="Email"]` | text |
 | `email2` | `contact_info` repeater (type=email2) | /general | `input[name="Email2"]` | text |
@@ -40,13 +40,13 @@ Phase 2: Sync to Sportlink (when unsynced changes exist)
 
 ## Phase 1: Change Detection
 
-**Script:** `lib/detect-stadion-changes.js`
+**Script:** `lib/detect-rondo-club-changes.js`
 **Function:** `detectChanges(options)`
 
 ### How It Works
 
 1. Read `last_detection_at` from `reverse_sync_state` table
-2. Query Stadion API for members modified since that timestamp: `GET /wp/v2/people?modified_after=...`
+2. Query Rondo Club API for members modified since that timestamp: `GET /wp/v2/people?modified_after=...`
 3. For each modified member:
    - Look up local record in `stadion_members`
    - **Skip** if `sync_origin == 'sync_sportlink_to_stadion'` (avoids infinite loops — this change came from forward sync)
@@ -62,9 +62,9 @@ The `sync_origin` column on `stadion_members` tracks who last modified the recor
 
 | Value | Meaning |
 |---|---|
-| `user_edit` | Manual edit in Stadion WordPress UI |
-| `sync_sportlink_to_stadion` | Forward sync (Sportlink → Stadion) |
-| `sync_stadion_to_sportlink` | Reverse sync (Stadion → Sportlink) |
+| `user_edit` | Manual edit in Rondo Club WordPress UI |
+| `sync_sportlink_to_stadion` | Forward sync (Sportlink → Rondo Club) |
+| `sync_stadion_to_sportlink` | Reverse sync (Rondo Club → Sportlink) |
 
 Change detection skips members where `sync_origin == 'sync_sportlink_to_stadion'` because those changes came from Sportlink and don't need to be pushed back.
 
@@ -100,12 +100,12 @@ Change detection skips members where `sync_origin == 'sync_sportlink_to_stadion'
 **Script:** `lib/conflict-resolver.js`
 **Function:** `resolveFieldConflicts(member, sportlinkData, stadionData, db, logger)`
 
-When both Sportlink and Stadion have modified the same field, conflict resolution determines which value wins.
+When both Sportlink and Rondo Club have modified the same field, conflict resolution determines which value wins.
 
 ### Resolution Rules
 
 Each tracked field has two timestamp columns in `stadion_members`:
-- `{field}_stadion_modified` — when forward sync last wrote this field to Stadion
+- `{field}_stadion_modified` — when forward sync last wrote this field to Rondo Club
 - `{field}_sportlink_modified` — when reverse sync last wrote this field to Sportlink
 
 Resolution logic:
@@ -114,9 +114,9 @@ Resolution logic:
 |---|---|---|
 | Both timestamps NULL | Sportlink | Default (forward sync is primary) |
 | Only Sportlink has timestamp | Sportlink | Has modification history |
-| Only Stadion has timestamp | Stadion | Has modification history |
+| Only Rondo Club has timestamp | Rondo Club | Has modification history |
 | Both have timestamps, within 5 seconds | Sportlink | Grace period (clock drift tolerance) |
-| Both have timestamps, Stadion >5s newer | Stadion | More recent edit |
+| Both have timestamps, Rondo Club >5s newer | Rondo Club | More recent edit |
 | Both have timestamps, Sportlink >5s newer | Sportlink | More recent edit |
 | Values match (timestamps differ) | Neither | No conflict (same data) |
 
@@ -188,7 +188,7 @@ Per-field modification timestamps added to the existing table:
 
 | File | Purpose |
 |------|---------|
-| `lib/detect-stadion-changes.js` | Change detection (Stadion API → SQLite) |
+| `lib/detect-rondo-club-changes.js` | Change detection (Rondo Club API → SQLite) |
 | `lib/reverse-sync-sportlink.js` | Sync to Sportlink (SQLite → Sportlink browser) |
 | `lib/conflict-resolver.js` | Timestamp-based conflict resolution |
 | `lib/sync-origin.js` | Constants and utilities for sync origin tracking |
@@ -198,9 +198,9 @@ Per-field modification timestamps added to the existing table:
 
 ## Example Flow
 
-1. **Forward sync** downloads member email from Sportlink, writes to Stadion → sets `sync_origin = 'sync_sportlink_to_stadion'`
-2. **User** edits email in Stadion WordPress UI → WordPress updates `modified_gmt`
-3. **Change detection** (hourly): queries Stadion API for recently modified members
+1. **Forward sync** downloads member email from Sportlink, writes to Rondo Club → sets `sync_origin = 'sync_sportlink_to_stadion'`
+2. **User** edits email in Rondo Club WordPress UI → WordPress updates `modified_gmt`
+3. **Change detection** (hourly): queries Rondo Club API for recently modified members
    - Finds the member, sees `sync_origin != 'sync_sportlink_to_stadion'` (user edit happened after)
    - Computes tracked fields hash, detects email changed
    - Logs to `stadion_change_detections`: email, old value, new value
@@ -210,4 +210,4 @@ Per-field modification timestamps added to the existing table:
    - Enters edit mode, fills email field, saves
    - Verifies saved value
    - Marks change as synced, updates `email_sportlink_modified`, sets `sync_origin = 'sync_stadion_to_sportlink'`
-5. **Next forward sync**: downloads email from Sportlink (now matches Stadion value) → no change detected → no API call
+5. **Next forward sync**: downloads email from Sportlink (now matches Rondo Club value) → no change detected → no API call

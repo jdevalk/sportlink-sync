@@ -1,6 +1,6 @@
 # Discipline Pipeline
 
-Downloads discipline (tucht) cases from Sportlink and syncs them to Stadion WordPress as `discipline_case` posts linked to person records.
+Downloads discipline (tucht) cases from Sportlink and syncs them to Rondo Club WordPress as `discipline_case` posts linked to person records.
 
 ## Schedule
 
@@ -15,8 +15,8 @@ node pipelines/sync-discipline.js --verbose    # Direct execution (verbose)
 
 ```
 pipelines/sync-discipline.js
-├── Step 1: steps/download-discipline-cases.js       → data/stadion-sync.sqlite
-└── Step 2: steps/submit-stadion-discipline.js       → Stadion WordPress API
+├── Step 1: steps/download-discipline-cases.js       → data/rondo-sync.sqlite
+└── Step 2: steps/submit-rondo-club-discipline.js       → Rondo Club WordPress API
 ```
 
 ## Step-by-Step Details
@@ -38,16 +38,16 @@ pipelines/sync-discipline.js
    - `sanction_description`, `processing_date`
    - `administrative_fee`, `is_charged`
 6. Computes `source_hash` per case
-7. Upserts into `data/stadion-sync.sqlite` → `discipline_cases` table
+7. Upserts into `data/rondo-sync.sqlite` → `discipline_cases` table
 
 **Output:** `{ success, caseCount }`
 
-### Step 2: Sync Cases to Stadion
+### Step 2: Sync Cases to Rondo Club
 
-**Script:** `steps/submit-stadion-discipline.js`
+**Script:** `steps/submit-rondo-club-discipline.js`
 **Function:** `runSync({ logger, verbose, force })`
 
-1. Reads cases from `data/stadion-sync.sqlite` → `discipline_cases`
+1. Reads cases from `data/rondo-sync.sqlite` → `discipline_cases`
 2. Looks up `stadion_id` for each case's `public_person_id` from `stadion_members`
 3. Gets or creates the season taxonomy term (e.g., "2025-2026"):
    - `GET /wp/v2/seizoen?slug=2025-2026`
@@ -63,12 +63,12 @@ pipelines/sync-discipline.js
 
 ## Field Mappings
 
-### Sportlink → Stadion Discipline Cases
+### Sportlink → Rondo Club Discipline Cases
 
 **Post type:** `discipline_case`
 **REST endpoint:** `wp/v2/discipline-cases`
 
-| Stadion ACF Field | SQLite Column | Type | Notes |
+| Rondo Club ACF Field | SQLite Column | Type | Notes |
 |---|---|---|---|
 | `dossier_id` | `dossier_id` | Text | Unique case ID (e.g., T-12345). Has server-side uniqueness validation. |
 | `person` | → `stadion_members.stadion_id` | Post Object | Single integer ID (not array). Looked up via `public_person_id`. |
@@ -97,10 +97,10 @@ Generated as: `"{person_name} - {match_description} - {match_date}"`
 
 | Database | Table | Usage |
 |---|---|---|
-| `stadion-sync.sqlite` | `discipline_cases` | Case data + dossier_id (unique key) |
-| `stadion-sync.sqlite` | `stadion_members` | KNVB ID → Stadion ID lookup (for person linking) |
+| `rondo-sync.sqlite` | `discipline_cases` | Case data + dossier_id (unique key) |
+| `rondo-sync.sqlite` | `stadion_members` | KNVB ID → Rondo Club ID lookup (for person linking) |
 
-## Stadion WordPress Requirements
+## Rondo Club WordPress Requirements
 
 - **ACF Pro** (for Post Object fields and REST API integration)
 - **Custom post type:** `discipline_case` with `show_in_rest = true`
@@ -120,7 +120,7 @@ Generated as: `"{person_name} - {match_description} - {match_date}"`
 ## Error Handling
 
 - Download failure is logged but doesn't prevent sync of previously downloaded cases
-- Cases without a matching person in Stadion are skipped (not an error)
+- Cases without a matching person in Rondo Club are skipped (not an error)
 - Individual case sync failures don't stop the pipeline
 - All errors collected in summary report
 
@@ -130,8 +130,8 @@ Generated as: `"{person_name} - {match_description} - {match_date}"`
 |------|---------|
 | `pipelines/sync-discipline.js` | Pipeline orchestrator |
 | `steps/download-discipline-cases.js` | Sportlink discipline case scraping (Playwright) |
-| `steps/submit-stadion-discipline.js` | Stadion discipline case API sync |
+| `steps/submit-rondo-club-discipline.js` | Rondo Club discipline case API sync |
 | `lib/discipline-db.js` | Discipline SQLite operations |
-| `lib/stadion-db.js` | Stadion member ID lookup |
-| `lib/stadion-client.js` | Stadion HTTP client |
+| `lib/rondo-club-db.js` | Rondo Club member ID lookup |
+| `lib/rondo-club-client.js` | Rondo Club HTTP client |
 | `lib/sportlink-login.js` | Sportlink authentication |

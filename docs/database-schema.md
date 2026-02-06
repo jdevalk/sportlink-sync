@@ -7,7 +7,7 @@ Complete schema documentation for all four SQLite databases used by sportlink-sy
 - [Overview](#overview)
 - [Change Detection Pattern](#change-detection-pattern)
 - [Database 1: laposta-sync.sqlite](#database-1-laposta-syncsqlite)
-- [Database 2: stadion-sync.sqlite](#database-2-stadion-syncsqlite)
+- [Database 2: rondo-sync.sqlite](#database-2-rondo-syncsqlite)
 - [Database 3: nikki-sync.sqlite](#database-3-nikki-syncsqlite)
 - [Database 4: freescout-sync.sqlite](#database-4-freescout-syncsqlite)
 - [Photo State Machine](#photo-state-machine)
@@ -17,7 +17,7 @@ Complete schema documentation for all four SQLite databases used by sportlink-sy
 
 ## Overview
 
-The sportlink-sync system uses four SQLite databases to track sync state between Sportlink Club (source) and downstream systems (Laposta, Stadion WordPress, Nikki, FreeScout).
+The sportlink-sync system uses four SQLite databases to track sync state between Sportlink Club (source) and downstream systems (Laposta, Rondo Club WordPress, Nikki, FreeScout).
 
 **Critical:** These databases must only exist on the production server. Running sync from a local machine creates duplicate entries because each machine tracks its own `stadion_id` mappings.
 
@@ -28,7 +28,7 @@ All databases are stored in the `data/` directory on the server at `/home/sportl
 | Database | Purpose | Module |
 |---|---|---|
 | `laposta-sync.sqlite` | Laposta email list sync + Sportlink run history | `lib/laposta-db.js` |
-| `stadion-sync.sqlite` | Stadion WordPress sync (members, teams, commissies, photos, discipline, reverse sync) | `lib/stadion-db.js` |
+| `rondo-sync.sqlite` | Rondo Club WordPress sync (members, teams, commissies, photos, discipline, reverse sync) | `lib/rondo-club-db.js` |
 | `nikki-sync.sqlite` | Nikki contribution tracking | `lib/nikki-db.js` |
 | `freescout-sync.sqlite` | FreeScout customer sync | `lib/freescout-db.js` |
 
@@ -123,9 +123,9 @@ Central table tracking all members across up to 4 Laposta lists.
 
 ---
 
-## Database 2: stadion-sync.sqlite
+## Database 2: rondo-sync.sqlite
 
-**Purpose:** Tracks WordPress Stadion synchronization including members, parents, teams, committees, work history, photos, discipline cases, and reverse sync state.
+**Purpose:** Tracks WordPress Rondo Club synchronization including members, parents, teams, committees, work history, photos, discipline cases, and reverse sync state.
 
 **Module:** `lib/stadion-db.js`
 
@@ -142,7 +142,7 @@ Primary member/person records synced to WordPress.
 | `data_json` | TEXT | Full member data as JSON |
 | `source_hash` | TEXT | SHA-256 hash of knvb_id + data |
 | `last_seen_at` | TEXT | Last time member appeared in Sportlink data |
-| `last_synced_at` | TEXT | Last successful sync to Stadion |
+| `last_synced_at` | TEXT | Last successful sync to Rondo Club |
 | `last_synced_hash` | TEXT | Hash of last synced data |
 | `created_at` | TEXT | First seen timestamp |
 | `person_image_date` | TEXT | Date of photo in Sportlink (change detection) |
@@ -194,7 +194,7 @@ Parent/guardian records (identified by email, no KNVB ID).
 
 **DEPRECATED:** Birthday sync migrated to `acf.birthdate` on person records. Table retained for backward compatibility.
 
-Birth dates and other important dates synced to Stadion.
+Birth dates and other important dates synced to Rondo Club.
 
 | Column | Type | Description |
 |---|---|---|
@@ -458,7 +458,7 @@ Discipline (tucht) cases from Sportlink.
 
 ### stadion_change_detections
 
-Tracks field changes detected in Stadion for reverse sync.
+Tracks field changes detected in Rondo Club for reverse sync.
 
 | Column | Type | Description |
 |---|---|---|
@@ -480,7 +480,7 @@ Tracks field changes detected in Stadion for reverse sync.
 
 ### conflict_resolutions
 
-Audit log of conflicts between Stadion and Sportlink data during reverse sync.
+Audit log of conflicts between Rondo Club and Sportlink data during reverse sync.
 
 | Column | Type | Description |
 |---|---|---|
@@ -552,7 +552,7 @@ Member contribution records per year.
 
 ### freescout_customers
 
-FreeScout customer records mapped from Stadion members.
+FreeScout customer records mapped from Rondo Club members.
 
 | Column | Type | Description |
 |---|---|---|
@@ -582,8 +582,8 @@ The `stadion_members.photo_state` field implements a state machine for photo syn
 | `no_photo` | Member has no photo in Sportlink |
 | `pending_download` | Photo exists, needs to be downloaded |
 | `downloaded` | Photo downloaded to local filesystem |
-| `pending_upload` | Photo ready to be uploaded to Stadion |
-| `synced` | Photo successfully uploaded to Stadion |
+| `pending_upload` | Photo ready to be uploaded to Rondo Club |
+| `synced` | Photo successfully uploaded to Rondo Club |
 | `pending_delete` | Photo removed from Sportlink, needs deletion |
 
 ### State Transitions
@@ -625,7 +625,7 @@ Photo changes are detected by comparing `photo_date` (from MemberHeader API):
 -- Laposta: find member by email
 SELECT * FROM members WHERE email = 'member@example.com';
 
--- Stadion: get WordPress post ID
+-- Rondo Club: get WordPress post ID
 SELECT stadion_id FROM stadion_members WHERE knvb_id = 'KNVB123456';
 
 -- Nikki: get contributions
@@ -635,7 +635,7 @@ SELECT * FROM nikki_contributions WHERE knvb_id = 'KNVB123456' ORDER BY year DES
 SELECT freescout_id FROM freescout_customers WHERE knvb_id = 'KNVB123456';
 ```
 
-### Intra-Database Relationships (stadion-sync.sqlite)
+### Intra-Database Relationships (rondo-sync.sqlite)
 
 ```sql
 -- Member → Teams (via work history)
@@ -662,7 +662,7 @@ SELECT data_json FROM stadion_parents WHERE email = 'parent@example.com';
 | Database | Tables | Purpose |
 |---|---|---|
 | `laposta-sync.sqlite` | 3 | Email marketing sync (Laposta) |
-| `stadion-sync.sqlite` | 16 | WordPress sync (members, teams, committees, photos, discipline, reverse sync) |
+| `rondo-sync.sqlite` | 16 | WordPress sync (members, teams, committees, photos, discipline, reverse sync) |
 | `nikki-sync.sqlite` | 1 | Contribution tracking (Nikki) |
 | `freescout-sync.sqlite` | 1 | Customer sync (FreeScout) |
 

@@ -2,9 +2,9 @@
 
 Common issues and their solutions.
 
-## Duplicate Entries in Stadion
+## Duplicate Entries in Rondo Club
 
-**Symptom:** Hundreds of duplicate member posts appear in Stadion WordPress.
+**Symptom:** Hundreds of duplicate member posts appear in Rondo Club WordPress.
 
 **Cause:** Sync was run from a local machine. Each machine has its own SQLite database tracking `stadion_id` mappings. The local database doesn't know about entries created by the server, so it creates new ones instead of updating.
 
@@ -95,17 +95,17 @@ rm /home/sportlink/.sync-people.lock   # Or whichever sync type
 
 ---
 
-## Members Missing from Stadion
+## Members Missing from Rondo Club
 
-**Symptom:** Some members exist in Sportlink but don't appear in Stadion.
+**Symptom:** Some members exist in Sportlink but don't appear in Rondo Club.
 
 **Diagnosis:**
 ```bash
 # Check if member exists in local database
 node tools/show-sportlink-member.js member@example.com
 
-# Check Stadion mapping
-sqlite3 data/stadion-sync.sqlite "SELECT knvb_id, stadion_id, last_synced_at FROM stadion_members WHERE email = 'member@example.com'"
+# Check Rondo Club mapping
+sqlite3 data/rondo-sync.sqlite "SELECT knvb_id, stadion_id, last_synced_at FROM stadion_members WHERE email = 'member@example.com'"
 ```
 
 **Possible causes:**
@@ -142,12 +142,12 @@ node tools/validate-stadion-ids.js --apply      # Fix invalid IDs
 
 ## Photos Not Syncing
 
-**Symptom:** Member photos show in Sportlink but not in Stadion.
+**Symptom:** Member photos show in Sportlink but not in Rondo Club.
 
 **Diagnosis:**
 ```bash
 # Check photo state distribution
-sqlite3 data/stadion-sync.sqlite "SELECT photo_state, COUNT(*) FROM stadion_members GROUP BY photo_state"
+sqlite3 data/rondo-sync.sqlite "SELECT photo_state, COUNT(*) FROM stadion_members GROUP BY photo_state"
 
 # Check consistency between files and database
 node tools/check-photo-consistency.js --verbose
@@ -178,7 +178,7 @@ node tools/check-photo-consistency.js --verbose
 
 ## Free Fields Missing After Functions Sync
 
-**Symptom:** FreeScout ID, VOG date, or financial block data disappears from Stadion after a daily functions sync.
+**Symptom:** FreeScout ID, VOG date, or financial block data disappears from Rondo Club after a daily functions sync.
 
 **Cause:** This was a critical bug (fixed in commit `9d0136e`): when the daily functions sync processed only a subset of members, it used `clear + replace` on database tables, wiping data for members not in the current run. The fix uses upsert-only for partial runs.
 
@@ -238,16 +238,16 @@ npm run show-laposta-changes
 2. **Database corrupted:** The simplest recovery is to delete the database and re-run a full sync. The databases are derived from source systems and can be rebuilt:
    ```bash
    # Back up first
-   cp data/stadion-sync.sqlite data/stadion-sync.sqlite.bak
+   cp data/rondo-sync.sqlite data/rondo-sync.sqlite.bak
 
-   # Delete and rebuild (this will create all members as new in Stadion!)
+   # Delete and rebuild (this will create all members as new in Rondo Club!)
    # Only do this if you're certain - it may cause duplicate entries
-   rm data/stadion-sync.sqlite
+   rm data/rondo-sync.sqlite
    scripts/sync.sh all
    ```
 
-   **Warning:** Deleting `data/stadion-sync.sqlite` loses all `stadion_id` mappings. This means the next sync will create new WordPress posts instead of updating existing ones. Use `tools/repopulate-stadion-ids.js` afterward to restore mappings:
+   **Warning:** Deleting `data/rondo-sync.sqlite` loses all `stadion_id` mappings. This means the next sync will create new WordPress posts instead of updating existing ones. Use `tools/repopulate-rondo-club-ids.js` afterward to restore mappings:
    ```bash
-   node tools/repopulate-stadion-ids.js --verbose  # Dry run
-   node tools/repopulate-stadion-ids.js             # Apply
+   node tools/repopulate-rondo-club-ids.js --verbose  # Dry run
+   node tools/repopulate-rondo-club-ids.js             # Apply
    ```

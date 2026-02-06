@@ -1,6 +1,6 @@
 # Nikki Pipeline
 
-Syncs member contribution/dues data from the Nikki accounting system to Stadion WordPress ACF fields.
+Syncs member contribution/dues data from the Nikki accounting system to Rondo Club WordPress ACF fields.
 
 ## Schedule
 
@@ -16,7 +16,7 @@ node pipelines/sync-nikki.js --verbose    # Direct execution (verbose)
 ```
 pipelines/sync-nikki.js
 ├── Step 1: steps/download-nikki-contributions.js    → data/nikki-sync.sqlite
-└── Step 2: steps/sync-nikki-to-stadion.js           → Stadion WordPress API
+└── Step 2: steps/sync-nikki-to-stadion.js           → Rondo Club WordPress API
 ```
 
 ## Step-by-Step Details
@@ -41,17 +41,17 @@ pipelines/sync-nikki.js
 
 **Database written:** `data/nikki-sync.sqlite` → `nikki_contributions`
 
-### Step 2: Sync to Stadion
+### Step 2: Sync to Rondo Club
 
 **Script:** `steps/sync-nikki-to-stadion.js`
 **Function:** `runNikkiStadionSync({ logger, verbose, force })`
 
 1. Groups contributions by `knvb_id` and `year`
 2. For members with multiple lines per year: **sums** `saldo` and `hoofdsom` across all lines
-3. Looks up `stadion_id` from `data/stadion-sync.sqlite` → `stadion_members` (cross-database lookup)
-4. Skips members without a `stadion_id` (not yet synced to Stadion)
+3. Looks up `stadion_id` from `data/rondo-sync.sqlite` → `stadion_members` (cross-database lookup)
+4. Skips members without a `stadion_id` (not yet synced to Rondo Club)
 5. For each member with changes, sends `PUT /wp/v2/people/{stadion_id}` with:
-   - `first_name` and `last_name` (always required by Stadion API)
+   - `first_name` and `last_name` (always required by Rondo Club API)
    - Per-year Nikki ACF fields (up to 4 years of history)
 6. Rate limited: 500ms between updates
 
@@ -61,11 +61,11 @@ pipelines/sync-nikki.js
 
 ## Field Mappings
 
-### Nikki → Stadion ACF Fields
+### Nikki → Rondo Club ACF Fields
 
 For each contribution year, three ACF fields are written per person:
 
-| Stadion ACF Field | Source | Example |
+| Rondo Club ACF Field | Source | Example |
 |---|---|---|
 | `_nikki_{YEAR}_total` | Sum of `hoofdsom` for that year | `_nikki_2025_total`: 1500.00 |
 | `_nikki_{YEAR}_saldo` | Sum of `saldo` for that year | `_nikki_2025_saldo`: 250.00 |
@@ -82,7 +82,7 @@ Member KNVB123 in 2025:
   Line 1: saldo=100, hoofdsom=500, status="Betaald"
   Line 2: saldo=150, hoofdsom=750, status="Open"
 
-Result for Stadion:
+Result for Rondo Club:
   _nikki_2025_saldo = 250 (100 + 150)
   _nikki_2025_total = 1250 (500 + 750)
   _nikki_2025_status = "Open" (worst status takes priority)
@@ -93,7 +93,7 @@ Result for Stadion:
 | Database | Table | Usage |
 |---|---|---|
 | `nikki-sync.sqlite` | `nikki_contributions` | Contribution records per member per year |
-| `stadion-sync.sqlite` | `stadion_members` | KNVB ID → Stadion ID lookup (read-only) |
+| `rondo-sync.sqlite` | `stadion_members` | KNVB ID → Rondo Club ID lookup (read-only) |
 
 ## CLI Flags
 
@@ -115,7 +115,7 @@ Result for Stadion:
 |------|---------|
 | `pipelines/sync-nikki.js` | Pipeline orchestrator |
 | `steps/download-nikki-contributions.js` | Nikki web scraping (Playwright) |
-| `steps/sync-nikki-to-stadion.js` | Stadion API sync |
+| `steps/sync-nikki-to-stadion.js` | Rondo Club API sync |
 | `lib/nikki-db.js` | Nikki SQLite operations |
-| `lib/stadion-db.js` | Stadion ID lookup |
-| `lib/stadion-client.js` | Stadion HTTP client |
+| `lib/rondo-club-db.js` | Rondo Club ID lookup |
+| `lib/rondo-club-client.js` | Rondo Club HTTP client |

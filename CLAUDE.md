@@ -1,12 +1,12 @@
-# Sportlink Sync
+# Rondo Sync
 
-CLI tool that synchronizes member data from Sportlink Club to Laposta email marketing lists, Stadion WordPress, FreeScout, and more.
+CLI tool that synchronizes member data from Sportlink Club to Laposta email marketing lists, Rondo Club WordPress, FreeScout, and more.
 
 ## Quick Reference
 
 ```bash
 scripts/sync.sh people           # 4x daily: members, parents, photos
-scripts/sync.sh nikki            # Daily: Nikki contributions to Stadion
+scripts/sync.sh nikki            # Daily: Nikki contributions to Rondo Club
 scripts/sync.sh freescout        # Daily: FreeScout customer sync
 scripts/sync.sh teams            # Weekly: team sync + work history
 scripts/sync.sh functions        # 4x daily: commissies + free fields (recent updates)
@@ -24,13 +24,13 @@ Detailed documentation lives in `docs/`:
 |----------|----------|
 | [docs/installation.md](docs/installation.md) | Prerequisites, server setup, initial sync, cron setup |
 | [docs/sync-architecture.md](docs/sync-architecture.md) | System overview, schedules, field mappings, data flow |
-| [docs/pipeline-people.md](docs/pipeline-people.md) | People pipeline: 7-step flow, Laposta + Stadion field mappings |
-| [docs/pipeline-nikki.md](docs/pipeline-nikki.md) | Nikki pipeline: contribution download + Stadion sync |
+| [docs/pipeline-people.md](docs/pipeline-people.md) | People pipeline: 7-step flow, Laposta + Rondo Club field mappings |
+| [docs/pipeline-nikki.md](docs/pipeline-nikki.md) | Nikki pipeline: contribution download + Rondo Club sync |
 | [docs/pipeline-teams.md](docs/pipeline-teams.md) | Teams pipeline: team download + work history |
 | [docs/pipeline-functions.md](docs/pipeline-functions.md) | Functions pipeline: commissies, free fields, daily vs full mode |
 | [docs/pipeline-freescout.md](docs/pipeline-freescout.md) | FreeScout pipeline: customer sync with custom fields |
 | [docs/pipeline-discipline.md](docs/pipeline-discipline.md) | Discipline pipeline: tucht cases + season taxonomy |
-| [docs/reverse-sync.md](docs/reverse-sync.md) | Reverse sync: Stadion → Sportlink (currently disabled) |
+| [docs/reverse-sync.md](docs/reverse-sync.md) | Reverse sync: Rondo Club → Sportlink (currently disabled) |
 | [docs/database-schema.md](docs/database-schema.md) | All 4 databases, 21 tables, photo state machine |
 | [docs/operations.md](docs/operations.md) | Server operations, monitoring, database inspection, deploys |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues: duplicates, photos, TOTP, locks, recovery |
@@ -67,10 +67,10 @@ SPORTLINK_OTP_SECRET=        # TOTP secret for 2FA (base32)
 LAPOSTA_API_KEY=             # Laposta API key
 LAPOSTA_LIST=                # Primary Laposta list ID
 LAPOSTA_LIST2=               # Optional additional lists (up to 4)
-STADION_URL=                 # WordPress site URL (https://...)
-STADION_USERNAME=            # WordPress username
-STADION_APP_PASSWORD=        # WordPress application password
-STADION_PERSON_TYPE=person   # Custom post type
+RONDO_URL=                   # WordPress site URL (https://...)
+RONDO_USERNAME=              # WordPress username
+RONDO_APP_PASSWORD=          # WordPress application password
+RONDO_PERSON_TYPE=person     # Custom post type
 OPERATOR_EMAIL=              # Receives sync reports
 POSTMARK_API_KEY=            # Postmark server API token
 POSTMARK_FROM_EMAIL=         # Verified sender email
@@ -120,11 +120,11 @@ logger.error('Error messages');
 - Each pipeline step is non-critical (failures don't stop the pipeline)
 - Exit codes: 0 = success, 1 = errors occurred
 
-## Stadion API Gotchas
+## Rondo Club API Gotchas
 
 **Required fields on ACF updates:** When updating a person via PUT, `first_name` and `last_name` are always required, even for single-field updates. Partial ACF updates require a GET first.
 
-**Stadion API docs** are at `~/Code/stadion/docs/`:
+**Rondo Club API docs** are at `~/Code/stadion/docs/`:
 - `api-leden-crud.md` - Person API (fields, work_history, relationships)
 - `api-teams.md`, `api-commissies.md` - Team and Commissie APIs
 - `rest-api.md` - Full REST API docs including important dates

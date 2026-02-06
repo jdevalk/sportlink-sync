@@ -1,6 +1,6 @@
 # FreeScout Pipeline
 
-Syncs Stadion member data to FreeScout helpdesk as customers, enriching support tickets with member context.
+Syncs Rondo Club member data to FreeScout helpdesk as customers, enriching support tickets with member context.
 
 ## Schedule
 
@@ -31,11 +31,11 @@ Before running, `pipelines/sync-freescout.js` verifies that `FREESCOUT_API_KEY` 
 
 **Script:** `steps/prepare-freescout-customers.js` (called internally by `steps/submit-freescout-sync.js`)
 
-1. Reads member data from `data/stadion-sync.sqlite` → `stadion_members`
-2. Reads team assignments from `data/stadion-sync.sqlite` → `stadion_work_history`
+1. Reads member data from `data/rondo-sync.sqlite` → `stadion_members`
+2. Reads team assignments from `data/rondo-sync.sqlite` → `stadion_work_history`
 3. Reads contribution data from `data/nikki-sync.sqlite` → `nikki_contributions`
 4. Builds customer records with:
-   - Name, email, phone from Stadion member data
+   - Name, email, phone from Rondo Club member data
    - Team memberships (comma-separated)
    - KNVB ID, member since date
    - Latest Nikki contribution balance and status
@@ -89,8 +89,8 @@ Field IDs are configurable via `FREESCOUT_FIELD_*` environment variables.
 
 | Database | Table | Usage |
 |---|---|---|
-| `stadion-sync.sqlite` | `stadion_members` | Member data (name, contact, KNVB ID) |
-| `stadion-sync.sqlite` | `stadion_work_history` | Current team assignments |
+| `rondo-sync.sqlite` | `stadion_members` | Member data (name, contact, KNVB ID) |
+| `rondo-sync.sqlite` | `stadion_work_history` | Current team assignments |
 | `nikki-sync.sqlite` | `nikki_contributions` | Financial contribution data |
 | `freescout-sync.sqlite` | `freescout_customers` | Customer → FreeScout ID mapping + hashes |
 
@@ -117,6 +117,6 @@ Field IDs are configurable via `FREESCOUT_FIELD_*` environment variables.
 | `steps/prepare-freescout-customers.js` | Customer data preparation |
 | `lib/freescout-db.js` | FreeScout SQLite operations |
 | `lib/freescout-client.js` | FreeScout HTTP client + credential check |
-| `lib/stadion-db.js` | Stadion data lookup |
+| `lib/rondo-club-db.js` | Rondo Club data lookup |
 | `lib/nikki-db.js` | Nikki contribution lookup |
 | `lib/http-client.js` | HTTP request utilities |

@@ -6,7 +6,7 @@ Reference for all utility, cleanup, inspection, and recovery scripts.
 
 ### delete-duplicates.js
 
-Finds and removes duplicate member entries in Stadion by KNVB ID, keeping the oldest record.
+Finds and removes duplicate member entries in Rondo Club by KNVB ID, keeping the oldest record.
 
 ```bash
 node tools/delete-duplicates.js --verbose   # Dry run (default)
@@ -65,7 +65,7 @@ node tools/cleanup-comma-teams.js              # Delete bad teams
 
 ### cleanup-stadion-duplicates.js
 
-Compares Stadion records against expected Sportlink members and identifies/deletes members not in Sportlink.
+Compares Rondo Club records against expected Sportlink members and identifies/deletes members not in Sportlink.
 
 ```bash
 node tools/cleanup-stadion-duplicates.js --verbose   # Dry run (default)
@@ -90,7 +90,7 @@ node tools/clear-commissie-work-history.js
 
 **DEPRECATED (v2.3):** Birthdays now sync as `acf.birthdate` on person records, not as separate `important_date` posts.
 
-Finds important dates (birthdays) that reference people who no longer exist in Stadion.
+Finds important dates (birthdays) that reference people who no longer exist in Rondo Club.
 
 ```bash
 node tools/find-orphan-dates.js --verbose   # List orphans (default)
@@ -116,7 +116,7 @@ node tools/dedupe-laposta-list.js --state=inactive  # Target inactive members
 
 ### verify-stadion-data.js
 
-Validates SQLite tracking data against Stadion WordPress. Identifies invalid `stadion_id` mappings, orphans, and missing mappings.
+Validates SQLite tracking data against Rondo Club WordPress. Identifies invalid `stadion_id` mappings, orphans, and missing mappings.
 
 ```bash
 node tools/verify-stadion-data.js --verbose           # Report only (default)
@@ -129,7 +129,7 @@ Checks: `stadion_members`, `stadion_parents`, `stadion_teams`, `stadion_commissi
 
 ### validate-stadion-ids.js
 
-Simpler version of verify-stadion-data: validates that all tracked `stadion_id` values still exist in Stadion.
+Simpler version of verify-stadion-data: validates that all tracked `stadion_id` values still exist in Rondo Club.
 
 ```bash
 node tools/validate-stadion-ids.js                # Dry run (default)
@@ -153,11 +153,11 @@ node tools/check-photo-consistency.js --fix      # Update database states
 
 ### repopulate-stadion-ids.js
 
-Fetches all people from Stadion API by KNVB ID and repopulates missing `stadion_id` mappings in the local database.
+Fetches all people from Rondo Club API by KNVB ID and repopulates missing `stadion_id` mappings in the local database.
 
 ```bash
-node tools/repopulate-stadion-ids.js --dry-run --verbose  # Preview
-node tools/repopulate-stadion-ids.js --verbose             # Apply
+node tools/repopulate-rondo-club-ids.js --dry-run --verbose  # Preview
+node tools/repopulate-rondo-club-ids.js --verbose             # Apply
 ```
 
 Use this after database loss or corruption to restore ID mappings without creating duplicates.
@@ -234,7 +234,7 @@ node tools/show-nikki-contributions.js --json                   # JSON output
 
 ### detect-stadion-changes.js
 
-Detects field changes in Stadion for reverse sync (currently disabled).
+Detects field changes in Rondo Club for reverse sync (currently disabled).
 
 ```bash
 node tools/detect-stadion-changes.js --verbose
@@ -248,7 +248,7 @@ node tools/detect-stadion-changes.js --verbose
 
 ### sync-individual.js
 
-Syncs a single member to Stadion by KNVB ID. Useful for debugging or fixing individual records.
+Syncs a single member to Rondo Club by KNVB ID. Useful for debugging or fixing individual records.
 
 ```bash
 node pipelines/sync-individual.js KNVB123456 --verbose               # Full sync
@@ -306,7 +306,7 @@ scripts/sync.sh functions --all    # Full functions sync
 
 | Script | Default Mode | Purpose |
 |--------|-------------|---------|
-| `tools/delete-duplicates.js` | Dry-run | Remove duplicate Stadion members |
+| `tools/delete-duplicates.js` | Dry-run | Remove duplicate Rondo Club members |
 | `tools/merge-duplicate-person.js` | **Destructive** | Merge parent into member |
 | `tools/cleanup-duplicate-relationships.js` | **Destructive** | Remove duplicate relationships |
 | `tools/clear-commissie-work-history.js` | **Destructive** | Clear commissie work history |
@@ -318,7 +318,7 @@ scripts/sync.sh functions --all    # Full functions sync
 | `tools/cleanup-comma-teams.js` | Dry-run | Delete malformed teams |
 | `tools/check-photo-consistency.js` | Report-only | Verify photo files vs database |
 | `tools/validate-stadion-ids.js` | Dry-run | Validate stadion_id existence |
-| `tools/repopulate-stadion-ids.js` | Dry-run | Restore missing ID mappings |
+| `tools/repopulate-rondo-club-ids.js` | Dry-run | Restore missing ID mappings |
 | `tools/dedupe-laposta-list.js` | Dry-run | Deduplicate Laposta entries |
 | `pipelines/sync-individual.js` | Sync | Sync single member |
 | `tools/show-laposta-changes.js` | Read-only | View pending Laposta changes |
