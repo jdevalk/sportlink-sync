@@ -26,6 +26,18 @@ function extractBirthYear(dateOfBirth) {
 }
 
 /**
+ * Extract birthdate from date string
+ * @param {string} dateOfBirth - Date in YYYY-MM-DD format
+ * @returns {string|null} - Full date string or null if invalid
+ */
+function extractBirthdate(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const trimmed = dateOfBirth.trim();
+  if (!trimmed.match(/^\d{4}-\d{2}-\d{2}$/)) return null;
+  return trimmed;
+}
+
+/**
  * Build name fields, separating Dutch tussenvoegsel (infix) as its own field
  * @param {Object} member - Sportlink member record
  * @returns {{first_name: string, infix: string, last_name: string}}
@@ -136,6 +148,7 @@ function preparePerson(sportlinkMember, freeFields = null, invoiceData = null) {
   const name = buildName(sportlinkMember);
   const gender = mapGender(sportlinkMember.GenderCode);
   const birthYear = extractBirthYear(sportlinkMember.DateOfBirth);
+  const birthdate = extractBirthdate(sportlinkMember.DateOfBirth);
 
   const acf = {
     first_name: name.first_name,
@@ -149,6 +162,7 @@ function preparePerson(sportlinkMember, freeFields = null, invoiceData = null) {
   if (name.infix) acf.infix = name.infix;
   if (gender) acf.gender = gender;
   if (birthYear) acf.birth_year = birthYear;
+  if (birthdate) acf.birthdate = birthdate;
 
   // Extract PersonImageDate for photo state tracking
   // Normalize to null if empty string or whitespace
