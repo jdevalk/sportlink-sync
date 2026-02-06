@@ -3,7 +3,7 @@
 # Unified sync wrapper for cron
 #
 # Usage:
-#   sync.sh people   # 4x daily: download + laposta + stadion + birthdays
+#   sync.sh people   # 4x daily: download + laposta + stadion + photos
 #   sync.sh photos   # Alias for people (photos integrated)
 #   sync.sh teams    # Weekly: team download + sync + work history
 #   sync.sh functions  # Daily: functions download + commissies + work history
@@ -46,7 +46,7 @@ if [ -z "$1" ]; then
     echo ""
     echo "Sportlink Sync — pick a pipeline:"
     echo ""
-    echo "  1) people           Members, parents, birthdays, photos"
+    echo "  1) people           Members, parents, photos"
     echo "  2) functions        Commissies + free fields (recent updates)"
     echo "  3) functions --all  Full commissie sync (all members)"
     echo "  4) nikki            Nikki contributions"

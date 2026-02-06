@@ -86,7 +86,9 @@ node tools/clear-commissie-work-history.js
 
 ---
 
-### find-orphan-dates.js
+### find-orphan-dates.js (DEPRECATED)
+
+**DEPRECATED (v2.3):** Birthdays now sync as `acf.birthdate` on person records, not as separate `important_date` posts.
 
 Finds important dates (birthdays) that reference people who no longer exist in Stadion.
 
@@ -132,7 +134,6 @@ Simpler version of verify-stadion-data: validates that all tracked `stadion_id` 
 ```bash
 node tools/validate-stadion-ids.js                # Dry run (default)
 node tools/validate-stadion-ids.js --apply        # Nullify invalid IDs
-node tools/validate-stadion-ids.js --reset-dates  # Also reset important dates
 ```
 
 ---
@@ -309,7 +310,7 @@ scripts/sync.sh functions --all    # Full functions sync
 | `tools/merge-duplicate-person.js` | **Destructive** | Merge parent into member |
 | `tools/cleanup-duplicate-relationships.js` | **Destructive** | Remove duplicate relationships |
 | `tools/clear-commissie-work-history.js` | **Destructive** | Clear commissie work history |
-| `tools/find-orphan-dates.js` | Dry-run | Find/delete orphaned birthdays |
+| `tools/find-orphan-dates.js` | Dry-run | Find/delete orphaned birthdays (DEPRECATED v2.3) |
 | `tools/verify-stadion-data.js` | Report-only | Validate ID mappings |
 | `tools/reset-photo-states.js` | Dry-run | Fix photo state mismatches |
 | `tools/cleanup-stadion-duplicates.js` | Dry-run | Remove non-Sportlink members |

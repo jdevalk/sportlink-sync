@@ -189,16 +189,12 @@ ssh root@46.202.155.16 "cd /home/sportlink && node pipelines/sync-functions.js -
 
 ---
 
-## Orphaned Birthdays or Relationships
+## Orphaned Relationships
 
-**Symptom:** Important dates or relationships reference people who no longer exist.
+**Symptom:** Relationships reference people who no longer exist.
 
 **Fix:**
 ```bash
-# Find orphaned birthdays
-node tools/find-orphan-dates.js --verbose
-node tools/find-orphan-dates.js --delete    # Remove them
-
 # Find orphaned relationships
 node tools/cleanup-orphan-relationships.js --verbose
 node tools/cleanup-orphan-relationships.js --fix     # Remove them
@@ -206,6 +202,8 @@ node tools/cleanup-orphan-relationships.js --fix     # Remove them
 # Find duplicate relationships
 node tools/cleanup-duplicate-relationships.js
 ```
+
+**Note:** As of v2.3, birthdays sync as `acf.birthdate` on person records and no longer use separate `important_date` posts.
 
 ---
 

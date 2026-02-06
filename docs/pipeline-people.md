@@ -1,6 +1,6 @@
 # People Pipeline
 
-Syncs member data from Sportlink Club to Laposta email marketing lists and Stadion WordPress, including photos and birthdays.
+Syncs member data from Sportlink Club to Laposta email marketing lists and Stadion WordPress, including photos.
 
 ## Schedule
 
@@ -18,11 +18,10 @@ pipelines/sync-people.js
 ├── Step 1: steps/download-data-from-sportlink.js    → data/laposta-sync.sqlite, data/stadion-sync.sqlite
 ├── Step 2: steps/prepare-laposta-members.js         → data/laposta-sync.sqlite (members table)
 ├── Step 3: steps/submit-laposta-list.js             → Laposta API
-├── Step 4: steps/submit-stadion-sync.js             → Stadion WordPress API (members + parents)
-├── Step 5: steps/sync-important-dates.js            → Stadion WordPress API (birthdays)
-├── Step 6: steps/download-photos-from-api.js        → photos/ directory
-├── Step 7: steps/upload-photos-to-stadion.js        → Stadion WordPress API (media)
-└── Step 8: lib/reverse-sync-sportlink.js      → Sportlink Club (currently disabled)
+├── Step 4: steps/submit-stadion-sync.js             → Stadion WordPress API (members + parents + birthdate)
+├── Step 5: steps/download-photos-from-api.js        → photos/ directory
+├── Step 6: steps/upload-photos-to-stadion.js        → Stadion WordPress API (media)
+└── Step 7: lib/reverse-sync-sportlink.js      → Sportlink Club (currently disabled)
 ```
 
 ## Step-by-Step Details
@@ -104,21 +103,9 @@ pipelines/sync-people.js
 
 **Important:** `first_name` and `last_name` are required on every PUT request, even for partial ACF updates.
 
-### Step 5: Birthday Sync
+**Birthday field:** As of v2.3, birthdate is synced as `acf.birthdate` (YYYY-MM-DD) on the person record during Step 4. Previous versions used a separate `important_date` post type which is now deprecated.
 
-**Script:** `steps/sync-important-dates.js`
-**Function:** `runSync({ logger, verbose, force })`
-
-1. Reads all members with `DateOfBirth` from `data/stadion-sync.sqlite`
-2. For each member with a birth date and a `stadion_id`:
-   - Creates/updates an `important_date` post in Stadion
-   - Links to the person via `acf.related_people`
-   - Sets `acf.is_recurring = true` for annual display
-3. Uses hash-based change detection to skip unchanged dates
-
-**Output:** `{ total, synced, created, updated, skipped, errors }`
-
-### Step 6: Photo Download
+### Step 5: Photo Download
 
 **Script:** `steps/download-photos-from-api.js`
 **Function:** `runPhotoDownload({ logger, verbose, force })`
@@ -131,7 +118,7 @@ pipelines/sync-people.js
 
 **Output:** `{ downloaded, errors }`
 
-### Step 7: Photo Upload
+### Step 6: Photo Upload
 
 **Script:** `steps/upload-photos-to-stadion.js`
 **Function:** `runPhotoSync({ logger, verbose })`
@@ -144,7 +131,7 @@ pipelines/sync-people.js
 
 **Output:** `{ upload: { synced, skipped, errors }, delete: { deleted, errors } }`
 
-### Step 8: Reverse Sync (Currently Disabled)
+### Step 7: Reverse Sync (Currently Disabled)
 
 **Script:** `lib/reverse-sync-sportlink.js`
 **Function:** `runReverseSync({ logger, verbose })`
@@ -178,6 +165,7 @@ See `config/field-mapping.json` for the complete mapping. Key fields:
 | `knvb-id` | `PublicPersonId` |
 | `gender` | `GenderCode` (Male→male, Female→female) |
 | `birth_year` | Year from `DateOfBirth` |
+| `birthdate` | `DateOfBirth` (YYYY-MM-DD format, v2.3+) |
 | `contact_info` (repeater) | `Email`, `Mobile`, `Telephone` |
 | `addresses` (repeater) | `StreetName` + `AddressNumber`, `ZipCode`, `City` |
 | `lid-sinds` | `MemberSince` |
@@ -196,7 +184,6 @@ See `config/field-mapping.json` for the complete mapping. Key fields:
 | `laposta-sync.sqlite` | `laposta_fields` | Cached field definitions |
 | `stadion-sync.sqlite` | `stadion_members` | Member → WordPress ID mapping + hashes |
 | `stadion-sync.sqlite` | `stadion_parents` | Parent → WordPress ID mapping |
-| `stadion-sync.sqlite` | `stadion_important_dates` | Birthday → WordPress ID mapping |
 | `stadion-sync.sqlite` | `sportlink_member_free_fields` | Free fields (read by Step 4) |
 
 ## CLI Flags
@@ -222,10 +209,9 @@ See `config/field-mapping.json` for the complete mapping. Key fields:
 | `steps/download-data-from-sportlink.js` | Sportlink browser automation |
 | `steps/prepare-laposta-members.js` | Field transformation for Laposta |
 | `steps/submit-laposta-list.js` | Laposta API sync |
-| `steps/submit-stadion-sync.js` | Stadion WordPress API sync |
+| `steps/submit-stadion-sync.js` | Stadion WordPress API sync (members + parents + birthdate) |
 | `steps/prepare-stadion-members.js` | Stadion member data preparation |
 | `steps/prepare-stadion-parents.js` | Parent extraction and dedup |
-| `steps/sync-important-dates.js` | Birthday sync |
 | `steps/download-photos-from-api.js` | Photo download |
 | `steps/upload-photos-to-stadion.js` | Photo upload/delete |
 | `config/field-mapping.json` | Laposta field mapping config |

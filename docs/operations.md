@@ -45,7 +45,7 @@ ls -la .sync-*.lock
 ### Individual Pipelines
 
 ```bash
-scripts/sync.sh people           # Members, parents, birthdays, photos → Laposta + Stadion
+scripts/sync.sh people           # Members, parents, photos → Laposta + Stadion
 scripts/sync.sh nikki            # Nikki contributions → Stadion
 scripts/sync.sh freescout        # Stadion members → FreeScout customers
 scripts/sync.sh teams            # Teams + work history → Stadion
@@ -74,8 +74,7 @@ For debugging individual steps:
 node steps/download-data-from-sportlink.js --verbose   # Download only
 node steps/prepare-laposta-members.js --verbose         # Prepare Laposta data
 node steps/submit-laposta-list.js --verbose             # Submit to Laposta
-node steps/submit-stadion-sync.js --verbose             # Submit to Stadion
-node steps/sync-important-dates.js --verbose            # Sync birthdays
+node steps/submit-stadion-sync.js --verbose             # Submit to Stadion (includes birthdate)
 node steps/download-photos-from-api.js --verbose        # Download photos
 node steps/upload-photos-to-stadion.js --verbose        # Upload photos
 ```
@@ -186,10 +185,6 @@ node tools/merge-duplicate-person.js --parent=123 --member=456
 ### Remove Orphaned Data
 
 ```bash
-# Orphaned birthdays (referencing deleted people)
-node tools/find-orphan-dates.js --verbose
-node tools/find-orphan-dates.js --delete
-
 # Orphaned relationships
 node tools/cleanup-orphan-relationships.js --verbose
 node tools/cleanup-orphan-relationships.js --fix

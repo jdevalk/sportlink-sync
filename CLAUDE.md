@@ -5,7 +5,7 @@ CLI tool that synchronizes member data from Sportlink Club to Laposta email mark
 ## Quick Reference
 
 ```bash
-scripts/sync.sh people           # 4x daily: members, parents, birthdays, photos
+scripts/sync.sh people           # 4x daily: members, parents, photos
 scripts/sync.sh nikki            # Daily: Nikki contributions to Stadion
 scripts/sync.sh freescout        # Daily: FreeScout customer sync
 scripts/sync.sh teams            # Weekly: team sync + work history
@@ -24,7 +24,7 @@ Detailed documentation lives in `docs/`:
 |----------|----------|
 | [docs/installation.md](docs/installation.md) | Prerequisites, server setup, initial sync, cron setup |
 | [docs/sync-architecture.md](docs/sync-architecture.md) | System overview, schedules, field mappings, data flow |
-| [docs/pipeline-people.md](docs/pipeline-people.md) | People pipeline: 8-step flow, Laposta + Stadion field mappings |
+| [docs/pipeline-people.md](docs/pipeline-people.md) | People pipeline: 7-step flow, Laposta + Stadion field mappings |
 | [docs/pipeline-nikki.md](docs/pipeline-nikki.md) | Nikki pipeline: contribution download + Stadion sync |
 | [docs/pipeline-teams.md](docs/pipeline-teams.md) | Teams pipeline: team download + work history |
 | [docs/pipeline-functions.md](docs/pipeline-functions.md) | Functions pipeline: commissies, free fields, daily vs full mode |
@@ -47,6 +47,9 @@ scripts/sync.sh people    # or any other pipeline
 ```
 
 Deploy code: `git push` then `ssh root@46.202.155.16 "cd /home/sportlink && git pull"`
+
+## Claude specific instructions
+Prefer Read over `cat`, Grep over `grep/rg` in Bash, and Glob over `find` in Bash. Use Bash only for: running tests, executing build commands, git operations, and multi-step shell scripts. 
 
 ## Remote Server
 

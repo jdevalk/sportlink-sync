@@ -144,7 +144,7 @@ This takes a while on first run because:
 - All members need to be created in Stadion (not just updated)
 - All teams and commissies need to be created
 - All photos need to be downloaded and uploaded
-- All birthdays need to be created
+- All member birthdates need to be synced
 
 Subsequent runs are much faster due to hash-based change detection.
 
@@ -212,7 +212,7 @@ npm install  # Only needed if dependencies changed
 The Stadion WordPress site needs:
 
 - **ACF Pro** plugin for custom fields and REST API integration
-- **Stadion theme** with custom post types: `person`, `team`, `commissie`, `important_date`, `discipline_case`
+- **Stadion theme** with custom post types: `person`, `team`, `commissie`, `discipline_case`
 - **REST API** enabled with `show_in_rest` on all custom post types and ACF field groups
 - **Application Passwords** enabled for the sync user
 - Custom endpoints provided by the Stadion theme:

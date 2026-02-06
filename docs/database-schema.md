@@ -190,7 +190,9 @@ Parent/guardian records (identified by email, no KNVB ID).
 
 ---
 
-### stadion_important_dates
+### stadion_important_dates (DEPRECATED - v2.3)
+
+**DEPRECATED:** Birthday sync migrated to `acf.birthdate` on person records. Table retained for backward compatibility.
 
 Birth dates and other important dates synced to Stadion.
 

@@ -18,7 +18,7 @@ graph LR
     SL -->|Members, teams,<br>functions, discipline| SYNC
     NK -->|Contributions| SYNC
     SYNC -->|Members, custom fields| LP
-    SYNC -->|Members, parents, teams,<br>commissies, work history,<br>photos, birthdays| ST
+    SYNC -->|Members, parents, teams,<br>commissies, work history,<br>photos| ST
     SYNC -->|Customers| FS
     ST -->|Field changes| SYNC
     SYNC -->|Reverse sync| SL
@@ -28,7 +28,7 @@ graph LR
 
 | Pipeline | Schedule | What it syncs |
 |----------|----------|---------------|
-| People | 4x daily | Members, parents, birthdays, photos → Laposta + Stadion |
+| People | 4x daily | Members, parents, photos → Laposta + Stadion |
 | Functions | 4x daily + weekly full | Commissies, free fields, work history → Stadion |
 | Nikki | Daily | Financial contributions → Stadion |
 | FreeScout | Daily | Members → FreeScout helpdesk customers |
@@ -70,7 +70,7 @@ cp .env.example .env  # Edit with your credentials
 ```
 
 ```bash
-scripts/sync.sh people           # Members, parents, birthdays, photos
+scripts/sync.sh people           # Members, parents, photos
 scripts/sync.sh functions        # Commissies + free fields (recent)
 scripts/sync.sh functions --all  # Full commissie sync (all members)
 scripts/sync.sh nikki            # Nikki contributions
@@ -88,7 +88,7 @@ See [Installation Guide](docs/installation.md) for full setup instructions.
 |----------|----------|
 | [Installation](docs/installation.md) | Prerequisites, server setup, initial sync, cron |
 | [Architecture](docs/sync-architecture.md) | System overview, schedules, field mappings, data flow |
-| [People Pipeline](docs/pipeline-people.md) | 8-step flow, Laposta + Stadion field mappings |
+| [People Pipeline](docs/pipeline-people.md) | 7-step flow, Laposta + Stadion field mappings |
 | [Nikki Pipeline](docs/pipeline-nikki.md) | Contribution download + Stadion sync |
 | [Teams Pipeline](docs/pipeline-teams.md) | Team download + work history |
 | [Functions Pipeline](docs/pipeline-functions.md) | Commissies, free fields, daily vs full mode |

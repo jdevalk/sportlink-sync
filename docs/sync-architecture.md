@@ -34,7 +34,7 @@ graph LR
     SL -->|Members, teams,<br>functions, discipline| SYNC
     NK -->|Contributions| SYNC
     SYNC -->|Members, custom fields| LP
-    SYNC -->|Members, parents, teams,<br>commissies, work history,<br>photos, birthdays| ST
+    SYNC -->|Members, parents, teams,<br>commissies, work history,<br>photos| ST
     SYNC -->|Customers| FS
     ST -->|Field changes| SYNC
     SYNC -->|Reverse sync| SL
@@ -50,7 +50,7 @@ All times are **Europe/Amsterdam** timezone.
 
 | Pipeline | Schedule | Cron | Notes |
 |----------|----------|------|-------|
-| People | 4x daily | `0 8,11,14,17 * * *` | Members, parents, birthdays, photos |
+| People | 4x daily | `0 8,11,14,17 * * *` | Members, parents, photos |
 | Nikki | Daily | `0 7 * * *` | Contributions to Stadion |
 | Functions (recent) | 4x daily | `30 7,10,13,16 * * *` | 30 min before each people sync; members updated in last 2 days + VOG-filtered volunteers |
 | Functions (full) | Weekly Sunday | `0 1 * * 0` | All members with `--all` |
@@ -111,7 +111,7 @@ When API calls are needed, all pipelines insert delays between requests to avoid
 
 ## Pipeline 1: People
 
-Runs 4x daily. Downloads member data from Sportlink, syncs to Laposta (email marketing), Stadion (WordPress), and handles photos and birthdays.
+Runs 4x daily. Downloads member data from Sportlink, syncs to Laposta (email marketing), Stadion (WordPress), and handles photos.
 
 ```mermaid
 graph TD
@@ -120,7 +120,6 @@ graph TD
     DB2[(stadion-sync.sqlite)]
     LP[Laposta API]
     ST[Stadion WordPress API]
-    CAL[Stadion Calendar API]
     PH[Stadion Photo API]
 
     SL -->|steps/download-data-from-sportlink.js| DB1
@@ -128,7 +127,6 @@ graph TD
     DB1 -->|steps/prepare-laposta-members.js| LP_PREP[Prepared Laposta members]
     LP_PREP -->|steps/submit-laposta-list.js| LP
     DB2 -->|steps/submit-stadion-sync.js| ST
-    DB2 -->|steps/sync-important-dates.js| CAL
     SL -->|steps/download-photos-from-api.js| DB2
     DB2 -->|photo_url| PHOTOS[photos/ directory]
     PHOTOS -->|steps/upload-photos-to-stadion.js| PH
@@ -237,14 +235,15 @@ Parent entries are created as separate Stadion person posts from `NameParent1`/`
 
 ### Sportlink to Stadion Birthdays
 
-Source: `DateOfBirth`. Destination: `wp/v2/important-dates`.
+**v2.3+:** Birthdate syncs as ACF field on person record.
+
+Source: `DateOfBirth`. Destination: `wp/v2/people` (person ACF field).
 
 | Stadion Field | Value |
 |---|---|
-| `acf.date_value` | `DateOfBirth` (YYYY-MM-DD) |
-| `acf.related_people` | `[stadion_id]` of the person |
-| `acf.is_recurring` | `true` (annual) |
-| `acf.date_type` | Birthday term ID |
+| `acf.birthdate` | `DateOfBirth` (YYYY-MM-DD) |
+
+**Previous versions** (pre-v2.3): Used separate `wp/v2/important-dates` posts (now deprecated).
 
 ### Photo Sync
 
@@ -506,7 +505,7 @@ Four SQLite databases on the server track sync state:
 | Database | Purpose | Key Tables |
 |---|---|---|
 | `laposta-sync.sqlite` | Laposta sync + Sportlink run data | `members`, `laposta_fields`, `sportlink_runs` |
-| `stadion-sync.sqlite` | Stadion ID mappings + all Sportlink scraped data | `stadion_members`, `stadion_parents`, `stadion_teams`, `stadion_commissies`, `stadion_work_history`, `stadion_commissie_work_history`, `stadion_important_dates`, `sportlink_member_functions`, `sportlink_member_committees`, `sportlink_member_free_fields`, `sportlink_member_invoice_data`, `sportlink_team_members` |
+| `stadion-sync.sqlite` | Stadion ID mappings + all Sportlink scraped data | `stadion_members`, `stadion_parents`, `stadion_teams`, `stadion_commissies`, `stadion_work_history`, `stadion_commissie_work_history`, `stadion_important_dates` (deprecated), `sportlink_member_functions`, `sportlink_member_committees`, `sportlink_member_free_fields`, `sportlink_member_invoice_data`, `sportlink_team_members` |
 | `nikki-sync.sqlite` | Nikki contribution data | `nikki_contributions` |
 | `freescout-sync.sqlite` | FreeScout customer mappings | `freescout_customers` |
 
