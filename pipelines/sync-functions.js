@@ -29,7 +29,7 @@ function printSummary(logger, stats) {
   logger.log(`Committee memberships found: ${stats.download.committeesCount}`);
   logger.log('');
 
-  logger.log('COMMISSIES SYNC TO STADION');
+  logger.log('COMMISSIES SYNC TO RONDO CLUB');
   logger.log(minorDivider);
   if (stats.commissies.total > 0) {
     logger.log(`Commissies synced: ${stats.commissies.synced}/${stats.commissies.total}`);
@@ -61,7 +61,7 @@ function printSummary(logger, stats) {
       logger.log(`  Work history entries ended: ${stats.workHistory.ended}`);
     }
     if (stats.workHistory.skipped > 0) {
-      logger.log(`  Skipped: ${stats.workHistory.skipped} (not yet in Stadion)`);
+      logger.log(`  Skipped: ${stats.workHistory.skipped} (not yet in Rondo Club)`);
     }
   } else {
     logger.log('Work history synced: 0 changes');
@@ -90,7 +90,7 @@ function printSummary(logger, stats) {
 /**
  * Run functions sync pipeline
  * - Download functions and committees from Sportlink
- * - Sync commissies to Stadion
+ * - Sync commissies to Rondo Club
  * - Sync commissie work history
  *
  * Daily: processes only members with recent updates (recentOnly=true)
@@ -160,8 +160,8 @@ async function runFunctionsSync(options = {}) {
       });
     }
 
-    // Step 2: Sync commissies to Stadion
-    logger.verbose('Syncing commissies to Stadion...');
+    // Step 2: Sync commissies to Rondo Club
+    logger.verbose('Syncing commissies to Rondo Club...');
     try {
       // Get current commissie names for orphan detection
       const { openDb, getAllCommissies } = require('../lib/rondo-club-db');
@@ -193,7 +193,7 @@ async function runFunctionsSync(options = {}) {
     }
 
     // Step 3: Sync commissie work history
-    logger.verbose('Syncing commissie work history to Stadion...');
+    logger.verbose('Syncing commissie work history to Rondo Club...');
     try {
       const workHistoryResult = await runCommissieWorkHistorySync({ logger, verbose, force });
       stats.workHistory.total = workHistoryResult.total;

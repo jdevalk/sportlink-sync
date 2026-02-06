@@ -6,7 +6,7 @@ const { runReverseSyncMultiPage } = require('../lib/reverse-sync-sportlink');
 const { detectChanges } = require('../lib/detect-rondo-club-changes');
 
 /**
- * Run full reverse sync for all fields (Stadion -> Sportlink)
+ * Run full reverse sync for all fields (Rondo Club -> Sportlink)
  * Syncs contact fields (/general), free fields (/other), and financial toggle (/financial)
  * @param {Object} options
  * @param {boolean} [options.verbose=false] - Verbose mode
@@ -17,12 +17,12 @@ async function runAllFieldsReverseSync(options = {}) {
   const { verbose = false, logger: providedLogger } = options;
   const logger = providedLogger || createSyncLogger({ verbose, prefix: 'reverse' });
 
-  logger.log('Starting reverse sync (Stadion -> Sportlink) for all fields...');
+  logger.log('Starting reverse sync (Rondo Club -> Sportlink) for all fields...');
   logger.log('Fields: email, email2, mobile, phone, datum-vog, freescout-id, financiele-blokkade');
 
   try {
-    // Detect Stadion changes to populate stadion_change_detections table
-    logger.log('Detecting Stadion changes...');
+    // Detect Rondo Club changes to populate stadion_change_detections table
+    logger.log('Detecting Rondo Club changes...');
     const detectedChanges = await detectChanges({ verbose, logger });
     logger.log(`Detected ${detectedChanges.length} field change(s)`);
 

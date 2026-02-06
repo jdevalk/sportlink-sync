@@ -28,7 +28,7 @@ function printSummary(logger, stats) {
   logger.log(`Team members downloaded: ${stats.download.memberCount}`);
   logger.log('');
 
-  logger.log('TEAM SYNC TO STADION');
+  logger.log('TEAM SYNC TO RONDO CLUB');
   logger.log(minorDivider);
   if (stats.teams.total > 0) {
     logger.log(`Teams synced: ${stats.teams.synced}/${stats.teams.total}`);
@@ -57,7 +57,7 @@ function printSummary(logger, stats) {
       logger.log(`  Team assignments ended: ${stats.workHistory.ended}`);
     }
     if (stats.workHistory.skipped > 0) {
-      logger.log(`  Skipped: ${stats.workHistory.skipped} (not yet in Stadion)`);
+      logger.log(`  Skipped: ${stats.workHistory.skipped} (not yet in Rondo Club)`);
     }
   } else {
     logger.log('Work history synced: 0 changes');
@@ -86,7 +86,7 @@ function printSummary(logger, stats) {
 /**
  * Run team sync pipeline (weekly)
  * - Download teams from Sportlink (with player/staff roles)
- * - Sync teams to Stadion
+ * - Sync teams to Rondo Club
  * - Sync work history
  *
  * Uses cached member data from last people sync (hourly download)
@@ -144,8 +144,8 @@ async function runTeamsSync(options = {}) {
       });
     }
 
-    // Step 2: Sync teams to Stadion
-    logger.verbose('Syncing teams to Stadion...');
+    // Step 2: Sync teams to Rondo Club
+    logger.verbose('Syncing teams to Rondo Club...');
     try {
       // Get sportlink IDs for orphan detection (teams we just downloaded)
       const { openDb, getAllTeamsForSync } = require('../lib/rondo-club-db');
@@ -177,7 +177,7 @@ async function runTeamsSync(options = {}) {
     }
 
     // Step 3: Sync work history
-    logger.verbose('Syncing work history to Stadion...');
+    logger.verbose('Syncing work history to Rondo Club...');
     try {
       const workHistoryResult = await runWorkHistorySync({ logger, verbose, force });
       stats.workHistory.total = workHistoryResult.total;

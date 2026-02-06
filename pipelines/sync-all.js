@@ -108,7 +108,7 @@ function printSummary(logger, stats) {
       logger.log(`  Team assignments ended: ${stats.workHistory.ended}`);
     }
     if (stats.workHistory.skipped > 0) {
-      logger.log(`  Skipped: ${stats.workHistory.skipped} (not yet in Stadion)`);
+      logger.log(`  Skipped: ${stats.workHistory.skipped} (not yet in Rondo Club)`);
     }
   } else {
     logger.log('Work history synced: 0 changes');
@@ -151,7 +151,7 @@ function printSummary(logger, stats) {
       logger.log(`  Commissie assignments ended: ${stats.commissieWorkHistory.ended}`);
     }
     if (stats.commissieWorkHistory.skipped > 0) {
-      logger.log(`  Skipped: ${stats.commissieWorkHistory.skipped} (not yet in Stadion)`);
+      logger.log(`  Skipped: ${stats.commissieWorkHistory.skipped} (not yet in Rondo Club)`);
     }
   } else {
     logger.log('Commissie work history: 0 changes');

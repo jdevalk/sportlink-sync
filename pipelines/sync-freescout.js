@@ -47,7 +47,7 @@ function printSummary(logger, stats) {
 
 /**
  * Run FreeScout sync pipeline (daily)
- * - Sync Stadion members to FreeScout customers
+ * - Sync Rondo Club members to FreeScout customers
  */
 async function runFreescoutSync(options = {}) {
   const { verbose = false, force = false } = options;
