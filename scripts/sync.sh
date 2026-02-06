@@ -3,18 +3,18 @@
 # Unified sync wrapper for cron
 #
 # Usage:
-#   sync.sh people   # 4x daily: download + laposta + stadion + photos
+#   sync.sh people   # 4x daily: download + laposta + Rondo Club + photos
 #   sync.sh photos   # Alias for people (photos integrated)
 #   sync.sh teams    # Weekly: team download + sync + work history
 #   sync.sh functions  # Daily: functions download + commissies + work history
 #   sync.sh invoice  # Monthly: functions + invoice data from /financial tab
-#   sync.sh nikki    # Daily: nikki contributions download + stadion sync
+#   sync.sh nikki    # Daily: nikki contributions download + Rondo Club sync
 #   sync.sh freescout # Daily: FreeScout customer sync
-#   sync.sh reverse  # Every 15 min: reverse sync (Stadion -> Sportlink)
+#   sync.sh reverse  # Every 15 min: reverse sync (Rondo Club -> Sportlink)
 #   sync.sh all      # Full sync (all steps)
 #
 # Configuration via environment variables in .env:
-#   - All Sportlink/Laposta/Stadion credentials
+#   - All Sportlink/Laposta/Rondo Club credentials
 #   - POSTMARK_* for email reports
 #   - OPERATOR_EMAIL for report recipient
 #
@@ -44,7 +44,7 @@ if [ -z "$1" ]; then
     fi
 
     echo ""
-    echo "Sportlink Sync — pick a pipeline:"
+    echo "Rondo Sync — pick a pipeline:"
     echo ""
     echo "  1) people           Members, parents, photos"
     echo "  2) functions        Commissies + free fields (recent updates)"

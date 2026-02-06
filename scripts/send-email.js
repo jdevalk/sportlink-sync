@@ -88,7 +88,7 @@ function formatAsHtml(textContent) {
       continue;
     }
 
-    // Section headers (all caps) - handles TOTALS, PER-LIST BREAKDOWN, STADION SYNC, ERRORS, etc.
+    // Section headers (all caps) - handles TOTALS, PER-LIST BREAKDOWN, RONDO CLUB SYNC, ERRORS, etc.
     if (/^[A-Z][A-Z\s()-]+$/.test(trimmed) && trimmed.length > 3) {
       if (inList) {
         htmlParts.push('</ul>');
@@ -234,9 +234,9 @@ function sendEmail(logContent, syncType) {
   const typeLabel = syncType ? ` (${syncType})` : '';
 
   client.sendEmail({
-    From: `Sportlink SYNC <${process.env.POSTMARK_FROM_EMAIL}>`,
+    From: `Rondo SYNC <${process.env.POSTMARK_FROM_EMAIL}>`,
     To: process.env.OPERATOR_EMAIL,
-    Subject: `Sportlink Sync Report${typeLabel} - ${today}`,
+    Subject: `Rondo Sync — Sportlink Import Report${typeLabel} - ${today}`,
     HtmlBody: formatAsHtml(logContent),
     TextBody: logContent
   })

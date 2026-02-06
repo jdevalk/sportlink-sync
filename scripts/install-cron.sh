@@ -5,8 +5,8 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-echo "Sportlink Sync - Cron Installation"
-echo "==================================="
+echo "Rondo Sync - Cron Installation"
+echo "==============================="
 echo ""
 echo "This will set up eight sync schedules:"
 echo "  - People sync:            4x daily (members, parents, photos)"
@@ -16,7 +16,7 @@ echo "  - Team sync:              weekly on Sunday at 6:00 AM"
 echo "  - Functions sync (recent):4x daily, 30 min before each people sync"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
 echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
-echo "  - Reverse sync:           hourly (Stadion -> Sportlink)"
+echo "  - Reverse sync:           hourly (Rondo Club -> Sportlink)"
 echo ""
 
 # Check if .env exists and has Postmark config
@@ -104,7 +104,7 @@ echo ""
 
 # Build cron entries - sync.sh handles locking internally
 CRON_ENTRIES="
-# Sportlink Sync automation (installed $(date +%Y-%m-%d))
+# Rondo Sync automation (installed $(date +%Y-%m-%d))
 CRON_TZ=Europe/Amsterdam
 
 # People sync: 4x daily during work hours (members, parents, photos)
@@ -128,7 +128,7 @@ CRON_TZ=Europe/Amsterdam
 # Discipline sync: weekly on Monday at 11:30 PM
 30 23 * * 1 $PROJECT_DIR/scripts/sync.sh discipline
 
-# Reverse sync: hourly (Stadion -> Sportlink)
+# Reverse sync: hourly (Rondo Club -> Sportlink)
 0 * * * * $PROJECT_DIR/scripts/sync.sh reverse
 "
 
@@ -145,7 +145,7 @@ echo "  - Team sync:              weekly on Sunday at 6:00 AM"
 echo "  - Functions sync (recent):4x daily, 30 min before each people sync"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
 echo "  - Discipline sync:        weekly on Monday at 11:30 PM"
-echo "  - Reverse sync:           hourly (Stadion -> Sportlink)"
+echo "  - Reverse sync:           hourly (Rondo Club -> Sportlink)"
 echo ""
 echo "All times are Amsterdam timezone (Europe/Amsterdam)"
 echo ""
