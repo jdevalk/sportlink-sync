@@ -53,14 +53,6 @@ const ENTITIES = {
     endpoint: 'wp/v2/commissies',
     acfKeyField: null, // Commissies use title
     label: 'Commissies'
-  },
-  importantDates: {
-    table: 'stadion_important_dates',
-    idColumn: 'stadion_date_id',
-    keyColumn: 'knvb_id',
-    endpoint: 'wp/v2/important-dates',
-    acfKeyField: null,
-    label: 'Important Dates'
   }
 };
 
@@ -278,7 +270,6 @@ Verifies:
   - Parents (stadion_parents → /wp/v2/people)
   - Teams (stadion_teams → /wp/v2/teams)
   - Commissies (stadion_commissies → /wp/v2/commissies)
-  - Important Dates (stadion_important_dates → /wp/v2/important-dates)
 `);
     process.exit(0);
   }

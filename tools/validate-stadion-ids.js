@@ -34,7 +34,6 @@ async function getAllStadionPeopleIds() {
 }
 
 async function run() {
-  const resetDates = process.argv.includes('--reset-dates');
   const dryRun = process.argv.includes('--dry-run');
 
   console.log(dryRun ? '=== DRY RUN ===' : '=== VALIDATING STADION IDS ===');
@@ -75,19 +74,11 @@ async function run() {
     console.log(`Invalidated ${invalidMembers.length} stale stadion_ids`);
   }
 
-  if (resetDates && !dryRun) {
-    console.log('');
-    console.log('Resetting important dates sync state...');
-    db.prepare('UPDATE stadion_important_dates SET stadion_date_id = NULL, last_synced_hash = NULL').run();
-    console.log('Done');
-  }
-
   db.close();
 
   if (dryRun && invalidMembers.length > 0) {
     console.log('');
     console.log('Run without --dry-run to fix these issues.');
-    console.log('Add --reset-dates to also reset important dates sync state.');
   }
 }
 

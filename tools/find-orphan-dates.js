@@ -47,6 +47,8 @@ async function fetchAllPages(endpoint, options = {}) {
 async function findOrphanDates(options = {}) {
   const { deleteOrphans = false, verbose = false } = options;
 
+  console.warn('DEPRECATED: find-orphan-dates.js is no longer needed. Birthdays now sync as acf.birthdate on person records.');
+  console.log('');
   console.log('Fetching all people from Stadion...');
   const people = await fetchAllPages('wp/v2/people', { verbose });
   console.log(`Found ${people.length} people\n`);
