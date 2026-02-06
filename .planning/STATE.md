@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 33 of 33 (Birthday Field Migration)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-02-06 — Roadmap created for v2.3
+Plan: 1 of 4 complete
+Status: In progress
+Last activity: 2026-02-06 — Completed 33-01-PLAN.md (Add birthdate ACF field)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 25%
 
 ## Accumulated Context
 
@@ -25,6 +25,7 @@ Recent decisions affecting current work:
 
 - [v2.3]: All 4 birthday migration requirements in single phase (tightly coupled, no natural split)
 - [v2.3]: Birthdate field uses Y-m-d format matching Stadion ACF date field convention
+- [33-01]: No separate birthdate counter in email report - birthdate is just another ACF field covered by existing person sync stats
 
 ### Pending Todos
 
@@ -44,11 +45,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None.
+- **Production testing needed (33-01):** Must verify birthdate field appears in Stadion after next sync and email report has correct format
+- **Unused code (33-02):** steps/sync-important-dates.js still exists but is now unused - will be removed in Phase 33-02
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Roadmap created for v2.3, ready to plan Phase 33
+Stopped at: Completed 33-01-PLAN.md execution (Add birthdate ACF field)
 Resume file: None
-Next steps: `/gsd:plan-phase 33`
+Next steps: Continue to 33-02 (Remove unused birthday sync code) or test 33-01 on production
