@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Stadion Change Detection CLI
- * Detects changes in Stadion that need reverse sync to Sportlink.
+ * Rondo Club Change Detection CLI
+ * Detects changes in Rondo Club that need reverse sync to Sportlink.
  */
 
 const { detectChanges } = require('../lib/detect-stadion-changes');
@@ -12,7 +12,7 @@ async function main() {
   const logger = createSyncLogger({ verbose });
 
   try {
-    logger.log('Starting Stadion change detection...');
+    logger.log('Starting Rondo Club change detection...');
     const changes = await detectChanges({ verbose, logger });
 
     if (changes.length === 0) {

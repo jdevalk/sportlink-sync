@@ -2,17 +2,17 @@ require('varlock/auto-load');
 
 const { openDb } = require('../lib/stadion-db');
 
-const STADION_URL = process.env.STADION_URL;
-const STADION_USERNAME = process.env.STADION_USERNAME;
-const STADION_APP_PASSWORD = process.env.STADION_APP_PASSWORD;
+const RONDO_URL = process.env.RONDO_URL;
+const RONDO_USERNAME = process.env.RONDO_USERNAME;
+const RONDO_APP_PASSWORD = process.env.RONDO_APP_PASSWORD;
 
 async function getAllStadionPeopleIds() {
   const validIds = new Set();
   let page = 1;
 
   while (true) {
-    const auth = Buffer.from(`${STADION_USERNAME}:${STADION_APP_PASSWORD}`).toString('base64');
-    const response = await fetch(`${STADION_URL}/wp-json/wp/v2/people?per_page=100&page=${page}`, {
+    const auth = Buffer.from(`${RONDO_USERNAME}:${RONDO_APP_PASSWORD}`).toString('base64');
+    const response = await fetch(`${RONDO_URL}/wp-json/wp/v2/people?per_page=100&page=${page}`, {
       headers: { 'Authorization': `Basic ${auth}` }
     });
 
@@ -39,10 +39,10 @@ async function run() {
   console.log(dryRun ? '=== DRY RUN ===' : '=== VALIDATING STADION IDS ===');
   console.log('');
 
-  // Get all valid person IDs from Stadion
-  console.log('Fetching valid person IDs from Stadion...');
+  // Get all valid person IDs from Rondo Club
+  console.log('Fetching valid person IDs from Rondo Club...');
   const validIds = await getAllStadionPeopleIds();
-  console.log(`Valid Stadion IDs: ${validIds.size}`);
+  console.log(`Valid Rondo Club IDs: ${validIds.size}`);
   console.log('');
 
   // Check tracking DB for invalid stadion_ids

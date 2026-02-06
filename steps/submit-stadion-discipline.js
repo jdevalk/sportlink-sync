@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const {
   openDb: openDisciplineDb,
   getCasesNeedingSync,
@@ -30,8 +30,8 @@ function toAcfDateFormat(dateString) {
 }
 
 /**
- * Build knvb_id -> stadion_id lookup map from stadion-sync.sqlite
- * @returns {Map<string, number>} - Map of KNVB ID to Stadion person ID
+ * Build knvb_id -> stadion_id lookup map from rondo-sync.sqlite
+ * @returns {Map<string, number>} - Map of KNVB ID to Rondo Club person ID
  */
 function buildPersonLookup() {
   const db = openStadionDb();
@@ -47,21 +47,21 @@ function buildPersonLookup() {
 }
 
 /**
- * Fetch person name from Stadion for title construction
- * @param {number} stadionId - WordPress person post ID
+ * Fetch person name from Rondo Club for title construction
+ * @param {number} rondoClubId - WordPress person post ID
  * @param {Object} options - Logger options
  * @param {Map<number, string>} cache - Cache for person names
  * @returns {Promise<string>} - Person name
  */
-async function fetchPersonName(stadionId, options, cache) {
-  if (cache.has(stadionId)) {
-    return cache.get(stadionId);
+async function fetchPersonName(rondoClubId, options, cache) {
+  if (cache.has(rondoClubId)) {
+    return cache.get(rondoClubId);
   }
 
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   try {
-    const response = await stadionRequest(`wp/v2/people/${stadionId}`, 'GET', null, options);
+    const response = await rondoClubRequest(`wp/v2/people/${rondoClubId}`, 'GET', null, options);
     const person = response.body;
     let name = person.title?.rendered || person.title;
 
@@ -73,21 +73,21 @@ async function fetchPersonName(stadionId, options, cache) {
     }
 
     if (!name) {
-      name = `Person ${stadionId}`;
+      name = `Person ${rondoClubId}`;
     }
 
-    cache.set(stadionId, name);
+    cache.set(rondoClubId, name);
     return name;
   } catch (error) {
-    logVerbose(`  Error fetching person ${stadionId}: ${error.message}`);
-    const fallbackName = `Person ${stadionId}`;
-    cache.set(stadionId, fallbackName);
+    logVerbose(`  Error fetching person ${rondoClubId}: ${error.message}`);
+    const fallbackName = `Person ${rondoClubId}`;
+    cache.set(rondoClubId, fallbackName);
     return fallbackName;
   }
 }
 
 /**
- * Get or create season term in Stadion WordPress
+ * Get or create season term in Rondo Club WordPress
  * @param {string} seasonName - Season string (e.g., "2025-2026")
  * @param {Object} options - Logger options
  * @param {Map<string, number>} cache - Cache for season term IDs
@@ -102,7 +102,7 @@ async function getOrCreateSeasonTermId(seasonName, options, cache) {
 
   try {
     // Try to fetch existing term
-    const response = await stadionRequest(`wp/v2/seizoen?slug=${seasonName}`, 'GET', null, options);
+    const response = await rondoClubRequest(`wp/v2/seizoen?slug=${seasonName}`, 'GET', null, options);
     const terms = response.body;
 
     if (terms && terms.length > 0) {
@@ -113,7 +113,7 @@ async function getOrCreateSeasonTermId(seasonName, options, cache) {
     }
 
     // Create new term
-    const createResponse = await stadionRequest('wp/v2/seizoen', 'POST', {
+    const createResponse = await rondoClubRequest('wp/v2/seizoen', 'POST', {
       name: seasonName,
       slug: seasonName
     }, options);
@@ -139,9 +139,9 @@ function buildCaseTitle(personName, matchDescription, matchDate) {
 }
 
 /**
- * Sync a single discipline case to Stadion (create or update)
+ * Sync a single discipline case to Rondo Club (create or update)
  * @param {Object} caseData - Case record from database
- * @param {number} personStadionId - Stadion person post ID
+ * @param {number} personStadionId - Rondo Club person post ID
  * @param {number} seasonTermId - Season term ID
  * @param {string} personName - Person name for title
  * @param {Object} db - Discipline database connection
@@ -194,7 +194,7 @@ async function syncCase(caseData, personStadionId, seasonTermId, personName, db,
     logVerbose(`  Payload: ${JSON.stringify(payload, null, 2)}`);
 
     try {
-      const response = await stadionRequest(endpoint, 'PUT', payload, options);
+      const response = await rondoClubRequest(endpoint, 'PUT', payload, options);
       updateCaseSyncState(db, dossier_id, source_hash, stadion_id, season);
       return { action: 'updated', id: stadion_id };
     } catch (error) {
@@ -227,7 +227,7 @@ async function syncCase(caseData, personStadionId, seasonTermId, personName, db,
     logVerbose(`  Payload: ${JSON.stringify(payload, null, 2)}`);
 
     try {
-      const response = await stadionRequest(endpoint, 'POST', payload, options);
+      const response = await rondoClubRequest(endpoint, 'POST', payload, options);
       const newId = response.body.id;
       updateCaseSyncState(db, dossier_id, source_hash, newId, season);
       return { action: 'created', id: newId };
@@ -259,10 +259,10 @@ async function runSync(options = {}) {
   const logVerbose = logger?.verbose.bind(logger) || (verbose ? console.log : () => {});
   const log = logger?.log.bind(logger) || console.log;
 
-  log('Starting discipline case sync to Stadion...');
+  log('Starting discipline case sync to Rondo Club...');
 
   // Build person lookup map
-  logVerbose('Building person lookup map from stadion-sync.sqlite...');
+  logVerbose('Building person lookup map from rondo-sync.sqlite...');
   const personLookup = buildPersonLookup();
   logVerbose(`  Loaded ${personLookup.size} person mappings`);
 
@@ -294,7 +294,7 @@ async function runSync(options = {}) {
     // Look up person stadion_id
     const personStadionId = personLookup.get(public_person_id);
     if (!personStadionId) {
-      logVerbose(`Skipping case ${dossier_id}: person ${public_person_id} not yet synced to Stadion`);
+      logVerbose(`Skipping case ${dossier_id}: person ${public_person_id} not yet synced to Rondo Club`);
       results.skipped_no_person++;
       continue;
     }

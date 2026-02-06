@@ -31,7 +31,7 @@ function extractTeamName(member) {
 }
 
 /**
- * Prepare Stadion teams from Sportlink data
+ * Prepare Rondo Club teams from Sportlink data
  * Extracts unique team names from UnionTeams/ClubTeams fields
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance with log(), verbose(), error() methods
@@ -101,7 +101,7 @@ async function runPrepare(options = {}) {
     };
   } catch (err) {
     const errorMsg = err.message || String(err);
-    logError('Error preparing Stadion teams:', errorMsg);
+    logError('Error preparing Rondo Club teams:', errorMsg);
     return { success: false, teams: [], skipped: 0, error: errorMsg };
   }
 }

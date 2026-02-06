@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const { runPrepare } = require('./prepare-stadion-members');
 const { runPrepare: runPrepareParents } = require('./prepare-stadion-parents');
 const {
@@ -26,7 +26,7 @@ const { extractFieldValue } = require('../lib/detect-stadion-changes');
 /**
  * Extract tracked field values from member data.
  * Handles both Sportlink format (data object from prepare-stadion-members.js)
- * and Stadion format (ACF data from WordPress API).
+ * and Rondo Club format (ACF data from WordPress API).
  *
  * @param {Object} data - Member data with ACF fields
  * @returns {Object} Object with field names as keys (using underscores)
@@ -111,12 +111,12 @@ function applyResolutions(originalData, resolutions) {
 
 /**
  * Log financial block status change as activity on person
- * Uses Stadion's activity endpoint: POST /stadion/v1/people/{id}/activities
- * @param {number} stadionId - WordPress person post ID
+ * Uses Stadion's activity endpoint: POST /rondo/v1/people/{id}/activities
+ * @param {number} rondoClubId - WordPress person post ID
  * @param {boolean} isBlocked - New financial block status
  * @param {Object} options - Logger and verbose options
  */
-async function logFinancialBlockActivity(stadionId, isBlocked, options) {
+async function logFinancialBlockActivity(rondoClubId, isBlocked, options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   const activityText = isBlocked
@@ -124,8 +124,8 @@ async function logFinancialBlockActivity(stadionId, isBlocked, options) {
     : 'Financiele blokkade opgeheven';
 
   try {
-    await stadionRequest(
-      `stadion/v1/people/${stadionId}/activities`,
+    await rondoClubRequest(
+      `stadion/v1/people/${rondoClubId}/activities`,
       'POST',
       {
         content: activityText,
@@ -142,7 +142,7 @@ async function logFinancialBlockActivity(stadionId, isBlocked, options) {
 }
 
 /**
- * Sync a single member to Stadion (create or update)
+ * Sync a single member to Rondo Club (create or update)
  * Uses local stadion_id tracking - no API search needed
  * @param {Object} member - Member record from database
  * @param {Object} db - SQLite database connection
@@ -166,7 +166,7 @@ async function syncPerson(member, db, options) {
     let conflicts = [];
 
     try {
-      const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+      const existing = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
       existingData = existing.body;
       previousBlockStatus = existingData.acf?.['financiele-blokkade'] || false;
     } catch (fetchError) {
@@ -183,7 +183,7 @@ async function syncPerson(member, db, options) {
 
     // Only proceed with update if person still exists (not 404 above)
     if (stadion_id && existingData) {
-      // Resolve conflicts between Sportlink and Stadion data
+      // Resolve conflicts between Sportlink and Rondo Club data
       let updateData = data;
       try {
         const sportlinkData = extractTrackedFieldValues(data);
@@ -206,10 +206,10 @@ async function syncPerson(member, db, options) {
       }
 
       try {
-        const response = await stadionRequest(endpoint, 'PUT', updateData, options);
+        const response = await rondoClubRequest(endpoint, 'PUT', updateData, options);
         updateSyncState(db, knvb_id, source_hash, stadion_id);
 
-        // Capture volunteer status from Stadion
+        // Capture volunteer status from Rondo Club
         const volunteerStatus = existingData.acf?.['huidig-vrijwilliger'] === '1' ? 1 : 0;
         updateVolunteerStatus(db, knvb_id, volunteerStatus);
 
@@ -248,11 +248,11 @@ async function syncPerson(member, db, options) {
   logVerbose(`Creating new person for KNVB ID: ${knvb_id}`);
   logVerbose(`  POST ${endpoint}`);
   try {
-    const response = await stadionRequest(endpoint, 'POST', data, options);
+    const response = await rondoClubRequest(endpoint, 'POST', data, options);
     const newId = response.body.id;
     updateSyncState(db, knvb_id, source_hash, newId);
 
-    // Capture volunteer status from Stadion (newly created person defaults)
+    // Capture volunteer status from Rondo Club (newly created person defaults)
     const createVolunteerStatus = response.body.acf?.['huidig-vrijwilliger'] === '1' ? 1 : 0;
     updateVolunteerStatus(db, knvb_id, createVolunteerStatus);
 
@@ -309,7 +309,7 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
 
     try {
       // Get existing child record
-      const childResponse = await stadionRequest(
+      const childResponse = await rondoClubRequest(
         `wp/v2/people/${childId}`,
         'GET',
         null,
@@ -328,7 +328,7 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
           relationship_label: ''
         };
         const mergedRelationships = [...existingRelationships, newRelationship];
-        await stadionRequest(
+        await rondoClubRequest(
           `wp/v2/people/${childId}`,
           'PUT',
           { acf: { relationships: mergedRelationships } },
@@ -344,17 +344,17 @@ async function updateChildrenParentLinks(parentId, childStadionIds, options) {
 }
 
 /**
- * Search for an existing person in Stadion by email address
+ * Search for an existing person in Rondo Club by email address
  * @param {string} email - Email to search for
  * @param {Object} options - Logger and verbose options
- * @returns {Promise<number|null>} - Stadion person ID if found, null otherwise
+ * @returns {Promise<number|null>} - Rondo Club person ID if found, null otherwise
  */
 async function findPersonByEmail(email, options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   try {
     // Use dedicated email lookup endpoint
-    const response = await stadionRequest(
+    const response = await rondoClubRequest(
       `stadion/v1/people/find-by-email?email=${encodeURIComponent(email)}`,
       'GET',
       null,
@@ -374,11 +374,11 @@ async function findPersonByEmail(email, options) {
 }
 
 /**
- * Sync a single parent to Stadion (create or update)
+ * Sync a single parent to Rondo Club (create or update)
  * Checks for existing person by email before creating new
  * @param {Object} parent - Parent record from preparation
  * @param {Object} db - SQLite database connection
- * @param {Map} knvbIdToStadionId - Map of KNVB ID to Stadion post ID for children
+ * @param {Map} knvbIdToStadionId - Map of KNVB ID to Rondo Club post ID for children
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<{action: string, id: number}>}
  */
@@ -387,7 +387,7 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
   let { stadion_id } = parent;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  // Resolve child KNVB IDs to Stadion post IDs (deduplicate to prevent duplicate relationships)
+  // Resolve child KNVB IDs to Rondo Club post IDs (deduplicate to prevent duplicate relationships)
   const childStadionIds = [...new Set(
     childKnvbIds
       .map(knvbId => knvbIdToStadionId.get(knvbId))
@@ -420,7 +420,7 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     let existingLastName = '';
     let existingKnvbId = null;
     try {
-      const existing = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+      const existing = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
       existingRelationships = existing.body.acf?.relationships || [];
       existingFirstName = existing.body.acf?.first_name || '';
       existingLastName = existing.body.acf?.last_name || '';
@@ -467,7 +467,7 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
         }
       };
 
-      await stadionRequest(
+      await rondoClubRequest(
         `wp/v2/people/${stadion_id}`,
         'PUT',
         updateData,
@@ -493,7 +493,7 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
       }
     };
 
-    const response = await stadionRequest(
+    const response = await rondoClubRequest(
       'wp/v2/people',
       'POST',
       createData,
@@ -527,7 +527,7 @@ async function deleteOrphanParents(db, currentParentEmails, options) {
 
     logVerbose(`Deleting orphan parent: ${parent.email}`);
     try {
-      await stadionRequest(
+      await rondoClubRequest(
         `wp/v2/people/${parent.stadion_id}`,
         'DELETE',
         null,
@@ -551,9 +551,9 @@ async function deleteOrphanParents(db, currentParentEmails, options) {
 }
 
 /**
- * Sync parents to Stadion
+ * Sync parents to Rondo Club
  * @param {Object} db - SQLite database connection
- * @param {Map} knvbIdToStadionId - Map of member KNVB ID to Stadion post ID
+ * @param {Map} knvbIdToStadionId - Map of member KNVB ID to Rondo Club post ID
  * @param {Object} options - Logger, verbose, force options
  * @returns {Promise<Object>} - Parent sync result
  */
@@ -635,14 +635,14 @@ async function deleteRemovedMembers(db, currentKnvbIds, options) {
 
   for (const member of toDelete) {
     if (!member.stadion_id) {
-      // Never synced to Stadion, just remove from tracking
+      // Never synced to Rondo Club, just remove from tracking
       deleteMember(db, member.knvb_id);
       continue;
     }
 
-    logVerbose(`Deleting from Stadion: ${member.knvb_id}`);
+    logVerbose(`Deleting from Rondo Club: ${member.knvb_id}`);
     try {
-      await stadionRequest(
+      await rondoClubRequest(
         `wp/v2/people/${member.stadion_id}`,
         'DELETE',
         null,
@@ -763,7 +763,7 @@ async function runSync(options = {}) {
 
       // Parents sync
       if (includeParents) {
-        // Build KNVB ID to Stadion ID mapping from ALL tracked members
+        // Build KNVB ID to Rondo Club ID mapping from ALL tracked members
         const knvbIdToStadionId = new Map();
         const allMembers = getAllTrackedMembers(db);
         allMembers.forEach(m => {

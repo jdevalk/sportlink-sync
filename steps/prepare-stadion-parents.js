@@ -65,7 +65,7 @@ function buildParentContactInfo(email, phones) {
 }
 
 /**
- * Transform parent data to Stadion person format
+ * Transform parent data to Rondo Club person format
  * @param {string} email - Parent email
  * @param {Object} data - Parent data (name, phones, address, childKnvbIds)
  * @returns {{email: string, childKnvbIds: Array, data: Object}}
@@ -87,7 +87,7 @@ function prepareParent(email, data) {
 }
 
 /**
- * Prepare Stadion parents from Sportlink data
+ * Prepare Rondo Club parents from Sportlink data
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance with log(), verbose(), error() methods
  * @param {boolean} [options.verbose=false] - Verbose mode
@@ -170,7 +170,7 @@ async function runPrepare(options = {}) {
       parents.push(prepareParent(email, data));
     });
 
-    logVerbose(`Prepared ${parents.length} parents for Stadion sync (deduplicated by email)`);
+    logVerbose(`Prepared ${parents.length} parents for Rondo Club sync (deduplicated by email)`);
 
     if (verbose && parents.length > 0) {
       logVerbose('Sample prepared parent:');
@@ -184,7 +184,7 @@ async function runPrepare(options = {}) {
     };
   } catch (err) {
     const errorMsg = err.message || String(err);
-    logError('Error preparing Stadion parents:', errorMsg);
+    logError('Error preparing Rondo Club parents:', errorMsg);
     return { success: false, parents: [], skipped: 0, error: errorMsg };
   }
 }
@@ -201,7 +201,7 @@ if (require.main === module) {
         process.exitCode = 1;
       } else if (!verbose) {
         // In default mode, print summary
-        console.log(`Prepared ${result.parents.length} parents for Stadion sync`);
+        console.log(`Prepared ${result.parents.length} parents for Rondo Club sync`);
       }
     })
     .catch(err => {

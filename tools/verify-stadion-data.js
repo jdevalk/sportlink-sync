@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Verify SQLite tracking data against Stadion WordPress.
+ * Verify SQLite tracking data against Rondo Club WordPress.
  *
  * Checks for discrepancies between local tracking database and actual
- * Stadion data. Identifies:
+ * Rondo Club data. Identifies:
  * - Invalid stadion_ids (IDs that don't exist in WordPress)
- * - Orphan records (exist in Stadion but not tracked locally)
+ * - Orphan records (exist in Rondo Club but not tracked locally)
  * - Missing mappings (tracked locally but no stadion_id)
  *
  * Usage:
@@ -17,7 +17,7 @@
 
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const { openDb } = require('../lib/stadion-db');
 
 // Configuration
@@ -57,7 +57,7 @@ const ENTITIES = {
 };
 
 /**
- * Fetch all IDs from a Stadion endpoint with pagination.
+ * Fetch all IDs from a Rondo Club endpoint with pagination.
  * @param {string} endpoint - API endpoint
  * @param {Object} options - Options object
  * @returns {Promise<Set<number>>} - Set of valid IDs
@@ -70,7 +70,7 @@ async function fetchAllIds(endpoint, options) {
   while (true) {
     let response;
     try {
-      response = await stadionRequest(
+      response = await rondoClubRequest(
         `${endpoint}?per_page=100&page=${page}&_fields=id`,
         'GET',
         null,
@@ -125,8 +125,8 @@ async function verifyEntity(db, entityKey, options) {
   console.log(`\n${config.label}`);
   console.log('─'.repeat(40));
 
-  // Fetch valid IDs from Stadion
-  if (verbose) console.log(`  Fetching from Stadion...`);
+  // Fetch valid IDs from Rondo Club
+  if (verbose) console.log(`  Fetching from Rondo Club...`);
   const validIds = await fetchAllIds(config.endpoint, options);
   console.log(`  Stadion: ${validIds.size} records`);
 
@@ -255,7 +255,7 @@ async function run() {
 
   if (help) {
     console.log(`
-Verify SQLite tracking data against Stadion WordPress.
+Verify SQLite tracking data against Rondo Club WordPress.
 
 Usage:
   node scripts/verify-stadion-data.js [options]

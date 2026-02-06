@@ -11,20 +11,20 @@ const { readEnv } = require('../lib/utils');
 const { createLoggerAdapter } = require('../lib/log-adapters');
 
 /**
- * Validate Stadion credentials exist
+ * Validate Rondo Club credentials exist
  * @throws {Error} If credentials are missing or invalid
  */
 function validateCredentials() {
-  const url = readEnv('STADION_URL');
-  const username = readEnv('STADION_USERNAME');
-  const password = readEnv('STADION_APP_PASSWORD');
+  const url = readEnv('RONDO_URL');
+  const username = readEnv('RONDO_USERNAME');
+  const password = readEnv('RONDO_APP_PASSWORD');
 
   if (!url || !username || !password) {
-    throw new Error('STADION_URL, STADION_USERNAME, and STADION_APP_PASSWORD required in .env');
+    throw new Error('RONDO_URL, RONDO_USERNAME, and RONDO_APP_PASSWORD required in .env');
   }
 
   if (!url.startsWith('https://')) {
-    throw new Error('STADION_URL must start with https://');
+    throw new Error('RONDO_URL must start with https://');
   }
 }
 
@@ -58,13 +58,13 @@ async function findPhotoFile(knvbId, photosDir) {
 }
 
 /**
- * Upload photo to Stadion WordPress via multipart/form-data
- * @param {number} stadionId - WordPress person post ID
+ * Upload photo to Rondo Club WordPress via multipart/form-data
+ * @param {number} rondoClubId - WordPress person post ID
  * @param {string} photoPath - Local path to photo file
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<void>}
  */
-function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
+function uploadPhotoToStadion(rondoClubId, photoPath, options = {}) {
   return new Promise(async (resolve, reject) => {
     try {
       validateCredentials();
@@ -76,9 +76,9 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
     const { logger, verbose = false } = options;
     const { verbose: logVerbose } = createLoggerAdapter({ logger, verbose });
 
-    const baseUrl = readEnv('STADION_URL');
-    const username = readEnv('STADION_USERNAME');
-    const password = readEnv('STADION_APP_PASSWORD');
+    const baseUrl = readEnv('RONDO_URL');
+    const username = readEnv('RONDO_USERNAME');
+    const password = readEnv('RONDO_APP_PASSWORD');
 
     // Build Basic Auth header
     const authString = `${username}:${password}`;
@@ -86,7 +86,7 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
 
     // Parse base URL and build full path
     const parsedUrl = new URL(baseUrl);
-    const fullPath = `/wp-json/stadion/v1/people/${stadionId}/photo`;
+    const fullPath = `/wp-json/rondo/v1/people/${rondoClubId}/photo`;
 
     logVerbose(`POST ${fullPath}`);
 
@@ -118,7 +118,7 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve();
         } else {
-          const error = new Error(`Stadion API error (${res.statusCode})`);
+          const error = new Error(`Rondo Club API error (${res.statusCode})`);
           error.details = data;
           reject(error);
         }
@@ -127,7 +127,7 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
 
     req.on('error', (err) => {
       if (err.code === 'ETIMEDOUT') {
-        const timeoutError = new Error('Request timeout: Stadion API did not respond within 30 seconds');
+        const timeoutError = new Error('Request timeout: Rondo Club API did not respond within 30 seconds');
         timeoutError.code = 'ETIMEDOUT';
         reject(timeoutError);
       } else {
@@ -137,7 +137,7 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
 
     req.on('timeout', () => {
       req.destroy();
-      const timeoutError = new Error('Request timeout: Stadion API did not respond within 30 seconds');
+      const timeoutError = new Error('Request timeout: Rondo Club API did not respond within 30 seconds');
       timeoutError.code = 'ETIMEDOUT';
       reject(timeoutError);
     });
@@ -147,12 +147,12 @@ function uploadPhotoToStadion(stadionId, photoPath, options = {}) {
 }
 
 /**
- * Delete photo from Stadion WordPress
- * @param {number} stadionId - WordPress person post ID
+ * Delete photo from Rondo Club WordPress
+ * @param {number} rondoClubId - WordPress person post ID
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<void>}
  */
-function deletePhotoFromStadion(stadionId, options = {}) {
+function deletePhotoFromStadion(rondoClubId, options = {}) {
   return new Promise((resolve, reject) => {
     try {
       validateCredentials();
@@ -164,9 +164,9 @@ function deletePhotoFromStadion(stadionId, options = {}) {
     const { logger, verbose = false } = options;
     const { verbose: logVerbose } = createLoggerAdapter({ logger, verbose });
 
-    const baseUrl = readEnv('STADION_URL');
-    const username = readEnv('STADION_USERNAME');
-    const password = readEnv('STADION_APP_PASSWORD');
+    const baseUrl = readEnv('RONDO_URL');
+    const username = readEnv('RONDO_USERNAME');
+    const password = readEnv('RONDO_APP_PASSWORD');
 
     // Build Basic Auth header
     const authString = `${username}:${password}`;
@@ -174,7 +174,7 @@ function deletePhotoFromStadion(stadionId, options = {}) {
 
     // Parse base URL and build full path
     const parsedUrl = new URL(baseUrl);
-    const fullPath = `/wp-json/stadion/v1/people/${stadionId}/photo`;
+    const fullPath = `/wp-json/rondo/v1/people/${rondoClubId}/photo`;
 
     logVerbose(`DELETE ${fullPath}`);
 
@@ -202,7 +202,7 @@ function deletePhotoFromStadion(stadionId, options = {}) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve();
         } else {
-          const error = new Error(`Stadion API error (${res.statusCode})`);
+          const error = new Error(`Rondo Club API error (${res.statusCode})`);
           error.details = data;
           reject(error);
         }
@@ -211,7 +211,7 @@ function deletePhotoFromStadion(stadionId, options = {}) {
 
     req.on('error', (err) => {
       if (err.code === 'ETIMEDOUT') {
-        const timeoutError = new Error('Request timeout: Stadion API did not respond within 30 seconds');
+        const timeoutError = new Error('Request timeout: Rondo Club API did not respond within 30 seconds');
         timeoutError.code = 'ETIMEDOUT';
         reject(timeoutError);
       } else {
@@ -221,7 +221,7 @@ function deletePhotoFromStadion(stadionId, options = {}) {
 
     req.on('timeout', () => {
       req.destroy();
-      const timeoutError = new Error('Request timeout: Stadion API did not respond within 30 seconds');
+      const timeoutError = new Error('Request timeout: Rondo Club API did not respond within 30 seconds');
       timeoutError.code = 'ETIMEDOUT';
       reject(timeoutError);
     });
@@ -312,7 +312,7 @@ async function runPhotoSync(options = {}) {
           continue;
         }
 
-        // Upload to Stadion
+        // Upload to Rondo Club
         try {
           await uploadPhotoToStadion(member.stadion_id, photoFile.path, options);
           updatePhotoState(db, member.knvb_id, 'synced');
@@ -372,28 +372,28 @@ async function runPhotoSync(options = {}) {
           }
         } catch (error) {
           logger.verbose(`  Local delete failed: ${error.message}`);
-          // Continue - try Stadion deletion anyway
+          // Continue - try Rondo Club deletion anyway
         }
 
-        // Delete from Stadion if member has stadion_id
+        // Delete from Rondo Club if member has stadion_id
         if (member.stadion_id) {
           try {
             await deletePhotoFromStadion(member.stadion_id, options);
             stadionDeleted = true;
-            logger.verbose(`  Deleted from Stadion`);
+            logger.verbose(`  Deleted from Rondo Club`);
           } catch (error) {
-            // 404 means no photo exists on Stadion - that's the desired state
+            // 404 means no photo exists on Rondo Club - that's the desired state
             if (error.message.includes('404')) {
               stadionDeleted = true;
-              logger.verbose(`  No photo on Stadion (404) - already clean`);
+              logger.verbose(`  No photo on Rondo Club (404) - already clean`);
             } else {
               deleteError = error.message;
-              logger.verbose(`  Stadion delete failed: ${error.message}`);
+              logger.verbose(`  Rondo Club delete failed: ${error.message}`);
             }
             // Continue - clear state anyway
           }
         } else {
-          logger.verbose(`  No stadion_id - skipping Stadion deletion`);
+          logger.verbose(`  No stadion_id - skipping Rondo Club deletion`);
         }
 
         // Clear photo state (marks as no_photo and clears person_image_date)

@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 
 /**
  * Delete teams that have commas in their names (bad sync data)
@@ -9,7 +9,7 @@ async function cleanupCommaTeams() {
   const verbose = process.argv.includes('--verbose');
   const dryRun = process.argv.includes('--dry-run');
 
-  console.log('Fetching teams from Stadion...');
+  console.log('Fetching teams from Rondo Club...');
 
   // Fetch all teams (paginate if needed)
   let allTeams = [];
@@ -17,7 +17,7 @@ async function cleanupCommaTeams() {
   let hasMore = true;
 
   while (hasMore) {
-    const response = await stadionRequest(
+    const response = await rondoClubRequest(
       `wp/v2/teams?per_page=100&page=${page}`,
       'GET',
       null,
@@ -66,7 +66,7 @@ async function cleanupCommaTeams() {
   for (const team of commaTeams) {
     const title = team.title?.rendered || team.title || '';
     try {
-      await stadionRequest(
+      await rondoClubRequest(
         `wp/v2/teams/${team.id}?force=true`,
         'DELETE',
         null,

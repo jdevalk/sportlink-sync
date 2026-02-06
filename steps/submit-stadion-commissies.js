@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const {
   openDb,
   getCommissiesNeedingSync,
@@ -23,7 +23,7 @@ async function fetchAllWordPressCommissies(options) {
 
   while (true) {
     try {
-      const response = await stadionRequest(`wp/v2/commissies?per_page=100&page=${page}`, 'GET', null, options);
+      const response = await rondoClubRequest(`wp/v2/commissies?per_page=100&page=${page}`, 'GET', null, options);
       const pageCommissies = response.body;
       if (pageCommissies.length === 0) break;
       commissies.push(...pageCommissies.map(c => ({ id: c.id, title: c.title?.rendered || c.title })));
@@ -42,7 +42,7 @@ async function fetchAllWordPressCommissies(options) {
 }
 
 /**
- * Sync a single commissie to Stadion (create or update)
+ * Sync a single commissie to Rondo Club (create or update)
  * @param {Object} commissie - Commissie record from database
  * @param {Object} db - SQLite database connection
  * @param {Object} options - Logger and verbose options
@@ -68,7 +68,7 @@ async function syncCommissie(commissie, db, options) {
     logVerbose(`Updating existing commissie: ${stadion_id} - ${commissie_name}`);
     logVerbose(`  PUT ${endpoint}`);
     try {
-      const response = await stadionRequest(endpoint, 'PUT', payload, options);
+      const response = await rondoClubRequest(endpoint, 'PUT', payload, options);
       updateCommissieSyncState(db, commissie_name, source_hash, stadion_id);
       return { action: 'updated', id: stadion_id };
     } catch (error) {
@@ -100,7 +100,7 @@ async function syncCommissie(commissie, db, options) {
     logVerbose(`Creating new commissie: ${commissie_name}`);
     logVerbose(`  POST ${endpoint}`);
     try {
-      const response = await stadionRequest(endpoint, 'POST', payload, options);
+      const response = await rondoClubRequest(endpoint, 'POST', payload, options);
       const newId = response.body.id;
       updateCommissieSyncState(db, commissie_name, source_hash, newId);
       return { action: 'created', id: newId };
@@ -197,7 +197,7 @@ async function runSync(options = {}) {
             // Delete from WordPress if it has a stadion_id
             if (orphan.stadion_id) {
               try {
-                await stadionRequest(`wp/v2/commissies/${orphan.stadion_id}`, 'DELETE', { force: true }, options);
+                await rondoClubRequest(`wp/v2/commissies/${orphan.stadion_id}`, 'DELETE', { force: true }, options);
                 logVerbose(`  Deleted from WordPress: ${orphan.stadion_id}`);
               } catch (error) {
                 // Ignore 404 errors (already deleted)
@@ -233,7 +233,7 @@ async function runSync(options = {}) {
         for (const commissie of untrackedCommissies) {
           logVerbose(`Deleting untracked commissie: ${commissie.title} (ID: ${commissie.id})`);
           try {
-            await stadionRequest(`wp/v2/commissies/${commissie.id}`, 'DELETE', { force: true }, options);
+            await rondoClubRequest(`wp/v2/commissies/${commissie.id}`, 'DELETE', { force: true }, options);
             logVerbose(`  Deleted from WordPress: ${commissie.id}`);
             result.deleted++;
           } catch (error) {

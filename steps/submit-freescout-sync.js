@@ -347,7 +347,7 @@ async function runSubmit(options = {}) {
   try {
     db = openDb();
 
-    // Step 1: Prepare customers from Stadion/Nikki data
+    // Step 1: Prepare customers from Rondo Club/Nikki data
     const prepared = await runPrepare({ logger, verbose });
     if (!prepared.success) {
       result.success = false;

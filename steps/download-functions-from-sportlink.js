@@ -17,7 +17,7 @@ const {
 const { createSyncLogger } = require('../lib/logger');
 const { loginToSportlink } = require('../lib/sportlink-login');
 const { createLoggerAdapter, createDebugLogger } = require('../lib/log-adapters');
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 
 /**
  * Parse functions API response
@@ -380,7 +380,7 @@ async function fetchMemberFunctions(page, knvbId, logger) {
 }
 
 /**
- * Fetch KNVB IDs of volunteers needing VOG from Stadion API.
+ * Fetch KNVB IDs of volunteers needing VOG from Rondo Club API.
  * These are people we're actively waiting on a change for, so we want to
  * check their Sportlink data daily regardless of LastUpdate.
  * @param {Object} logger - Logger instance
@@ -392,7 +392,7 @@ async function fetchVogFilteredKnvbIds(logger) {
 
   try {
     while (true) {
-      const response = await stadionRequest(
+      const response = await rondoClubRequest(
         `stadion/v1/people/filtered?huidig_vrijwilliger=1&vog_missing=1&vog_older_than_years=3&per_page=100&page=${page}`,
         'GET',
         null,
@@ -411,7 +411,7 @@ async function fetchVogFilteredKnvbIds(logger) {
       page++;
     }
   } catch (err) {
-    logger.verbose(`Could not fetch VOG-filtered people from Stadion: ${err.message}`);
+    logger.verbose(`Could not fetch VOG-filtered people from Rondo Club: ${err.message}`);
   }
 
   return knvbIds;
@@ -468,12 +468,12 @@ async function runFunctionsDownload(options = {}) {
 
   const db = openDb();
   try {
-    // Get all tracked members (those already synced to Stadion)
+    // Get all tracked members (those already synced to Rondo Club)
     let members = getAllTrackedMembers(db);
     const allMembersCount = members.length;
 
     if (members.length === 0) {
-      logger.log('No tracked members found. Run Stadion sync first.');
+      logger.log('No tracked members found. Run Rondo Club sync first.');
       return result;
     }
 
@@ -504,7 +504,7 @@ async function runFunctionsDownload(options = {}) {
           const recentMembers = filterRecentlyUpdated(members, memberDataMap, days);
           const recentKnvbIds = new Set(recentMembers.map(m => m.knvb_id));
 
-          // Also fetch VOG-filtered people from Stadion (volunteers we're waiting on)
+          // Also fetch VOG-filtered people from Rondo Club (volunteers we're waiting on)
           const vogKnvbIds = await fetchVogFilteredKnvbIds(logger);
           let vogAddedCount = 0;
           if (vogKnvbIds.size > 0) {

@@ -32,7 +32,7 @@ function nikkiDbExists() {
  * Get existing FreeScout ID for a member
  * First checks freescout_customers table (authoritative), then sportlink_member_free_fields (secondary)
  * @param {Object} freescoutDb - FreeScout database connection
- * @param {Object} stadionDb - Stadion database connection
+ * @param {Object} stadionDb - Rondo Club database connection
  * @param {string} knvbId - Member KNVB ID
  * @returns {number|null} - FreeScout customer ID or null
  */
@@ -53,7 +53,7 @@ function getExistingFreescoutId(freescoutDb, stadionDb, knvbId) {
 }
 
 /**
- * Get photo URL for a member (only if photo is synced to Stadion)
+ * Get photo URL for a member (only if photo is synced to Rondo Club)
  * @param {Object} member - Member record from stadion_members
  * @returns {string|null} - Photo URL or null
  */
@@ -63,17 +63,17 @@ function getPhotoUrl(member) {
     return null;
   }
 
-  // Construct Stadion photo URL
+  // Construct Rondo Club photo URL
   // The photo is attached to the person post in WordPress
-  // Format: STADION_URL/wp-json/wp/v2/media?parent={stadion_id}
+  // Format: RONDO_URL/wp-json/wp/v2/media?parent={stadion_id}
   // But for FreeScout, we just need the featured image URL which requires another API call
-  // For now, we'll skip photo URLs - FreeScout can fetch from Stadion if needed
+  // For now, we'll skip photo URLs - FreeScout can fetch from Rondo Club if needed
   return null;
 }
 
 /**
  * Get union teams (comma-separated) from work history
- * @param {Object} stadionDb - Stadion database connection
+ * @param {Object} stadionDb - Rondo Club database connection
  * @param {string} knvbId - Member KNVB ID
  * @returns {string} - Comma-separated team names or empty string
  */
@@ -123,7 +123,7 @@ function getMostRecentNikkiData(nikkiDb, knvbId) {
  * Transform a stadion member to FreeScout customer format
  * @param {Object} member - Member record from stadion_members
  * @param {Object} freescoutDb - FreeScout database connection
- * @param {Object} stadionDb - Stadion database connection
+ * @param {Object} stadionDb - Rondo Club database connection
  * @param {Object|null} nikkiDb - Nikki database connection (may be null)
  * @returns {Object|null} - FreeScout customer object or null if no email
  */
@@ -207,7 +207,7 @@ async function runPrepare(options = {}) {
   let nikkiWarningLogged = false;
 
   try {
-    // Open Stadion database
+    // Open Rondo Club database
     stadionDb = openStadionDb();
 
     // Open FreeScout database
@@ -235,7 +235,7 @@ async function runPrepare(options = {}) {
     `);
     const memberRows = stmt.all();
 
-    logVerbose(`Found ${memberRows.length} members in Stadion database`);
+    logVerbose(`Found ${memberRows.length} members in Rondo Club database`);
 
     // Transform each member
     const customers = [];

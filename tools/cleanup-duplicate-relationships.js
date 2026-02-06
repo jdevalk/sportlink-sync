@@ -2,13 +2,13 @@
 /**
  * Cleanup script for duplicate and self-referential relationships
  *
- * Scans all people in Stadion and removes:
+ * Scans all people in Rondo Club and removes:
  * - Duplicate relationships (same person + type)
  * - Self-referential relationships (pointing to themselves)
  */
 
 require('varlock/auto-load');
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 
 async function cleanupAllRelationships() {
   console.log('Scanning all people for relationship issues...');
@@ -20,7 +20,7 @@ async function cleanupAllRelationships() {
   while (true) {
     let people;
     try {
-      const response = await stadionRequest(`wp/v2/people?per_page=100&page=${page}`, 'GET');
+      const response = await rondoClubRequest(`wp/v2/people?per_page=100&page=${page}`, 'GET');
       people = response.body;
     } catch (e) {
       if (e.message.includes('400')) break; // No more pages
@@ -58,7 +58,7 @@ async function cleanupAllRelationships() {
       if (issues > 0) {
         console.log(`Fixing ${person.id} (${person.acf.first_name} ${person.acf.last_name}): ${relationships.length} -> ${deduped.length} relationships`);
 
-        await stadionRequest(
+        await rondoClubRequest(
           `wp/v2/people/${person.id}`,
           'PUT',
           {

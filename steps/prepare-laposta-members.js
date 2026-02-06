@@ -441,7 +441,7 @@ function processMembers(members, mapping, aggregationMaps, volunteerStatusMap) {
   members.forEach(member => {
     const baseCustomFields = buildBaseCustomFields(member, mapping);
 
-    // Add volunteer status from Stadion (not in field-mapping.json, comes from Stadion DB)
+    // Add volunteer status from Rondo Club (not in field-mapping.json, comes from Rondo Club DB)
     const knvbId = member.PublicPersonId;
     if (knvbId && volunteerStatusMap.has(String(knvbId))) {
       baseCustomFields.huidigvrijwilliger = String(volunteerStatusMap.get(String(knvbId)));
@@ -539,7 +539,7 @@ async function runPrepare(options = {}) {
     // Build aggregation maps and process members
     const aggregationMaps = buildAggregationMaps(members, mapping);
 
-    // Load volunteer status from Stadion DB
+    // Load volunteer status from Rondo Club DB
     let volunteerStatusMap = new Map();
     try {
       const stadionDb = openStadionDb();
@@ -549,7 +549,7 @@ async function runPrepare(options = {}) {
         stadionDb.close();
       }
     } catch (e) {
-      logVerbose('Could not load volunteer status from Stadion DB, defaulting all to 0');
+      logVerbose('Could not load volunteer status from Rondo Club DB, defaulting all to 0');
     }
 
     const { listMembers, excludedCount } = processMembers(members, mapping, aggregationMaps, volunteerStatusMap);

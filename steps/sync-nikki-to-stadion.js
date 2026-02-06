@@ -28,7 +28,7 @@ function computeFieldsHash(fields) {
 }
 
 /**
- * Sync Nikki contribution data to Stadion per-year ACF fields
+ * Sync Nikki contribution data to Rondo Club per-year ACF fields
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance
  * @param {boolean} [options.verbose=false] - Verbose mode
@@ -52,13 +52,13 @@ async function runNikkiStadionSync(options = {}) {
   const stadionDb = openStadionDb();
 
   try {
-    logger.log('Starting Nikki → Stadion sync');
+    logger.log('Starting Nikki → Rondo Club sync');
 
     // Get all Nikki contributions grouped by KNVB ID
     const contributionsByMember = getContributionsGroupedByMember(nikkiDb);
     logger.verbose(`Found contributions for ${contributionsByMember.size} members`);
 
-    // Get all tracked members from Stadion DB (knvb_id → stadion_id mapping)
+    // Get all tracked members from Rondo Club DB (knvb_id → stadion_id mapping)
     const trackedMembers = getAllTrackedMembers(stadionDb);
     const knvbIdToStadionId = new Map();
     for (const member of trackedMembers) {
@@ -66,16 +66,16 @@ async function runNikkiStadionSync(options = {}) {
         knvbIdToStadionId.set(member.knvb_id, member.stadion_id);
       }
     }
-    logger.verbose(`Loaded ${knvbIdToStadionId.size} KNVB → Stadion ID mappings`);
+    logger.verbose(`Loaded ${knvbIdToStadionId.size} KNVB → Rondo Club ID mappings`);
 
     // Process each member with contributions
     let processed = 0;
     for (const [knvbId, contributions] of contributionsByMember) {
       processed++;
-      const stadionId = knvbIdToStadionId.get(knvbId);
+      const rondoClubId = knvbIdToStadionId.get(knvbId);
 
-      if (!stadionId) {
-        logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: No Stadion ID, skipping`);
+      if (!rondoClubId) {
+        logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: No Rondo Club ID, skipping`);
         result.noStadionId++;
         continue;
       }
@@ -84,14 +84,14 @@ async function runNikkiStadionSync(options = {}) {
       const perYearFields = buildPerYearAcfFields(contributions);
       const newFieldsHash = computeFieldsHash(perYearFields);
 
-      // Fetch existing data from Stadion (needed for change detection AND name fields)
+      // Fetch existing data from Rondo Club (needed for change detection AND name fields)
       let existingFirstName = '';
       let existingLastName = '';
       let skipUpdate = false;
 
       try {
         const response = await stadionRequestWithRetry(
-          `wp/v2/people/${stadionId}?_fields=acf`,
+          `wp/v2/people/${rondoClubId}?_fields=acf`,
           'GET',
           null,
           { verbose: false }
@@ -129,17 +129,17 @@ async function runNikkiStadionSync(options = {}) {
 
       if (dryRun) {
         const years = contributions.map(c => c.year).join(', ');
-        logger.log(`[DRY-RUN] Would update ${knvbId} (Stadion ID: ${stadionId}, years: ${years})`);
+        logger.log(`[DRY-RUN] Would update ${knvbId} (Stadion ID: ${rondoClubId}, years: ${years})`);
         result.updated++;
         continue;
       }
 
       // Update Stadion
       try {
-        logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: Updating Stadion ID ${stadionId}`);
+        logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: Updating Rondo Club ID ${rondoClubId}`);
 
         await stadionRequestWithRetry(
-          `wp/v2/people/${stadionId}`,
+          `wp/v2/people/${rondoClubId}`,
           'PUT',
           {
             acf: {
@@ -170,10 +170,10 @@ async function runNikkiStadionSync(options = {}) {
     }
 
     // Summary
-    logger.log(`Nikki → Stadion sync complete`);
+    logger.log(`Nikki → Rondo Club sync complete`);
     logger.log(`  Updated: ${result.updated}`);
     logger.log(`  Skipped (no changes): ${result.skipped}`);
-    logger.log(`  Skipped (no Stadion ID): ${result.noStadionId}`);
+    logger.log(`  Skipped (no Rondo Club ID): ${result.noStadionId}`);
     if (result.errors > 0) {
       logger.log(`  Errors: ${result.errors}`);
       result.success = false;

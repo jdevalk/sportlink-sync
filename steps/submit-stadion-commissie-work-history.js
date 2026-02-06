@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const {
   openDb,
   getAllCommissies,
@@ -92,7 +92,7 @@ function detectCommissieChanges(db, knvbId, currentCommissies) {
  * Sync commissie work history for a single member.
  * @param {Object} member - Member with KNVB ID, stadion_id
  * @param {Array} currentCommissies - Current commissie memberships
- * @param {Object} db - Stadion SQLite database
+ * @param {Object} db - Rondo Club SQLite database
  * @param {Map} commissieMap - Map<commissie_name, stadion_id>
  * @param {Object} options - Logger and verbose options
  * @param {boolean} force - Force update even unchanged entries
@@ -102,9 +102,9 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
   const { knvb_id, stadion_id } = member;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  // Skip if member not yet synced to Stadion
+  // Skip if member not yet synced to Rondo Club
   if (!stadion_id) {
-    logVerbose(`Skipping ${knvb_id}: not yet synced to Stadion`);
+    logVerbose(`Skipping ${knvb_id}: not yet synced to Rondo Club`);
     return { action: 'skipped', added: 0, ended: 0 };
   }
 
@@ -117,7 +117,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
   let existingFirstName = '';
   let existingLastName = '';
   try {
-    const response = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+    const response = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
     existingWorkHistory = response.body.acf?.work_history || [];
     existingFirstName = response.body.acf?.first_name || '';
     existingLastName = response.body.acf?.last_name || '';
@@ -219,7 +219,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
   // Update WordPress if modified
   if (modified) {
     try {
-      await stadionRequest(
+      await rondoClubRequest(
         `wp/v2/people/${stadion_id}`,
         'PUT',
         { acf: { first_name: existingFirstName, last_name: existingLastName, work_history: newWorkHistory } },
@@ -269,7 +269,7 @@ async function runSync(options = {}) {
       // Load commissie mapping
       const commissies = getAllCommissies(db);
       const commissieMap = new Map(commissies.map(c => [c.commissie_name, c.stadion_id]));
-      logVerbose(`Loaded ${commissies.length} commissies from Stadion`);
+      logVerbose(`Loaded ${commissies.length} commissies from Rondo Club`);
 
       if (commissies.length === 0) {
         logVerbose('No commissies found. Run commissie sync first.');

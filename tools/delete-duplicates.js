@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Delete duplicate entries from Stadion WordPress
+ * Delete duplicate entries from Rondo Club WordPress
  *
  * Identifies duplicates by finding KNVB IDs that appear more than once,
  * then deletes the NEWER entries (keeping the oldest original).
@@ -12,22 +12,22 @@
 
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 
-const STADION_URL = process.env.STADION_URL;
-const STADION_USERNAME = process.env.STADION_USERNAME;
-const STADION_APP_PASSWORD = process.env.STADION_APP_PASSWORD;
+const RONDO_URL = process.env.RONDO_URL;
+const RONDO_USERNAME = process.env.RONDO_USERNAME;
+const RONDO_APP_PASSWORD = process.env.RONDO_APP_PASSWORD;
 
 async function getAllPeople() {
   const people = [];
   let page = 1;
 
-  console.log('Fetching all people from Stadion...');
+  console.log('Fetching all people from Rondo Club...');
 
   while (true) {
-    const auth = Buffer.from(`${STADION_USERNAME}:${STADION_APP_PASSWORD}`).toString('base64');
+    const auth = Buffer.from(`${RONDO_USERNAME}:${RONDO_APP_PASSWORD}`).toString('base64');
     const response = await fetch(
-      `${STADION_URL}/wp-json/wp/v2/people?per_page=100&page=${page}&_fields=id,date,acf`,
+      `${RONDO_URL}/wp-json/wp/v2/people?per_page=100&page=${page}&_fields=id,date,acf`,
       { headers: { 'Authorization': `Basic ${auth}` } }
     );
 
@@ -91,7 +91,7 @@ async function deletePerson(id, dryRun) {
   }
 
   try {
-    await stadionRequest(`wp/v2/people/${id}?force=true`, 'DELETE', null, {});
+    await rondoClubRequest(`wp/v2/people/${id}?force=true`, 'DELETE', null, {});
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

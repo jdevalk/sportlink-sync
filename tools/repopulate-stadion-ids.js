@@ -1,10 +1,10 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const { openDb, updateSyncState, getAllTrackedMembers } = require('../lib/stadion-db');
 
 /**
- * Fetch all people from Stadion with their KNVB IDs.
+ * Fetch all people from Rondo Club with their KNVB IDs.
  * Uses pagination to handle large datasets.
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<Map<string, number>>} - Map<knvb_id, stadion_id>
@@ -15,12 +15,12 @@ async function fetchAllPeopleFromStadion(options) {
   let page = 1;
   let hasMore = true;
 
-  logVerbose('Fetching all people from Stadion...');
+  logVerbose('Fetching all people from Rondo Club...');
 
   while (hasMore) {
     let response;
     try {
-      response = await stadionRequest(
+      response = await rondoClubRequest(
         `wp/v2/people?_fields=id,acf.knvb-id&per_page=100&page=${page}`,
         'GET',
         null,
@@ -64,7 +64,7 @@ async function fetchAllPeopleFromStadion(options) {
 }
 
 /**
- * Repopulate stadion_ids in local database from Stadion API.
+ * Repopulate stadion_ids in local database from Rondo Club API.
  * @param {Object} options
  * @param {boolean} [options.verbose=false] - Verbose mode
  * @param {boolean} [options.dryRun=false] - Don't update, just report
@@ -76,9 +76,9 @@ async function runRepopulate(options = {}) {
   const db = openDb();
 
   try {
-    // Fetch all people from Stadion
+    // Fetch all people from Rondo Club
     const knvbToStadion = await fetchAllPeopleFromStadion(options);
-    console.log(`Found ${knvbToStadion.size} people in Stadion with KNVB IDs`);
+    console.log(`Found ${knvbToStadion.size} people in Rondo Club with KNVB IDs`);
 
     // Get all tracked members from local DB (including those without stadion_id)
     const trackedMembers = db.prepare(`
@@ -93,20 +93,20 @@ async function runRepopulate(options = {}) {
     let notInStadion = 0;
 
     for (const member of trackedMembers) {
-      const stadionId = knvbToStadion.get(member.knvb_id);
+      const rondoClubId = knvbToStadion.get(member.knvb_id);
 
-      if (stadionId) {
-        if (member.stadion_id === stadionId) {
+      if (rondoClubId) {
+        if (member.stadion_id === rondoClubId) {
           alreadySet++;
           continue;
         }
 
         if (dryRun) {
-          logVerbose(`Would update ${member.knvb_id}: stadion_id ${member.stadion_id || 'null'} -> ${stadionId}`);
+          logVerbose(`Would update ${member.knvb_id}: stadion_id ${member.stadion_id || 'null'} -> ${rondoClubId}`);
         } else {
           // Update the stadion_id - use existing hash to avoid re-syncing
-          updateSyncState(db, member.knvb_id, member.last_synced_hash, stadionId);
-          logVerbose(`Updated ${member.knvb_id}: stadion_id -> ${stadionId}`);
+          updateSyncState(db, member.knvb_id, member.last_synced_hash, rondoClubId);
+          logVerbose(`Updated ${member.knvb_id}: stadion_id -> ${rondoClubId}`);
         }
         updated++;
       } else {

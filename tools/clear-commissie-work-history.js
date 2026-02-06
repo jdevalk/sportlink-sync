@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const { openDb, getAllTrackedMembers, getAllActiveMemberFunctions, getAllActiveMemberCommittees } = require('../lib/stadion-db');
 
 async function clearWorkHistory() {
@@ -19,17 +19,17 @@ async function clearWorkHistory() {
 
   let count = 0;
   for (const knvbId of knvbIds) {
-    const stadionId = memberMap.get(knvbId);
-    if (!stadionId) continue;
+    const rondoClubId = memberMap.get(knvbId);
+    if (!rondoClubId) continue;
 
     try {
       // Get existing data
-      const resp = await stadionRequest(`wp/v2/people/${stadionId}`, 'GET', null, {});
+      const resp = await rondoClubRequest(`wp/v2/people/${rondoClubId}`, 'GET', null, {});
       const firstName = resp.body.acf?.first_name || '';
       const lastName = resp.body.acf?.last_name || '';
 
       // Clear work_history
-      await stadionRequest(`wp/v2/people/${stadionId}`, 'PUT', {
+      await rondoClubRequest(`wp/v2/people/${rondoClubId}`, 'PUT', {
         acf: { first_name: firstName, last_name: lastName, work_history: [] }
       }, {});
       count++;

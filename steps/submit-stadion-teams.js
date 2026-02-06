@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const {
   openDb,
   getTeamsNeedingSync,
@@ -22,7 +22,7 @@ async function fetchAllWordPressTeams(options) {
 
   while (true) {
     try {
-      const response = await stadionRequest(`wp/v2/teams?per_page=100&page=${page}`, 'GET', null, options);
+      const response = await rondoClubRequest(`wp/v2/teams?per_page=100&page=${page}`, 'GET', null, options);
       const pageTeams = response.body;
       if (pageTeams.length === 0) break;
       teams.push(...pageTeams.map(t => ({ id: t.id, title: t.title?.rendered || t.title })));
@@ -41,7 +41,7 @@ async function fetchAllWordPressTeams(options) {
 }
 
 /**
- * Sync a single team to Stadion (create or update)
+ * Sync a single team to Rondo Club (create or update)
  * Uses local stadion_id tracking - no API search needed
  * @param {Object} team - Team record from database
  * @param {Object} db - SQLite database connection
@@ -58,11 +58,11 @@ async function syncTeam(team, db, options) {
   if (sportlink_id) acfFields.publicteamid = sportlink_id;
   if (game_activity) acfFields.activiteit = game_activity;
 
-  // Map Sportlink gender values to Stadion API values
+  // Map Sportlink gender values to Rondo Club API values
   const genderMap = {
     'Mannen': 'male',
     'Vrouwen': 'female'
-    // 'Gemengd' is not mapped - skip it as Stadion doesn't have a mixed option
+    // 'Gemengd' is not mapped - skip it as Rondo Club doesn't have a mixed option
   };
   if (gender && genderMap[gender]) acfFields.gender = genderMap[gender];
 
@@ -83,7 +83,7 @@ async function syncTeam(team, db, options) {
     logVerbose(`  PUT ${endpoint}`);
     logVerbose(`  Payload: ${JSON.stringify(payload)}`);
     try {
-      const response = await stadionRequest(endpoint, 'PUT', payload, options);
+      const response = await rondoClubRequest(endpoint, 'PUT', payload, options);
       updateTeamSyncState(db, sportlink_id, source_hash, stadion_id);
       return { action: 'updated', id: stadion_id };
     } catch (error) {
@@ -120,7 +120,7 @@ async function syncTeam(team, db, options) {
     logVerbose(`  POST ${endpoint}`);
     logVerbose(`  Payload: ${JSON.stringify(payload)}`);
     try {
-      const response = await stadionRequest(endpoint, 'POST', payload, options);
+      const response = await rondoClubRequest(endpoint, 'POST', payload, options);
       const newId = response.body.id;
       updateTeamSyncState(db, sportlink_id, source_hash, newId);
       return { action: 'created', id: newId };
@@ -223,7 +223,7 @@ async function runSync(options = {}) {
           // Delete from WordPress if it has a stadion_id
           if (orphan.stadion_id) {
             try {
-              await stadionRequest(`wp/v2/teams/${orphan.stadion_id}`, 'DELETE', { force: true }, options);
+              await rondoClubRequest(`wp/v2/teams/${orphan.stadion_id}`, 'DELETE', { force: true }, options);
               logVerbose(`  Deleted from WordPress: ${orphan.stadion_id}`);
             } catch (error) {
               // Ignore 404 errors (already deleted)
@@ -260,7 +260,7 @@ async function runSync(options = {}) {
         for (const team of untrackedTeams) {
           logVerbose(`Deleting untracked team: ${team.title} (ID: ${team.id})`);
           try {
-            await stadionRequest(`wp/v2/teams/${team.id}`, 'DELETE', { force: true }, options);
+            await rondoClubRequest(`wp/v2/teams/${team.id}`, 'DELETE', { force: true }, options);
             logVerbose(`  Deleted from WordPress: ${team.id}`);
             result.deleted++;
           } catch (error) {

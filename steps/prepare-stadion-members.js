@@ -5,7 +5,7 @@ const { openDb: openStadionDb, getMemberFreeFieldsByKnvbId, getMemberInvoiceData
 const { createLoggerAdapter } = require('../lib/log-adapters');
 
 /**
- * Map Sportlink gender codes to Stadion format
+ * Map Sportlink gender codes to Rondo Club format
  * @param {string} sportlinkGender - Gender code from Sportlink (Male/Female)
  * @returns {string} - 'male', 'female', or empty string for unknown
  */
@@ -138,7 +138,7 @@ function formatInvoiceAddress(invoiceData) {
 }
 
 /**
- * Transform a Sportlink member to Stadion person format
+ * Transform a Sportlink member to Rondo Club person format
  * @param {Object} sportlinkMember - Raw Sportlink member record
  * @param {Object} [freeFields] - Optional free fields from Sportlink /other tab
  * @param {Object} [invoiceData] - Optional invoice data from Sportlink /financial tab
@@ -228,20 +228,20 @@ function preparePerson(sportlinkMember, freeFields = null, invoiceData = null) {
 }
 
 /**
- * Validate member has required fields for Stadion sync
+ * Validate member has required fields for Rondo Club sync
  * @param {Object} member - Sportlink member record
  * @returns {boolean}
  */
 function isValidMember(member) {
   // PublicPersonId (KNVB ID) is required for matching
   if (!member.PublicPersonId) return false;
-  // Must have at least a first name (required by Stadion API)
+  // Must have at least a first name (required by Rondo Club API)
   if (!member.FirstName) return false;
   return true;
 }
 
 /**
- * Prepare Stadion members from Sportlink data
+ * Prepare Rondo Club members from Sportlink data
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance with log(), verbose(), error() methods
  * @param {boolean} [options.verbose=false] - Verbose mode
@@ -271,7 +271,7 @@ async function runPrepare(options = {}) {
     const members = Array.isArray(sportlinkData.Members) ? sportlinkData.Members : [];
     logVerbose(`Found ${members.length} Sportlink members in database`);
 
-    // Open Stadion DB to look up free fields
+    // Open Rondo Club DB to look up free fields
     const stadionDb = openStadionDb();
 
     // Filter out invalid members and transform valid ones
@@ -310,7 +310,7 @@ async function runPrepare(options = {}) {
       stadionDb.close();
     }
 
-    logVerbose(`Prepared ${validMembers.length} members for Stadion sync (${skippedCount} skipped)`);
+    logVerbose(`Prepared ${validMembers.length} members for Rondo Club sync (${skippedCount} skipped)`);
     if (freeFieldsCount > 0) {
       logVerbose(`  Including free fields for ${freeFieldsCount} members`);
     }
@@ -330,7 +330,7 @@ async function runPrepare(options = {}) {
     };
   } catch (err) {
     const errorMsg = err.message || String(err);
-    logError('Error preparing Stadion members:', errorMsg);
+    logError('Error preparing Rondo Club members:', errorMsg);
     return { success: false, members: [], skipped: 0, error: errorMsg };
   }
 }
@@ -347,7 +347,7 @@ if (require.main === module) {
         process.exitCode = 1;
       } else if (!verbose) {
         // In default mode, print summary
-        console.log(`Prepared ${result.members.length} members for Stadion sync (${result.skipped} skipped - missing KNVB ID or first name)`);
+        console.log(`Prepared ${result.members.length} members for Rondo Club sync (${result.skipped} skipped - missing KNVB ID or first name)`);
       }
     })
     .catch(err => {

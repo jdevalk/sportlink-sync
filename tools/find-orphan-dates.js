@@ -11,7 +11,7 @@
  */
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 
 async function fetchAllPages(endpoint, options = {}) {
   const allItems = [];
@@ -21,7 +21,7 @@ async function fetchAllPages(endpoint, options = {}) {
   while (true) {
     const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}per_page=${perPage}&page=${page}`;
     try {
-      const response = await stadionRequest(url, 'GET', null, options);
+      const response = await rondoClubRequest(url, 'GET', null, options);
       const items = response.body;
 
       if (!Array.isArray(items) || items.length === 0) {
@@ -49,14 +49,14 @@ async function findOrphanDates(options = {}) {
 
   console.warn('DEPRECATED: find-orphan-dates.js is no longer needed. Birthdays now sync as acf.birthdate on person records.');
   console.log('');
-  console.log('Fetching all people from Stadion...');
+  console.log('Fetching all people from Rondo Club...');
   const people = await fetchAllPages('wp/v2/people', { verbose });
   console.log(`Found ${people.length} people\n`);
 
   // Create set of valid person IDs
   const validPersonIds = new Set(people.map(p => p.id));
 
-  console.log('Fetching all important dates from Stadion...');
+  console.log('Fetching all important dates from Rondo Club...');
   const dates = await fetchAllPages('wp/v2/important-dates', { verbose });
   console.log(`Found ${dates.length} dates\n`);
 
@@ -100,7 +100,7 @@ async function findOrphanDates(options = {}) {
 
     for (const orphan of orphanedDates) {
       try {
-        await stadionRequest(`wp/v2/important-dates/${orphan.id}?force=true`, 'DELETE', null, { verbose });
+        await rondoClubRequest(`wp/v2/important-dates/${orphan.id}?force=true`, 'DELETE', null, { verbose });
         console.log(`  Deleted: ${orphan.id} - ${orphan.title}`);
         deleted++;
       } catch (error) {

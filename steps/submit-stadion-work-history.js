@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const { openDb: openLapostaDb, getLatestSportlinkResults } = require('../lib/laposta-db');
 const {
   openDb,
@@ -29,7 +29,7 @@ function isValidTeamName(teamName) {
  * field from the teams download.
  * @param {string} teamCode - Team code to look up
  * @param {Map} teamMap - Map<team_code, stadion_id>
- * @returns {number|undefined} - Stadion ID or undefined if not found
+ * @returns {number|undefined} - Rondo Club ID or undefined if not found
  */
 function lookupTeamStadionId(teamCode, teamMap) {
   return teamMap.get(teamCode);
@@ -86,7 +86,7 @@ function determineJobTitleFallback(kernelGameActivities) {
 /**
  * Get job title for a team assignment.
  * First looks up role from sportlink_team_members table, falls back to KernelGameActivities.
- * @param {Object} db - Stadion database connection
+ * @param {Object} db - Rondo Club database connection
  * @param {string} knvbId - Member KNVB ID
  * @param {string} teamName - Team name to lookup role for
  * @param {string} fallbackKernelGameActivities - Fallback value from Sportlink
@@ -168,7 +168,7 @@ function detectTeamChanges(db, knvbId, currentTeams) {
  * Detects team changes and updates WordPress work_history ACF field.
  * @param {Object} member - Member with KNVB ID and current teams
  * @param {Array<string>} currentTeams - Current team names
- * @param {Object} db - Stadion SQLite database
+ * @param {Object} db - Rondo Club SQLite database
  * @param {Map} teamMap - Map<team_code, stadion_id>
  * @param {Object} options - Logger and verbose options
  * @param {string} fallbackKernelGameActivities - Fallback KernelGameActivities for job title
@@ -179,9 +179,9 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   const { knvb_id, stadion_id } = member;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  // Skip if member not yet synced to Stadion
+  // Skip if member not yet synced to Rondo Club
   if (!stadion_id) {
-    logVerbose(`Skipping ${knvb_id}: not yet synced to Stadion`);
+    logVerbose(`Skipping ${knvb_id}: not yet synced to Rondo Club`);
     return { action: 'skipped', added: 0, ended: 0 };
   }
 
@@ -194,7 +194,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   let existingFirstName = '';
   let existingLastName = '';
   try {
-    const response = await stadionRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+    const response = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
     existingWorkHistory = response.body.acf?.work_history || [];
     existingFirstName = response.body.acf?.first_name || '';
     existingLastName = response.body.acf?.last_name || '';
@@ -320,7 +320,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   // Update WordPress if modified
   if (modified) {
     try {
-      await stadionRequest(
+      await rondoClubRequest(
         `wp/v2/people/${stadion_id}`,
         'PUT',
         { acf: { first_name: existingFirstName, last_name: existingLastName, work_history: newWorkHistory } },
@@ -389,7 +389,7 @@ async function runSync(options = {}) {
       // SearchMembers returns team codes (e.g. "JO17-1") which match TeamCode from the teams download
       const teams = getAllTeams(stadionDb);
       const teamMap = new Map(teams.filter(t => t.team_code).map(t => [t.team_code, t.stadion_id]));
-      logVerbose(`Loaded ${teams.length} teams from Stadion (${teamMap.size} with team codes)`);
+      logVerbose(`Loaded ${teams.length} teams from Rondo Club (${teamMap.size} with team codes)`);
 
       // Build work history records for all members
       const workHistoryRecords = [];

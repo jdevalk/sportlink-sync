@@ -1,12 +1,12 @@
 require('varlock/auto-load');
 
-const STADION_URL = process.env.STADION_URL;
-const STADION_USERNAME = process.env.STADION_USERNAME;
-const STADION_APP_PASSWORD = process.env.STADION_APP_PASSWORD;
+const RONDO_URL = process.env.RONDO_URL;
+const RONDO_USERNAME = process.env.RONDO_USERNAME;
+const RONDO_APP_PASSWORD = process.env.RONDO_APP_PASSWORD;
 
-async function stadionRequest(endpoint, method = 'GET', body = null) {
-  const url = `${STADION_URL}/wp-json/${endpoint}`;
-  const auth = Buffer.from(`${STADION_USERNAME}:${STADION_APP_PASSWORD}`).toString('base64');
+async function rondoClubRequest(endpoint, method = 'GET', body = null) {
+  const url = `${RONDO_URL}/wp-json/${endpoint}`;
+  const auth = Buffer.from(`${RONDO_USERNAME}:${RONDO_APP_PASSWORD}`).toString('base64');
 
   const options = {
     method,
@@ -44,7 +44,7 @@ async function getAllStadionPeople() {
   const perPage = 100;
 
   while (true) {
-    const batch = await stadionRequest(`wp/v2/people?per_page=${perPage}&page=${page}`);
+    const batch = await rondoClubRequest(`wp/v2/people?per_page=${perPage}&page=${page}`);
     if (batch.length === 0) break;
     people.push(...batch);
     console.log(`Fetched page ${page} (${people.length} total)...`);
@@ -61,8 +61,8 @@ async function runCleanup(options = {}) {
   console.log(dryRun ? '=== DRY RUN ===' : '=== CLEANING ORPHAN RELATIONSHIPS ===');
   console.log('');
 
-  // Get all Stadion people
-  console.log('Fetching all people from Stadion...');
+  // Get all Rondo Club people
+  console.log('Fetching all people from Rondo Club...');
   const stadionPeople = await getAllStadionPeople();
   console.log(`Found ${stadionPeople.length} people in Stadion`);
   console.log('');
@@ -133,7 +133,7 @@ async function runCleanup(options = {}) {
     for (const person of toFix) {
       try {
         // Fetch current person to get required fields
-        const current = await stadionRequest(`wp/v2/people/${person.id}`);
+        const current = await rondoClubRequest(`wp/v2/people/${person.id}`);
         const payload = {
           acf: {
             first_name: current.acf?.first_name || '',
@@ -141,7 +141,7 @@ async function runCleanup(options = {}) {
             relationships: person.validRelations
           }
         };
-        await stadionRequest(`wp/v2/people/${person.id}`, 'PUT', payload);
+        await rondoClubRequest(`wp/v2/people/${person.id}`, 'PUT', payload);
         fixed++;
         if (fixed % 20 === 0) {
           console.log(`  Fixed ${fixed}/${toFix.length}...`);

@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const {
   openDb,
   upsertImportantDate,
@@ -14,7 +14,7 @@ const { openDb: openLapostaDb, getLatestSportlinkResults } = require('../lib/lap
 
 /**
  * Load birthdays from Sportlink SQLite database and upsert to tracking table
- * @param {Object} db - Stadion database connection
+ * @param {Object} db - Rondo Club database connection
  * @param {Object} options - Logger options
  * @returns {number} Count of members with birthdays
  */
@@ -61,7 +61,7 @@ function loadBirthdaysFromSqlite(db, options = {}) {
  * @returns {Promise<number>} Term ID for birthday
  */
 async function getBirthdayTermId(options = {}) {
-  const response = await stadionRequest(
+  const response = await rondoClubRequest(
     'wp/v2/date_type?slug=birthday',
     'GET',
     null,
@@ -77,14 +77,14 @@ async function getBirthdayTermId(options = {}) {
 
 /**
  * Create a new important date in Stadion
- * @param {number} stadionPersonId - Stadion person post ID
+ * @param {number} stadionPersonId - Rondo Club person post ID
  * @param {string} dateValue - Date in YYYY-MM-DD format
  * @param {number} birthdayTermId - Term ID for birthday date type
  * @param {Object} options - Logger options
  * @returns {Promise<number>} Created important date post ID
  */
 async function createImportantDate(stadionPersonId, dateValue, birthdayTermId, options = {}) {
-  const response = await stadionRequest(
+  const response = await rondoClubRequest(
     'wp/v2/important-dates',
     'POST',
     {
@@ -107,13 +107,13 @@ async function createImportantDate(stadionPersonId, dateValue, birthdayTermId, o
 
 /**
  * Update an existing important date in Stadion
- * @param {number} stadionDateId - Stadion important date post ID
- * @param {number} stadionPersonId - Stadion person post ID
+ * @param {number} stadionDateId - Rondo Club important date post ID
+ * @param {number} stadionPersonId - Rondo Club person post ID
  * @param {string} dateValue - Date in YYYY-MM-DD format
  * @param {Object} options - Logger options
  */
 async function updateImportantDate(stadionDateId, stadionPersonId, dateValue, options = {}) {
-  await stadionRequest(
+  await rondoClubRequest(
     `wp/v2/important-dates/${stadionDateId}`,
     'PUT',
     {
@@ -127,12 +127,12 @@ async function updateImportantDate(stadionDateId, stadionPersonId, dateValue, op
 }
 
 /**
- * Delete an important date from Stadion
- * @param {number} stadionDateId - Stadion important date post ID
+ * Delete an important date from Rondo Club
+ * @param {number} stadionDateId - Rondo Club important date post ID
  * @param {Object} options - Logger options
  */
 async function deleteStadionImportantDate(stadionDateId, options = {}) {
-  await stadionRequest(
+  await rondoClubRequest(
     `wp/v2/important-dates/${stadionDateId}`,
     'DELETE',
     null,
@@ -141,7 +141,7 @@ async function deleteStadionImportantDate(stadionDateId, options = {}) {
 }
 
 /**
- * Sync important dates to Stadion
+ * Sync important dates to Rondo Club
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance
  * @param {boolean} [options.verbose=false] - Verbose mode

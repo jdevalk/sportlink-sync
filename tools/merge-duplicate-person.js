@@ -7,7 +7,7 @@
  */
 require('varlock/auto-load');
 
-const { stadionRequest } = require('../lib/stadion-client');
+const { rondoClubRequest } = require('../lib/stadion-client');
 const { openDb } = require('../lib/stadion-db');
 
 async function mergePerson(parentId, memberId) {
@@ -15,8 +15,8 @@ async function mergePerson(parentId, memberId) {
 
   // Step 1: Get both person records
   const [parentRes, memberRes] = await Promise.all([
-    stadionRequest(`wp/v2/people/${parentId}`, 'GET'),
-    stadionRequest(`wp/v2/people/${memberId}`, 'GET')
+    rondoClubRequest(`wp/v2/people/${parentId}`, 'GET'),
+    rondoClubRequest(`wp/v2/people/${memberId}`, 'GET')
   ]);
 
   const parent = parentRes.body;
@@ -32,7 +32,7 @@ async function mergePerson(parentId, memberId) {
   console.log(`Keeping ${memberRelationships.length} relationships on member`);
 
   // Step 3: Update member with cleaned relationships
-  await stadionRequest(`wp/v2/people/${memberId}`, 'PUT', {
+  await rondoClubRequest(`wp/v2/people/${memberId}`, 'PUT', {
     acf: {
       first_name: member.acf.first_name,
       last_name: member.acf.last_name,
@@ -52,7 +52,7 @@ async function mergePerson(parentId, memberId) {
 
   for (const childId of childIds) {
     try {
-      const childRes = await stadionRequest(`wp/v2/people/${childId}`, 'GET');
+      const childRes = await rondoClubRequest(`wp/v2/people/${childId}`, 'GET');
       const child = childRes.body;
 
       // Replace parent relationship: parentId -> memberId
@@ -72,7 +72,7 @@ async function mergePerson(parentId, memberId) {
         return true;
       });
 
-      await stadionRequest(`wp/v2/people/${childId}`, 'PUT', {
+      await rondoClubRequest(`wp/v2/people/${childId}`, 'PUT', {
         acf: {
           first_name: child.acf.first_name,
           last_name: child.acf.last_name,
@@ -86,7 +86,7 @@ async function mergePerson(parentId, memberId) {
   }
 
   // Step 5: Delete parent record
-  await stadionRequest(`wp/v2/people/${parentId}`, 'DELETE');
+  await rondoClubRequest(`wp/v2/people/${parentId}`, 'DELETE');
   console.log(`Deleted parent record ${parentId}`);
 
   // Step 6: Update database tracking
