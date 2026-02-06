@@ -3,7 +3,7 @@
 ## Milestones
 
 - v1.0 through v2.2: See MILESTONES.md
-- **v2.3 Birthday Field Migration** - Phase 33 (in progress)
+- **v2.3 Birthday Field Migration** - Phase 33 (complete)
 
 ## v2.3 Birthday Field Migration
 
@@ -21,11 +21,11 @@
 **Plans**: 2 plans
 
 Plans:
-- [ ] 33-01-PLAN.md — Add birthdate to person ACF payload and remove birthday sync step
-- [ ] 33-02-PLAN.md — Deprecate DB table and update docs/tools
+- [x] 33-01-PLAN.md — Add birthdate to person ACF payload and remove birthday sync step
+- [x] 33-02-PLAN.md — Deprecate DB table and update docs/tools
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 33. Birthday Field Migration | v2.3 | 0/2 | Not started | - |
+| 33. Birthday Field Migration | v2.3 | 2/2 | Complete | 2026-02-06 |

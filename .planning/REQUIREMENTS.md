@@ -7,10 +7,10 @@
 
 ### Birthday Sync Migration
 
-- [ ] **BDAY-01**: Sync birthdate as `acf.birthdate` field on person during existing Stadion person sync step
-- [ ] **BDAY-02**: Remove the separate `sync-important-dates.js` step from the people pipeline
-- [ ] **BDAY-03**: Remove or deprecate the `stadion_important_dates` DB table
-- [ ] **BDAY-04**: Update email reports to remove the separate birthday sync section
+- [x] **BDAY-01**: Sync birthdate as `acf.birthdate` field on person during existing Stadion person sync step
+- [x] **BDAY-02**: Remove the separate `sync-important-dates.js` step from the people pipeline
+- [x] **BDAY-03**: Remove or deprecate the `stadion_important_dates` DB table
+- [x] **BDAY-04**: Update email reports to remove the separate birthday sync section
 
 ## Out of Scope
 
@@ -23,10 +23,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BDAY-01 | Phase 33 | Pending |
-| BDAY-02 | Phase 33 | Pending |
-| BDAY-03 | Phase 33 | Pending |
-| BDAY-04 | Phase 33 | Pending |
+| BDAY-01 | Phase 33 | Complete |
+| BDAY-02 | Phase 33 | Complete |
+| BDAY-03 | Phase 33 | Complete |
+| BDAY-04 | Phase 33 | Complete |
 
 **Coverage:**
 - v2.3 requirements: 4 total
@@ -35,4 +35,4 @@
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after roadmap creation*
+*Last updated: 2026-02-06 after Phase 33 completion*

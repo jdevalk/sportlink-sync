@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v2.3 Birthday Field Migration - Phase 33
+**Current focus:** v2.3 Birthday Field Migration - Phase 33 (complete)
 
 ## Current Position
 
 Phase: 33 of 33 (Birthday Field Migration)
-Plan: 2 of 4 complete
-Status: In progress
-Last activity: 2026-02-06 — Completed 33-02-PLAN.md (Deprecate important_dates table)
+Plan: 2/2 complete
+Status: Phase complete, milestone complete
+Last activity: 2026-02-06 — Phase 33 executed and verified
 
-Progress: [████░░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -34,7 +34,7 @@ Recent decisions affecting current work:
 6 pending:
 - [fetch-invoice-addresses-from-sportlink](./todos/pending/2026-02-04-fetch-invoice-addresses-from-sportlink.md) - Fetch invoice addresses and email from Sportlink financial tab
 - [review-deleted-member-handling](./todos/pending/2026-02-06-review-deleted-member-handling.md) - Review how deleted members are handled across all downstream systems
-- [adapt-birthday-sync-to-acf-field](./todos/pending/2026-02-06-adapt-birthday-sync-to-acf-field.md) - Adapt birthday sync to new Stadion ACF field model (**in milestone v2.3**)
+- [adapt-birthday-sync-to-acf-field](./todos/pending/2026-02-06-adapt-birthday-sync-to-acf-field.md) - Adapt birthday sync to new Stadion ACF field model (**completed in v2.3**)
 - [rename-project-to-rondo](./todos/pending/2026-02-06-rename-project-to-rondo.md) - Rename project from Sportlink Sync to Rondo Sync (Stadion -> Rondo Club)
 - [document-and-simplify-adding-sync-targets](./todos/pending/2026-02-06-document-and-simplify-adding-sync-targets.md) - Document and simplify adding custom sync targets
 - [detect-stale-parent-email-addresses](./todos/pending/2026-02-06-detect-stale-parent-email-addresses.md) - Detect and flag stale parent email addresses
@@ -42,17 +42,16 @@ Recent decisions affecting current work:
 ### Active Debug Sessions
 
 2 active:
-- birthday-sync-404-errors.md (likely resolved by v2.3 migration)
+- birthday-sync-404-errors.md (resolved by v2.3 migration)
 - download-functions-no-api-response.md
 
 ### Blockers/Concerns
 
-- **Production testing needed (33-01):** Must verify birthdate field appears in Stadion after next sync and email report has correct format
-- **Unused code (33-03):** steps/sync-important-dates.js still exists but is now unused - will be removed in Phase 33-03
+None.
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 33-02-PLAN.md execution (Deprecate important_dates table)
+Stopped at: Phase 33 complete, milestone v2.3 complete
 Resume file: None
-Next steps: Continue to 33-03 (Remove unused birthday sync script) or test 33-01+33-02 on production
+Next steps: `/gsd:audit-milestone` or `/gsd:complete-milestone`
