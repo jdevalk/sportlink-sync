@@ -55,17 +55,18 @@ Plans:
 **Goal**: An authenticated web server is running on the production server, accessible via HTTPS, managed by systemd
 **Depends on**: Phase 35
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, WEB-01, WEB-02, WEB-03, WEB-04, INFRA-04
-**Research**: NEEDS RESEARCH (nginx/TLS setup on this server, session store compatibility with Fastify v5, firewall rules)
+**Research**: Complete (36-RESEARCH.md)
 **Success Criteria** (what must be TRUE):
   1. A user can navigate to the dashboard URL in a browser and see a login page over HTTPS
   2. A user can log in with their individual username and password, and their session persists across browser refreshes
   3. All dashboard routes redirect unauthenticated visitors to the login page
   4. The web server process restarts automatically after a crash or server reboot (systemd)
   5. The web server runs as a non-root user that cannot read Sportlink/Laposta API credentials
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 36-01: Fastify server, authentication, and deployment infrastructure
+- [ ] 36-01-PLAN.md -- Fastify server, authentication, login page, and config files
+- [ ] 36-02-PLAN.md -- Server deployment (DNS, nginx/TLS, systemd, verification)
 
 ### Phase 37: Dashboard UI
 **Goal**: Operators can monitor all pipeline activity and investigate errors from their browser instead of SSH
@@ -121,7 +122,7 @@ Phase 39 is deferred (not in active execution order).
 |-------|---------------|--------|-----------|
 | 34. Infrastructure Foundation | 1/1 | Complete | 2026-02-08 |
 | 35. Run Tracking | 1/1 | Complete | 2026-02-08 |
-| 36. Web Server and Authentication | 0/1 | Not started | - |
+| 36. Web Server and Authentication | 0/2 | Not started | - |
 | 37. Dashboard UI | 0/2 | Not started | - |
 | 38. Email Migration | 0/1 | Not started | - |
 | 39. Multi-Club Readiness | 0/1 | Deferred | - |
