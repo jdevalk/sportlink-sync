@@ -38,7 +38,7 @@ pipelines/sync-teams.js
 5. Stores team metadata in `data/rondo-sync.sqlite` → `stadion_teams`:
    - `team_name`, `sportlink_id`, `game_activity`, `gender`, `player_count`, `staff_count`
 6. Stores team membership in `data/rondo-sync.sqlite` → `sportlink_team_members`:
-   - `sportlink_team_id`, `sportlink_person_id`, `member_type` (player/staff), `role_description`
+   - `sportlink_team_id`, `sportlink_person_id`, `role_description`
 
 **Output:** `{ success, teamCount, memberCount }`
 

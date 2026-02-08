@@ -316,7 +316,7 @@ async function syncIndividual(knvbId, options = {}) {
           console.log('  (none)');
         } else {
           memberCommittees.forEach(c => {
-            console.log(`  - ${c.committee_name}: ${c.role_name || 'Lid'} (${c.is_active ? 'active' : 'inactive'})`);
+            console.log(`  - ${c.committee_name}: ${c.role_name || '(no role)'} (${c.is_active ? 'active' : 'inactive'})`);
           });
         }
       }

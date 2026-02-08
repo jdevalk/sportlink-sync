@@ -274,7 +274,6 @@ Raw team membership data from Sportlink (player/staff roles).
 | `id` | INTEGER | Primary key (auto-increment) |
 | `sportlink_team_id` | TEXT | Sportlink team ID |
 | `sportlink_person_id` | TEXT | KNVB ID |
-| `member_type` | TEXT | "player" or "staff" |
 | `role_description` | TEXT | "Trainer", "Keeper", "Speler", etc. |
 | `source_hash` | TEXT | SHA-256 hash |
 | `last_seen_at` | TEXT | Last time membership appeared |
@@ -645,7 +644,7 @@ SELECT team_name FROM stadion_work_history WHERE knvb_id = 'KNVB123456';
 SELECT committee_name, role_name FROM sportlink_member_committees WHERE knvb_id = 'KNVB123456';
 
 -- Team → Members
-SELECT sportlink_person_id, member_type, role_description
+SELECT sportlink_person_id, role_description
 FROM sportlink_team_members WHERE sportlink_team_id = 'TEAM_ID';
 
 -- Member → Discipline cases

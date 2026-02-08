@@ -75,41 +75,25 @@ function formatDateForACF(date) {
 }
 
 /**
- * Determine job title based on KernelGameActivities (fallback only).
- * @param {string} kernelGameActivities - Value from Sportlink
- * @returns {string} - 'Speler' or 'Staflid'
- */
-function determineJobTitleFallback(kernelGameActivities) {
-  return kernelGameActivities === 'Veld -  Algemeen' ? 'Speler' : 'Staflid';
-}
-
-/**
  * Get job title for a team assignment.
- * First looks up role from sportlink_team_members table, falls back to KernelGameActivities.
+ * Looks up role from sportlink_team_members table.
  * @param {Object} db - Rondo Club database connection
  * @param {string} knvbId - Member KNVB ID
  * @param {string} teamName - Team name to lookup role for
- * @param {string} fallbackKernelGameActivities - Fallback value from Sportlink
- * @returns {string} - Role description or 'Speler'/'Staflid'
+ * @returns {string|null} - Role description or null if not found
  */
-function getJobTitleForTeam(db, knvbId, teamName, fallbackKernelGameActivities) {
-  // Try to get role from team members table
-  const roleFromTeam = getTeamMemberRole(db, knvbId, teamName);
-  if (roleFromTeam) {
-    return roleFromTeam;
-  }
-  // Fallback for members not in team data
-  return determineJobTitleFallback(fallbackKernelGameActivities);
+function getJobTitleForTeam(db, knvbId, teamName) {
+  return getTeamMemberRole(db, knvbId, teamName);
 }
 
 /**
  * Build ACF work_history entry for a team.
  * @param {number} teamStadionId - Team WordPress post ID
  * @param {boolean} isBackfill - Is this a backfilled entry
- * @param {string} jobTitle - Job title ('Speler' or 'Staflid')
+ * @param {string} jobTitle - Job title (required)
  * @returns {Object} - ACF work_history entry
  */
-function buildWorkHistoryEntry(teamStadionId, isBackfill, jobTitle = 'Speler') {
+function buildWorkHistoryEntry(teamStadionId, isBackfill, jobTitle) {
   return {
     job_title: jobTitle,
     is_current: true,
@@ -171,11 +155,10 @@ function detectTeamChanges(db, knvbId, currentTeams) {
  * @param {Object} db - Rondo Club SQLite database
  * @param {Map} teamMap - Map<team_code, stadion_id>
  * @param {Object} options - Logger and verbose options
- * @param {string} fallbackKernelGameActivities - Fallback KernelGameActivities for job title
  * @param {boolean} force - Force update even unchanged entries
  * @returns {Promise<{action: string, added: number, ended: number, updated: number}>}
  */
-async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, options, fallbackKernelGameActivities = '', force = false) {
+async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, options, force = false) {
   const { knvb_id, stadion_id } = member;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
@@ -244,7 +227,11 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
 
     // Check if this is initial sync (backfill) or new team
     const isBackfill = !getMemberWorkHistory(db, knvb_id).some(h => h.last_synced_at);
-    const jobTitle = getJobTitleForTeam(db, knvb_id, teamName, fallbackKernelGameActivities);
+    const jobTitle = getJobTitleForTeam(db, knvb_id, teamName);
+    if (!jobTitle) {
+      logVerbose(`Warning: No role description for ${knvb_id} in team ${teamName}, skipping`);
+      continue;
+    }
     const entry = buildWorkHistoryEntry(teamStadionId, isBackfill, jobTitle);
     logVerbose(`  Using job title: ${jobTitle} for team ${teamName}`);
     const newIndex = newWorkHistory.length;
@@ -269,7 +256,11 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
         continue;
       }
 
-      const jobTitle = getJobTitleForTeam(db, knvb_id, teamName, fallbackKernelGameActivities);
+      const jobTitle = getJobTitleForTeam(db, knvb_id, teamName);
+      if (!jobTitle) {
+        logVerbose(`Warning: No role description for ${knvb_id} in team ${teamName}, skipping`);
+        continue;
+      }
       const tracked = trackedHistory.find(h => h.team_name === teamName);
 
       if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id !== undefined) {
@@ -458,7 +449,6 @@ async function runSync(options = {}) {
             rondoClubDb,
             teamMap,
             options,
-            kernelGameActivities,
             force
           );
           if (syncResult.action === 'updated') {

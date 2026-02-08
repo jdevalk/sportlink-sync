@@ -51,8 +51,11 @@ function convertDateForACF(dateStr) {
  * @returns {Object} - ACF work_history entry
  */
 function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate, endDate) {
+  if (!jobTitle) {
+    return null;  // Caller handles skip
+  }
   return {
-    job_title: jobTitle || 'Lid',
+    job_title: jobTitle,
     is_current: isActive,
     start_date: convertDateForACF(startDate),
     end_date: isActive ? '' : convertDateForACF(endDate),
@@ -164,9 +167,14 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
       continue;
     }
 
+    if (!commissie.role_name) {
+      logVerbose(`Warning: Commissie "${commissie.commissie_name}" has no role_name for ${knvb_id}, skipping`);
+      continue;
+    }
+
     const entry = buildWorkHistoryEntry(
       commissieStadionId,
-      commissie.role_name || 'Lid',
+      commissie.role_name,
       commissie.is_active !== false,
       commissie.relation_start,
       commissie.relation_end
@@ -202,16 +210,20 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
       );
       if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id < newWorkHistory.length) {
         const index = tracked.stadion_work_history_id;
+        if (!commissie.role_name) {
+          logVerbose(`Warning: Commissie "${commissie.commissie_name}" has no role_name for ${knvb_id}, skipping`);
+          continue;
+        }
         const entry = buildWorkHistoryEntry(
           commissieStadionId,
-          commissie.role_name || 'Lid',
+          commissie.role_name,
           commissie.is_active !== false,
           commissie.relation_start,
           commissie.relation_end
         );
         newWorkHistory[index] = entry;
         modified = true;
-        logVerbose(`Force-updated work_history for commissie ${commissie.commissie_name} role ${commissie.role_name || 'Lid'} (index ${index})`);
+        logVerbose(`Force-updated work_history for commissie ${commissie.commissie_name} role ${commissie.role_name} (index ${index})`);
       }
     }
   }

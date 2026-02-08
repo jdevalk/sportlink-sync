@@ -169,11 +169,15 @@ async function runTeamDownload(options = {}) {
               const personId = player.PublicPersonId;
               if (!personId) continue;
 
+              if (!player.RoleFunctionDescription) {
+                logDebug(`Warning: Player ${personId} in team ${team.team_name} has no role description, skipping`);
+                continue;
+              }
+
               allMembers.push({
                 sportlink_team_id: team.sportlink_id,
                 sportlink_person_id: personId,
-                member_type: 'player',
-                role_description: player.RoleFunctionDescription || 'Speler'
+                role_description: player.RoleFunctionDescription
               });
             }
             team.player_count = players.length;
@@ -195,11 +199,15 @@ async function runTeamDownload(options = {}) {
               const personId = person.PublicPersonId;
               if (!personId) continue;
 
+              if (!person.FunctionDescription) {
+                logDebug(`Warning: Staff ${personId} in team ${team.team_name} has no role description, skipping`);
+                continue;
+              }
+
               allMembers.push({
                 sportlink_team_id: team.sportlink_id,
                 sportlink_person_id: personId,
-                member_type: 'staff',
-                role_description: person.FunctionDescription || 'Staflid'
+                role_description: person.FunctionDescription
               });
             }
             team.staff_count = staff.length;
