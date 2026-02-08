@@ -402,11 +402,20 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
   }));
 
   // If no stadion_id yet, check if person already exists by email (e.g., they're also a member)
+  // Check local database first (reliable and fast), then WordPress API as fallback
   if (!stadion_id) {
-    const existingId = await findPersonByEmail(email, options);
-    if (existingId) {
-      logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
-      stadion_id = existingId;
+    const memberMatch = db.prepare(
+      'SELECT stadion_id FROM stadion_members WHERE LOWER(email) = LOWER(?) AND stadion_id IS NOT NULL'
+    ).get(email);
+    if (memberMatch) {
+      logVerbose(`Parent ${email} found as member in local DB (person ${memberMatch.stadion_id}), will merge`);
+      stadion_id = memberMatch.stadion_id;
+    } else {
+      const existingId = await findPersonByEmail(email, options);
+      if (existingId) {
+        logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
+        stadion_id = existingId;
+      }
     }
   }
 
