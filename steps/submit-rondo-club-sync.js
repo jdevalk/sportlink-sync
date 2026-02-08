@@ -403,19 +403,32 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
 
   // If no stadion_id yet, check if person already exists by email (e.g., they're also a member)
   // Check local database first (reliable and fast), then WordPress API as fallback
+  // Important: exclude the parent's own children — in youth clubs, parents often share
+  // an email with their children in Sportlink, but they're separate people.
   if (!stadion_id) {
-    const memberMatch = db.prepare(
-      'SELECT stadion_id FROM stadion_members WHERE LOWER(email) = LOWER(?) AND stadion_id IS NOT NULL'
-    ).get(email);
-    if (memberMatch) {
-      logVerbose(`Parent ${email} found as member in local DB (person ${memberMatch.stadion_id}), will merge`);
-      stadion_id = memberMatch.stadion_id;
-    } else {
+    const childKnvbIdSet = new Set(childKnvbIds);
+    const memberMatches = db.prepare(
+      'SELECT knvb_id, stadion_id FROM stadion_members WHERE LOWER(email) = LOWER(?) AND stadion_id IS NOT NULL'
+    ).all(email);
+    const nonChildMatch = memberMatches.find(m => !childKnvbIdSet.has(m.knvb_id));
+    if (nonChildMatch) {
+      logVerbose(`Parent ${email} found as member in local DB (person ${nonChildMatch.stadion_id}), will merge`);
+      stadion_id = nonChildMatch.stadion_id;
+    } else if (memberMatches.length === 0) {
+      // No member match at all — check WordPress API as fallback
       const existingId = await findPersonByEmail(email, options);
       if (existingId) {
-        logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
-        stadion_id = existingId;
+        // Verify the API match isn't one of our children either
+        const isChild = childStadionIds.includes(existingId);
+        if (!isChild) {
+          logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
+          stadion_id = existingId;
+        } else {
+          logVerbose(`Parent ${email} found person ${existingId} but it's their own child, will create separate`);
+        }
       }
+    } else {
+      logVerbose(`Parent ${email} only matches own children in local DB, will create separate`);
     }
   }
 
