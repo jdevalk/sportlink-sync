@@ -1,501 +1,319 @@
-# Technology Stack: Bidirectional Sync
+# Technology Stack
 
-**Project:** Rondo Sync v2.0
-**Research Focus:** Stack additions for bidirectional sync with last-edit-wins conflict resolution
-**Researched:** 2026-01-29
-**Overall confidence:** HIGH
-
-## Executive Summary
-
-Adding bidirectional sync (Stadion → Sportlink) requires minimal stack changes. The existing Playwright + SQLite + WordPress REST API foundation is sufficient. Key additions are:
-
-1. **Modification time tracking columns** in SQLite (both directions)
-2. **WordPress `modified` field usage** (already available via REST API)
-3. **Sportlink download time capture** (approximate last-modified time)
-4. **No new libraries needed** - existing Playwright handles form writing
-
-The technical challenge is tracking field-level modification times, not technology gaps.
+**Project:** Rondo Sync Web Dashboard
+**Researched:** 2026-02-08
+**Focus:** Stack additions for adding a web dashboard to the existing Node.js CLI sync tool
 
 ---
 
-## Recommended Stack Additions
+## Prerequisite: Node.js Upgrade
 
-### 1. SQLite Schema Extensions
+**Before anything else, upgrade Node.js from 18 to 22.**
 
-**Add to existing `stadion_members` table:**
+Node.js 18 reached end-of-life on April 30, 2025. It receives no security patches. Node.js 22 is the current Active LTS (supported until April 2027) and is the correct upgrade target -- skip Node.js 20 to avoid another upgrade cycle in 18 months.
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `email_modified_at` | TEXT (ISO 8601) | Tracks when email was last changed (either direction) |
-| `email_source` | TEXT | Last source: 'sportlink' or 'stadion' |
-| `phone_modified_at` | TEXT (ISO 8601) | Tracks when phone was last changed |
-| `phone_source` | TEXT | Last source: 'sportlink' or 'stadion' |
+| Current | Target | Why Skip 20 |
+|---------|--------|-------------|
+| Node.js 18 (EOL) | Node.js 22 LTS | 20 enters maintenance soon; 22 has active LTS until April 2027 |
 
-**Rationale:**
-- Field-level timestamps enable per-field conflict resolution
-- Source tracking helps debug sync loops
-- ISO 8601 TEXT format matches existing pattern (see `last_seen_at`, `created_at`)
-- WordPress doesn't provide field-level modification times, so we track locally
+**Impact on existing code:** The existing dependencies (better-sqlite3, Playwright, otplib, postmark, varlock) all support Node.js 22. No breaking changes expected -- better-sqlite3 uses native addons that rebuild on install. The upgrade is a prerequisite because the recommended web framework (Fastify v5) requires Node.js 20+.
 
-**Add to existing `sportlink_member_free_fields` table:**
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `vog_datum_modified_at` | TEXT (ISO 8601) | When VOG date was last changed |
-| `vog_datum_source` | TEXT | Last source: 'sportlink' or 'stadion' |
-| `freescout_id_modified_at` | TEXT (ISO 8601) | When FreeScout ID was last changed |
-| `freescout_id_source` | TEXT | Last source: 'sportlink' or 'stadion' |
-| `has_financial_block_modified_at` | TEXT (ISO 8601) | When financial block was last changed |
-| `has_financial_block_source` | TEXT | Last source: 'sportlink' or 'stadion' |
-
-**Rationale:**
-- Free fields already isolated in dedicated table
-- Each synced field needs independent modification tracking
-- Matches pattern from `stadion_members` table
-
-### 2. WordPress Modification Time Tracking
-
-**Use existing WordPress REST API fields:**
-
-```json
-{
-  "id": 12345,
-  "modified": "2026-01-29T10:30:00",
-  "modified_gmt": "2026-01-29T09:30:00"
-}
-```
-
-**Strategy:**
-- WordPress provides post-level `modified` timestamp (when any field changes)
-- WordPress does NOT provide field-level modification times
-- ACF (Advanced Custom Fields) updates `post_modified` when fields change
-- Use `modified` as proxy for "Stadion side changed"
-
-**Limitation:**
-We cannot determine WHICH field changed in Stadion, only WHEN the post changed. This means:
-- If Stadion post modified time > SQLite field modified time → Stadion wins
-- If SQLite field modified time > Stadion post modified time → Sportlink wins
-- This is acceptable for the target use case (occasional manual edits)
-
-**Sources:**
-- [WordPress REST API Posts Reference](https://developer.wordpress.org/rest-api/reference/posts/) - Documents `modified` and `modified_gmt` fields
-- [WordPress 5.7 REST API Changes](https://make.wordpress.org/core/2021/02/23/rest-api-changes-in-wordpress-5-7/) - Added `modified_before` and `modified_after` query parameters
-
-### 3. Sportlink Modification Time Strategy
-
-**Problem:**
-Sportlink does not expose field modification timestamps via browser UI or API.
-
-**Solution:**
-Use download time as proxy for "last seen in Sportlink":
-
-```javascript
-// When downloading from Sportlink
-const downloadTime = new Date().toISOString();
-
-// Store with member data
-{
-  email: member.email,
-  downloaded_at: downloadTime  // Approximate "Sportlink last modified"
-}
-```
-
-**Rationale:**
-- Sportlink data changes infrequently (member updates are rare)
-- Download frequency (4x daily) provides reasonable granularity
-- Conservative approach: if we downloaded recently, assume Sportlink data is current
-- Limitation: Cannot detect changes between downloads
-
-**Conflict resolution logic:**
-
-```javascript
-// Example: Email field conflict resolution
-const sportlinkModified = downloadTime;  // When we saw this value in Sportlink
-const stadionModified = post.modified;    // WordPress post modified timestamp
-const sqliteFieldModified = row.email_modified_at; // Last known change time
-
-if (!sqliteFieldModified) {
-  // First sync - no history, accept Sportlink value
-  useValue = sportlinkValue;
-  source = 'sportlink';
-} else if (stadionModified > sqliteFieldModified && stadionModified > sportlinkModified) {
-  // Stadion changed more recently than both SQLite record and Sportlink download
-  useValue = stadionValue;
-  source = 'stadion';
-  needsWriteToSportlink = true;
-} else if (sportlinkModified > sqliteFieldModified) {
-  // Sportlink value changed since last sync
-  useValue = sportlinkValue;
-  source = 'sportlink';
-  needsWriteToStadion = true;
-} else {
-  // No changes detected
-  useValue = sqliteValue;
-}
-```
-
-### 4. Playwright Form Automation (No Changes Needed)
-
-**Current capability** (already in project):
-- Playwright v1.x+ installed (`package.json` dependency)
-- Browser automation for Sportlink login (with TOTP)
-- Page navigation and data extraction
-
-**Form writing capability** (already available):
-
-| Action | Playwright Method | Example |
-|--------|------------------|---------|
-| Text input | `page.fill(selector, value)` | `await page.fill('input[name="email"]', 'new@email.com')` |
-| Dropdown | `page.selectOption(selector, value)` | `await page.selectOption('select[name="vog"]', dateValue)` |
-| Checkbox | `page.setChecked(selector, checked)` | `await page.setChecked('input[name="block"]', true)` |
-| Form submit | `page.click(selector)` | `await page.click('button[type="submit"]')` |
-
-**No additional libraries needed.** Playwright handles all form interaction types required for Sportlink.
-
-**Sources:**
-- [Playwright Actions Documentation](https://playwright.dev/docs/input) - Complete form automation API reference
-- [Playwright Form Automation Guide](https://blog.apify.com/playwright-how-to-automate-forms/) - Comprehensive form handling patterns
+**Confidence:** HIGH (verified via Node.js official EOL schedule and Fastify docs)
 
 ---
 
-## Alternative Technologies Considered
+## Recommended Stack
 
-### WordPress Modification Tracking Alternatives
+### Web Framework: Fastify v5
 
-| Approach | Why Not |
-|----------|---------|
-| ACF field-level modification hooks | Requires server-side plugin changes to Stadion. Not feasible for this project. |
-| WordPress Revisions API | Provides post snapshots but no field-level diff. Too heavy for simple timestamp needs. |
-| Custom modification tracking plugin | Would work but adds Stadion dependencies. Current approach (post-level `modified`) is sufficient. |
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| fastify | 5.7.x | HTTP server, routing, plugin architecture | Best performance/DX ratio for Node.js; plugin system fits the existing modular codebase; built-in schema validation; 2-3x faster than Express |
 
-**Decision:** Use WordPress post-level `modified` timestamp. Acceptable trade-off: cannot determine which field changed, but post-level timestamp is good enough for last-edit-wins logic.
+**Why Fastify over Express:**
 
-**Sources:**
-- [ACF Field Modification Date Tracking](https://support.advancedcustomfields.com/forums/topic/field-last-update-date-stamp/) - Community confirms ACF doesn't provide field-level timestamps
-- [WordPress Post Revisions API](https://developer.wordpress.org/rest-api/reference/post-revisions/) - Documents revision system (overkill for this use case)
+1. **Plugin architecture matches the codebase.** Rondo Sync already uses a modular pattern: `lib/` for shared code, `pipelines/` for orchestration, `steps/` for units of work. Fastify's encapsulated plugin system maps naturally to this. Each dashboard feature (auth, pipeline status, error browsing) becomes a self-contained plugin.
 
-### SQLite Sync Framework Alternatives
+2. **Performance is meaningful here.** The dashboard will query SQLite databases (4 databases, 21 tables) for run history and error drill-down. Fastify's faster JSON serialization and lower overhead mean snappier responses even on the single VPS (46.202.155.16) that also runs sync pipelines.
 
-| Library | Why Not |
-|---------|---------|
-| sqlite-sync (AMPLI-SYNC) | Full bidirectional framework with change tracking. Too heavyweight - we only need timestamp columns. |
-| SQLite Sync (CRDT-based) | CRDT conflict resolution is overkill. Last-write-wins via timestamps is sufficient. |
-| LiteSync | Multi-device replication framework. Not applicable - we sync between different systems (Sportlink/Stadion), not SQLite replicas. |
+3. **Built-in schema validation (Ajv).** Useful for validating query parameters on error-browsing endpoints (date ranges, pipeline filters, pagination) without adding a separate validation library.
 
-**Decision:** Manual schema extension with timestamp columns. Existing hash-based change detection pattern already established (see `source_hash`, `last_synced_hash` in current schema).
+4. **Active maintenance and OpenJS Foundation backing.** Fastify v5 was released to GA in late 2024 and is actively maintained (v5.7.4 released February 2026). Express 5 works but has historically had slow release cadence.
 
-**Sources:**
-- [SQLite-Sync Framework (AMPLI-SYNC)](https://github.com/sqlite-sync/SQLite-sync.com) - Full bidirectional sync framework (too complex for our needs)
-- [SQLite Sync (CRDT-based)](https://github.com/sqliteai/sqlite-sync/) - CRDT-based conflict resolution (overkill)
-- [Bidirectional Sync Implementation Patterns](https://medium.com/@janvi34334/how-i-implemented-bidirectional-data-sync-in-a-flutter-retail-app-060aa2f69c9f) - December 2025 article on timestamp-based bidirectional sync
+**Why not Express:** Express 5 (v5.2.1) is a viable alternative that supports Node.js 18+. However, its middleware-chain architecture is less structured than Fastify's plugin system, leading to more ad-hoc organization in a growing codebase. Express would also work -- it is the safe fallback if Fastify's learning curve is a concern. But for a new addition to the project, Fastify is the better long-term investment.
+
+**Why not Hono:** Hono excels at edge/serverless and tiny bundles. This dashboard runs on a dedicated VPS -- Hono's strengths are irrelevant, and its ecosystem is smaller for server-side rendering use cases.
+
+**Confidence:** HIGH (verified via npm, Fastify docs, GitHub releases)
 
 ---
 
-## Implementation Patterns
+### Template Engine: EJS v4
 
-### Pattern 1: Download Time as Modification Proxy
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| ejs | 4.0.x | Server-side HTML rendering | Actively maintained (v4.0.1 published Jan 2026); syntax is plain HTML + JS; zero learning curve for anyone who knows JavaScript |
 
-**When downloading from Sportlink:**
+**Why EJS over Nunjucks:**
 
-```javascript
-// download-data-from-sportlink.js
-async function downloadMembers() {
-  const downloadTime = new Date().toISOString();
-  const members = await extractMembersFromPage();
+- Nunjucks (v3.2.4) has not been updated in 3 years. While it still works, relying on unmaintained software for new features is a poor trade.
+- EJS v4 was released in January 2026 with active maintenance.
+- EJS syntax is just JavaScript inside `<%= %>` tags -- no new template language to learn. The existing codebase is 100% JavaScript, and the team does not need Nunjucks' Jinja2-style features (macros, complex inheritance).
+- EJS is natively supported by `@fastify/view` (the official Fastify template plugin).
 
-  return members.map(member => ({
-    ...member,
-    downloaded_at: downloadTime  // Capture download time
-  }));
-}
-```
+**Why not Eta:** Eta is faster in benchmarks (20ms vs 68ms per render), but for a dashboard serving a handful of concurrent users, this difference is irrelevant. EJS has 50x the npm usage (15,000+ dependents vs ~300 for Eta), meaning better community support, more examples, and easier debugging.
 
-**When storing in SQLite:**
+**Why not a React/Vite SPA:** Rondo Club (the WordPress theme) already uses React/Vite for its front-end. However, adding a full SPA build pipeline to a CLI tool is massive overhead for what is essentially a read-only dashboard with tables, filters, and drill-down links. Server-rendered HTML with htmx for interactivity is dramatically simpler: no build step, no client-side state management, no API layer to design.
 
-```javascript
-// Store download time with each field value
-db.prepare(`
-  UPDATE stadion_members
-  SET
-    email = ?,
-    email_modified_at = CASE
-      WHEN email IS NULL OR email != ? THEN ?
-      ELSE email_modified_at
-    END,
-    email_source = CASE
-      WHEN email IS NULL OR email != ? THEN 'sportlink'
-      ELSE email_source
-    END
-  WHERE knvb_id = ?
-`).run(newEmail, newEmail, downloadTime, newEmail, knvbId);
-```
-
-### Pattern 2: Conflict Detection on Sync
-
-**Before syncing to Stadion:**
-
-```javascript
-// Check if Stadion has newer changes
-const stadionPerson = await fetchStadionPerson(stadionId);
-const stadionModified = new Date(stadionPerson.modified);
-const sqliteEmailModified = new Date(row.email_modified_at);
-
-if (stadionModified > sqliteEmailModified) {
-  // Stadion was modified more recently than SQLite record
-  // Don't overwrite Stadion value - pull it instead
-  syncDirection = 'pull';
-} else {
-  // SQLite has newer value - push to Stadion
-  syncDirection = 'push';
-}
-```
-
-### Pattern 3: Form Automation for Sportlink Updates
-
-**Writing contact details back to Sportlink:**
-
-```javascript
-// write-sportlink-contact.js (new file)
-async function updateSportlinkContact(browser, knvbId, updates) {
-  const page = await browser.newPage();
-
-  // Navigate to member edit page
-  await page.goto(`https://sportlink.club/member/${knvbId}/edit`);
-
-  // Fill form fields
-  if (updates.email) {
-    await page.fill('input[name="email"]', updates.email);
-  }
-
-  if (updates.phone) {
-    await page.fill('input[name="phone"]', updates.phone);
-  }
-
-  // Submit form
-  await page.click('button[type="submit"]');
-  await page.waitForNavigation();
-
-  // Record write time
-  const writeTime = new Date().toISOString();
-
-  return { success: true, writtenAt: writeTime };
-}
-```
-
-**Recording write time in SQLite:**
-
-```javascript
-// After successful Sportlink write
-db.prepare(`
-  UPDATE stadion_members
-  SET
-    email_modified_at = ?,
-    email_source = 'stadion'
-  WHERE knvb_id = ?
-`).run(writeTime, knvbId);
-```
+**Confidence:** HIGH (verified via npm publication dates)
 
 ---
 
-## Clock Synchronization Considerations
+### Interactivity: htmx v2
 
-### Challenge
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| htmx.org | 2.0.x | AJAX interactions without JavaScript | Enables partial page updates (filter tables, load error details, poll for running pipeline status) with HTML attributes instead of client-side JS |
 
-Last-write-wins depends on accurate timestamp comparison across systems:
-- Sportlink server (unknown timezone, clock accuracy unknown)
-- Stadion WordPress server (Amsterdam timezone, clock managed by hosting)
-- Sync server (Amsterdam timezone, clock managed by ops)
+**Why htmx:**
 
-### Mitigation Strategy
+1. **No build step.** Include via CDN or vendor the 14KB minified file. The existing project has zero front-end build tooling and should keep it that way.
+2. **Server-rendered architecture.** The dashboard is fundamentally a data viewer: tables of pipeline runs, lists of errors, member detail pages. htmx lets you add interactivity (filtering, pagination, live status polling) by returning HTML fragments from the server -- which Fastify + EJS already produce.
+3. **Tiny footprint.** 14KB gzipped, no dependencies. Compare to React (45KB+) or even Alpine.js (15KB but adds a JS framework).
 
-**1. Use ISO 8601 UTC timestamps everywhere:**
+**Use cases in this dashboard:**
+- `hx-get` for paginated error tables and drill-down
+- `hx-trigger="every 5s"` for polling pipeline run status
+- `hx-swap="innerHTML"` for filter changes without full page reload
 
-```javascript
-// Always use UTC
-const timestamp = new Date().toISOString();  // "2026-01-29T09:30:00.000Z"
-```
+**Delivery:** Vendor the file into `public/vendor/htmx.min.js` rather than using a CDN. The server is on a VPS with no CDN in front of it, so self-hosting is more reliable.
 
-**2. Tolerance window for near-simultaneous changes:**
-
-```javascript
-const CONFLICT_TOLERANCE_MS = 60000;  // 1 minute tolerance
-
-function resolveConflict(timestamp1, timestamp2) {
-  const diff = Math.abs(new Date(timestamp1) - new Date(timestamp2));
-
-  if (diff < CONFLICT_TOLERANCE_MS) {
-    // Too close to call - prefer Sportlink as source of truth
-    return 'sportlink';
-  }
-
-  return timestamp1 > timestamp2 ? 'source1' : 'source2';
-}
-```
-
-**3. Download frequency provides granularity:**
-
-Sportlink downloads occur 4x daily (every ~6 hours). This provides enough granularity for detecting changes without sub-second precision requirements.
-
-**Sources:**
-- [Couchbase Conflict Resolution](https://docs.couchbase.com/sync-gateway/current/conflict-resolution.html) - Documents timestamp-based last-write-wins with hybrid logical clocks
-- [Bidirectional Sync Best Practices](https://www.stacksync.com/blog/two-way-sync-demystified-key-principles-and-best-practices) - Discusses clock synchronization challenges and timestamp tolerance
+**Confidence:** HIGH (htmx 2.0.8 verified via npm)
 
 ---
 
-## Migration Path
+### CSS Framework: None (custom minimal CSS)
 
-### Phase 1: Add Schema Columns
+**Recommendation: Do not add a CSS framework.**
 
-**Migration SQL:**
+The dashboard is an internal tool used by a small number of club administrators. A simple, hand-written CSS file (~200-300 lines) using modern CSS features (grid, custom properties, container queries) is sufficient and avoids adding Tailwind's build step, Bootstrap's 200KB payload, or any other dependency.
 
-```sql
--- Add to stadion_members table
-ALTER TABLE stadion_members ADD COLUMN email_modified_at TEXT;
-ALTER TABLE stadion_members ADD COLUMN email_source TEXT DEFAULT 'sportlink';
-ALTER TABLE stadion_members ADD COLUMN phone_modified_at TEXT;
-ALTER TABLE stadion_members ADD COLUMN phone_source TEXT DEFAULT 'sportlink';
+If a CSS framework is desired later, the easiest addition would be **Simple.css** or **Pico CSS** -- classless CSS frameworks that style semantic HTML with zero configuration and no build step.
 
--- Add to sportlink_member_free_fields table
-ALTER TABLE sportlink_member_free_fields ADD COLUMN vog_datum_modified_at TEXT;
-ALTER TABLE sportlink_member_free_fields ADD COLUMN vog_datum_source TEXT DEFAULT 'sportlink';
-ALTER TABLE sportlink_member_free_fields ADD COLUMN freescout_id_modified_at TEXT;
-ALTER TABLE sportlink_member_free_fields ADD COLUMN freescout_id_source TEXT DEFAULT 'sportlink';
-ALTER TABLE sportlink_member_free_fields ADD COLUMN has_financial_block_modified_at TEXT;
-ALTER TABLE sportlink_member_free_fields ADD COLUMN has_financial_block_source TEXT DEFAULT 'sportlink';
-```
-
-**Backfill strategy:**
-
-```javascript
-// Initialize timestamps from existing data
-db.exec(`
-  UPDATE stadion_members
-  SET
-    email_modified_at = last_seen_at,
-    phone_modified_at = last_seen_at
-  WHERE email_modified_at IS NULL;
-
-  UPDATE sportlink_member_free_fields
-  SET
-    vog_datum_modified_at = last_seen_at,
-    freescout_id_modified_at = last_seen_at,
-    has_financial_block_modified_at = last_seen_at
-  WHERE vog_datum_modified_at IS NULL;
-`);
-```
-
-### Phase 2: Update Download Script
-
-**Modify `download-data-from-sportlink.js`:**
-
-```javascript
-// Capture download time
-const downloadTime = new Date().toISOString();
-
-// Pass download time to database operations
-upsertMembers(db, members.map(m => ({
-  ...m,
-  downloaded_at: downloadTime
-})));
-```
-
-### Phase 3: Add Conflict Detection Logic
-
-**Create `lib/conflict-resolver.js`:**
-
-```javascript
-function resolveFieldConflict(field, sportlinkValue, stadionValue, metadata) {
-  const { sportlinkTime, stadionTime, lastKnownTime, lastKnownSource } = metadata;
-
-  // Conflict resolution logic (see Pattern 2 above)
-  // Returns { value, source, needsSync: { toSportlink, toStadion } }
-}
-```
-
-### Phase 4: Implement Sportlink Writer
-
-**Create `write-sportlink-updates.js`:**
-
-```javascript
-// New script to write changes back to Sportlink
-// Uses Playwright form automation
-// Records write timestamps in SQLite
-```
+**Confidence:** HIGH (opinion based on project constraints)
 
 ---
 
-## Confidence Assessment
+### Authentication: Custom session-based auth with Fastify plugins
 
-| Component | Confidence | Notes |
-|-----------|-----------|-------|
-| SQLite schema | HIGH | Simple column additions following existing patterns |
-| WordPress modified field | HIGH | Well-documented, stable API, verified in Stadion docs |
-| Sportlink download time | MEDIUM | Proxy approach is necessary but has granularity limitations |
-| Playwright form writing | HIGH | Core Playwright feature, well-documented, no special libraries needed |
-| Clock sync strategy | MEDIUM | UTC + tolerance window is standard practice, but untested with Sportlink |
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| @fastify/session | 11.1.x | Server-side session management | Official Fastify plugin; works with cookie-based sessions |
+| @fastify/cookie | 11.0.x | Cookie parsing/setting | Required by @fastify/session |
+| argon2 | 0.44.x | Password hashing (Argon2id) | NIST-recommended; superior to bcrypt against GPU/ASIC attacks |
+| fastify-session-better-sqlite3-store | 2.1.x | Session storage in SQLite | Reuses the existing better-sqlite3 dependency; no new database server needed |
 
----
+**Authentication architecture:**
 
-## Open Questions for Phase Implementation
+This is a small internal dashboard (3-10 users). A full auth framework (Passport, Better Auth, Auth.js) is overkill. Instead:
 
-1. **Sportlink form selectors:** Need to inspect actual Sportlink edit forms to determine CSS selectors for:
-   - Email input field
-   - Phone input field
-   - VOG datum field (likely a date picker)
-   - Financial block checkbox/toggle
-   - FreeScout ID field
+1. **Users table** in a new `dashboard.sqlite` database (keeps dashboard state separate from sync state).
+2. **Login form** that verifies password against Argon2id hash.
+3. **Session cookie** stored in SQLite via `fastify-session-better-sqlite3-store`.
+4. **Fastify preHandler hook** that checks session on protected routes.
+5. **Multi-club readiness:** The users table includes a `club_id` column from day one, even if there is only one club initially. This avoids a schema migration later.
 
-2. **Sportlink form validation:** Does Sportlink have client-side validation that might interfere with Playwright automation? (e.g., email format, phone format)
+**Why not JWT:** JWTs are for stateless distributed systems. This is a single-server dashboard with SQLite -- server-side sessions are simpler, revocable, and more secure (no token exposure in localStorage).
 
-3. **Sportlink save confirmation:** How does Sportlink indicate successful save? (URL change, success message, etc.)
+**Why not Passport:** Passport adds unnecessary abstraction for a single auth strategy (local username/password). The entire auth implementation is ~50 lines of code without Passport.
 
-4. **Stadion ACF field names:** Verify exact ACF field keys for:
-   - Phone number field
-   - VOG datum field
-   - FreeScout ID field
-   - Financial block field
+**Why Argon2 over bcrypt:** Argon2id is the NIST-recommended algorithm as of 2025. bcrypt's fixed 4KB memory makes it increasingly vulnerable to FPGA attacks. Both work, but for new code, use the better algorithm.
 
-These questions are phase-specific research tasks, not stack decisions.
+**Confidence:** MEDIUM (session store package is community-maintained, not official Fastify; version 2.1.2 published 3 months ago -- reasonably active but needs validation during implementation)
 
 ---
 
-## Summary: Stack Changes
+### Fastify Plugin Ecosystem
 
-**New dependencies:** NONE
+| Plugin | Version | Purpose |
+|--------|---------|---------|
+| @fastify/view | 11.1.x | Template rendering (EJS integration) |
+| @fastify/static | 9.0.x | Serve CSS, JS, and image files from `public/` |
+| @fastify/formbody | 8.0.x | Parse `application/x-www-form-urlencoded` (login forms) |
+| @fastify/cookie | 11.0.x | Cookie support (required by session plugin) |
+| @fastify/session | 11.1.x | Session management |
 
-**Schema changes:**
-- 10 new columns across 2 existing tables
-- All TEXT type (ISO 8601 timestamps and source indicators)
+All plugins are part of the official Fastify organization and are actively maintained.
 
-**New patterns:**
-- Download time capture (1 line change in download script)
-- Conflict resolution logic (new module: `lib/conflict-resolver.js`)
-- Sportlink form writer (new script: `write-sportlink-updates.js`)
+**Confidence:** HIGH (verified via npm and Fastify ecosystem page)
 
-**Existing capabilities leveraged:**
-- Playwright (already installed, handles form writing)
-- SQLite (better-sqlite3 already installed)
-- WordPress REST API (already integrated via `lib/stadion-client.js`)
+---
 
-The stack is ready. Implementation is straightforward schema extension + logic layer.
+### Database: SQLite (existing, extended)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| better-sqlite3 | latest | Database driver (already in use) | No new dependency; synchronous API is simple for dashboard queries |
+
+**Dashboard database strategy:**
+
+Add a new SQLite database: `data/dashboard.sqlite`
+
+This database holds:
+- **users** -- Dashboard login accounts (email, argon2 hash, club_id, role)
+- **pipeline_runs** -- Structured run data (pipeline name, started_at, finished_at, status, step results as JSON)
+- **sync_errors** -- Individual errors from runs (run_id, step, member identifier, error type, error message, raw data)
+
+**Why a separate database:** The four existing databases (`laposta-sync.sqlite`, `rondo-sync.sqlite`, `nikki-sync.sqlite`, `freescout-sync.sqlite`) track sync state and should not be polluted with dashboard concerns. The dashboard database is a consumer: it reads from the sync databases for current state and stores its own operational data (users, structured run history).
+
+**Why not PostgreSQL/MySQL:** The project already uses better-sqlite3 everywhere. SQLite handles the expected load (a handful of concurrent dashboard users) without any issue. Adding a separate database server for an internal tool would be pure overhead.
+
+**Structured run data:** The existing `sportlink_runs` table in `laposta-sync.sqlite` stores raw JSON results. The new `pipeline_runs` table adds structure: status enum, duration, step-level breakdown. Pipeline orchestrators (`pipelines/*.js`) need to be modified to write structured results here in addition to (or replacing) the current log-file-based reporting.
+
+**Confidence:** HIGH (better-sqlite3 is already the proven database layer in this project)
+
+---
+
+### Email Reporting: Postmark (existing, modified)
+
+| Technology | Version | Purpose | Change |
+|------------|---------|---------|--------|
+| postmark | 4.0.x | Email delivery (already in use) | Switch from "always email" to "email only on errors" |
+
+No new dependency needed. The existing `scripts/send-email.js` and Postmark integration remain. The change is behavioral: pipeline orchestrators check run status and only send email when errors occur. The dashboard becomes the primary reporting interface; email becomes the exception-notification channel.
+
+**Confidence:** HIGH (no technology change, only behavioral change)
+
+---
+
+## Alternatives Considered
+
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Web framework | Fastify v5 | Express v5 | Less structured plugin system; slower; but viable fallback |
+| Web framework | Fastify v5 | Hono v4 | Optimized for edge/serverless, not server-side rendering on VPS |
+| Template engine | EJS v4 | Nunjucks v3 | Unmaintained (3 years without update) |
+| Template engine | EJS v4 | Eta v3 | Lower adoption, smaller community |
+| Interactivity | htmx v2 | React SPA | Massive overhead for a read-only dashboard; requires build pipeline |
+| Interactivity | htmx v2 | Alpine.js | htmx is more appropriate for server-rendered partial updates |
+| Auth | Custom sessions | Passport.js | Unnecessary abstraction for single-strategy auth |
+| Auth | Custom sessions | JWT tokens | Wrong tool for single-server dashboard with SQLite |
+| Password hash | Argon2id | bcrypt | bcrypt works but Argon2id is NIST-recommended for new projects |
+| Database | SQLite | PostgreSQL | Overkill; SQLite already handles all sync databases fine |
+| CSS | Minimal custom | Tailwind | Requires build step; overkill for internal tool |
+| CSS | Minimal custom | Bootstrap | 200KB payload; class soup; not needed for simple tables |
+
+---
+
+## Installation
+
+```bash
+# Prerequisite: upgrade Node.js to v22 LTS on the server
+# (method depends on how Node.js was installed -- nvm, nodesource, etc.)
+
+# Core web framework
+npm install fastify@^5.7 @fastify/view@^11.1 @fastify/static@^9.0 @fastify/formbody@^8.0
+
+# Session management
+npm install @fastify/cookie@^11.0 @fastify/session@^11.1 fastify-session-better-sqlite3-store@^2.1
+
+# Template engine
+npm install ejs@^4.0
+
+# Authentication
+npm install argon2@^0.44
+
+# Interactivity (vendor, not npm)
+# Download htmx.min.js to public/vendor/htmx.min.js
+curl -o public/vendor/htmx.min.js https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js
+```
+
+**Total new dependencies:** 9 npm packages + 1 vendored JS file
+
+**No new devDependencies.** The project has no build step and should keep it that way.
+
+---
+
+## Integration with Existing Stack
+
+### What stays the same
+
+| Component | Status |
+|-----------|--------|
+| better-sqlite3 | Stays; shared with dashboard database |
+| Playwright | Stays; sync pipelines unchanged |
+| Postmark | Stays; email behavior changes from "always" to "errors only" |
+| otplib | Stays; Sportlink TOTP unchanged |
+| varlock | Stays; .env loading unchanged |
+| lib/ modules | Stay; dashboard reads from existing DB modules |
+
+### What changes
+
+| Component | Change |
+|-----------|--------|
+| `pipelines/*.js` | Modified to write structured run data to `dashboard.sqlite` |
+| `lib/logger.js` | Extended with a log-adapter that writes structured entries for dashboard consumption |
+| `scripts/sync.sh` | Unchanged (still runs pipelines via cron) |
+| `scripts/send-email.js` | Modified to only send on errors |
+
+### New directory structure
+
+```
+server/                  # New: dashboard web server
+  server.js              # Fastify instance, plugin registration
+  plugins/               # Fastify plugins (auth, db, etc.)
+  routes/                # Route handlers
+  views/                 # EJS templates
+  public/                # Static files (CSS, vendored htmx)
+```
+
+The dashboard server is a **separate process** from the sync pipelines. It runs alongside cron-triggered syncs on the same server, reading from the same SQLite databases.
+
+---
+
+## Multi-Club Architecture Considerations
+
+The requirement is "structured so multi-club support can be added later." The stack supports this through:
+
+1. **`club_id` on users and pipeline_runs tables** from day one. Queries filter by club_id.
+2. **Database-per-club pattern** for sync databases (each club gets its own set of 4 sync SQLite files). The dashboard database remains shared (it stores user accounts and references to per-club data).
+3. **Fastify's encapsulation** means club-scoping can be added as a plugin/hook without refactoring routes.
+
+This is a schema/data design concern, not a stack concern. The recommended stack does not block multi-club support.
+
+---
+
+## What NOT to Add
+
+| Technology | Why Not |
+|------------|---------|
+| TypeScript | The codebase is ~20k lines of CommonJS JavaScript. Adding TS to a subset (dashboard) creates a split codebase. The benefit is minimal for an internal tool. |
+| Webpack/Vite/esbuild | No client-side JS compilation is needed. EJS templates + vendored htmx need no build step. |
+| Docker | Single-server deployment via git pull. Docker adds orchestration complexity with no benefit. |
+| Redis | Session store and caching are well-served by SQLite for this scale. |
+| WebSocket library | htmx's polling (`hx-trigger="every 5s"`) is simpler than WebSockets for near-real-time status. If real-time is needed later, Fastify has `@fastify/websocket`. |
+| ORM (Knex, Prisma, etc.) | better-sqlite3's synchronous API with raw SQL is simpler and faster. The team already writes SQL everywhere. |
 
 ---
 
 ## Sources
 
-### WordPress Modification Tracking
-- [WordPress REST API Posts Reference](https://developer.wordpress.org/rest-api/reference/posts/)
-- [WordPress 5.7 REST API Changes](https://make.wordpress.org/core/2021/02/23/rest-api-changes-in-wordpress-5-7/)
-- [ACF Field Modification Date Tracking](https://support.advancedcustomfields.com/forums/topic/field-last-update-date-stamp/)
-- [WordPress Post Revisions API](https://developer.wordpress.org/rest-api/reference/post-revisions/)
+### Official / Verified (HIGH confidence)
+- [Fastify v5 npm](https://www.npmjs.com/package/fastify) -- v5.7.4, published Feb 2026
+- [Fastify v5 requires Node.js 20+](https://fastify.dev/docs/latest/Reference/LTS/)
+- [Node.js 18 EOL announcement](https://nodejs.org/en/blog/announcements/node-18-eol-support) -- EOL April 30, 2025
+- [Express 5 npm](https://www.npmjs.com/package/express) -- v5.2.1, supports Node.js 18+
+- [EJS npm](https://www.npmjs.com/package/ejs) -- v4.0.1, published Jan 2026
+- [htmx npm](https://www.npmjs.com/package/htmx.org) -- v2.0.8
+- [@fastify/view npm](https://www.npmjs.com/package/@fastify/view) -- v11.1.1
+- [@fastify/static npm](https://www.npmjs.com/package/@fastify/static) -- v9.0.0
+- [@fastify/session npm](https://www.npmjs.com/package/@fastify/session) -- v11.1.1
+- [argon2 npm](https://www.npmjs.com/package/argon2) -- v0.44.0
+- [Fastify database guide](https://fastify.dev/docs/latest/Guides/Database/) -- plugin pattern for custom DB
 
-### Playwright Form Automation
-- [Playwright Actions Documentation](https://playwright.dev/docs/input)
-- [Playwright Form Automation Guide](https://blog.apify.com/playwright-how-to-automate-forms/)
-
-### Bidirectional Sync Patterns
-- [Couchbase Conflict Resolution](https://docs.couchbase.com/sync-gateway/current/conflict-resolution.html)
-- [Bidirectional Sync Best Practices](https://www.stacksync.com/blog/two-way-sync-demystified-key-principles-and-best-practices)
-- [SQLite-Sync Framework (AMPLI-SYNC)](https://github.com/sqlite-sync/SQLite-sync.com)
-- [SQLite Sync (CRDT-based)](https://github.com/sqliteai/sqlite-sync/)
-- [Bidirectional Sync Implementation (December 2025)](https://medium.com/@janvi34334/how-i-implemented-bidirectional-data-sync-in-a-flutter-retail-app-060aa2f69c9f)
+### Community / Cross-Referenced (MEDIUM confidence)
+- [fastify-session-better-sqlite3-store npm](https://www.npmjs.com/package/fastify-session-better-sqlite3-store) -- v2.1.2, community package
+- [Nunjucks npm](https://www.npmjs.com/package/nunjucks) -- v3.2.4, last published 3 years ago
+- [Fastify vs Express comparison](https://betterstack.com/community/guides/scaling-nodejs/fastify-express/)
+- [Argon2 vs bcrypt comparison](https://guptadeepak.com/the-complete-guide-to-password-hashing-argon2-vs-bcrypt-vs-scrypt-vs-pbkdf2-2026/)
+- [htmx SSR best practices](https://htmx.org/essays/10-tips-for-ssr-hda-apps/)

@@ -1,610 +1,652 @@
-# Architecture: Reverse Sync (Stadion → Sportlink)
+# Architecture: Web Dashboard for Rondo Sync
 
-**Domain:** Bidirectional data synchronization between WordPress REST API and browser-automated form submission
-**Researched:** 2026-01-29
-**Confidence:** MEDIUM (architecture patterns verified, Sportlink specifics inferred from existing code)
+**Domain:** Adding a web dashboard to an existing Node.js CLI sync tool
+**Researched:** 2026-02-08
+**Confidence:** HIGH (patterns verified against existing codebase, technology choices based on current docs)
 
 ## Executive Summary
 
-Reverse sync adds a Stadion → Sportlink flow to the existing one-way Sportlink → Stadion architecture. The implementation follows **timestamp-based conflict resolution** with **browser automation** for Sportlink writes (no write API available). The architecture preserves the existing SQLite-based state tracking pattern while adding modification time comparison.
+The existing rondo-sync architecture is a CLI-driven ETL pipeline using cron scheduling, with SQLite state databases and text-based log output. Adding a web dashboard requires three fundamental changes: (1) capturing structured run data during pipeline execution, (2) serving that data through a web server, and (3) keeping the web server and cron-driven CLI processes from conflicting on database access.
 
-**Key insight:** This is not true bidirectional sync (both sides writing freely). Instead, it's **conditional reverse sync** where Stadion updates are only pushed if they're newer than Sportlink's version. Sportlink remains the primary source of truth.
+The good news: the existing codebase is architecturally well-suited for this addition. Every pipeline already collects structured `stats` objects with per-step counts and errors. The logger already writes to both stdout and file simultaneously. SQLite with WAL mode supports concurrent read/write from multiple processes. The module/CLI hybrid pattern means pipelines can be invoked programmatically by a web server without shelling out.
 
-## Current Architecture (One-Way)
+The recommended approach is a **thin instrumentation layer** that captures the stats objects pipelines already produce, stores them in a new `dashboard.sqlite` database, and serves them through a lightweight Fastify web server. This avoids rewriting pipelines and keeps the existing cron+CLI flow intact.
 
-### Data Flow
+For multi-club readiness, the architecture should use a **database-per-club** isolation model (each club gets its own set of SQLite files and .env config), which maps naturally to the existing pattern of per-domain SQLite databases.
+
+## Current Architecture (As-Is)
+
+### System Overview
 
 ```
-Sportlink Club → SQLite → Stadion WordPress
-     (download)      ↓         ↑
-                 (upsert)  (stadionRequest)
+ cron (crontab)
+   |
+   v
+ sync.sh {pipeline}          <-- bash wrapper: flock locking, .env loading, log routing
+   |
+   v
+ pipelines/sync-{type}.js    <-- Node.js orchestrator: calls steps, collects stats
+   |
+   +---> steps/download-*    <-- data extraction (Playwright browser automation)
+   +---> steps/prepare-*     <-- data transformation
+   +---> steps/submit-*      <-- data submission (REST APIs)
+   |
+   v
+ printSummary(stats)          <-- text output to logger
+   |
+   v
+ send-email.js                <-- reads log file, sends via Postmark
 ```
 
-### Key Components
+### Key Characteristics
 
-| Component | Purpose | Technology |
-|-----------|---------|------------|
-| `download-data-from-sportlink.js` | Browser automation downloads member JSON | Playwright + Chromium |
-| `lib/stadion-db.js` | SQLite schema for state tracking | better-sqlite3 |
-| `submit-stadion-sync.js` | Push members to Stadion via REST API | HTTPS client |
-| `lib/stadion-client.js` | Stadion WordPress REST API wrapper | node:https + Basic Auth |
-| `sync-people.js` | Orchestrates people pipeline | Sequential step execution |
+| Aspect | Current State |
+|--------|---------------|
+| **Invocation** | Cron calls bash wrapper, which calls Node.js |
+| **Locking** | Per-pipeline flock in sync.sh |
+| **Output** | Unstructured text to stdout + log file |
+| **Stats** | Structured JS objects built in-memory, then formatted as text |
+| **Error records** | Collected in `stats.*.errors[]` arrays with member-level detail |
+| **Run history** | Only `sportlink_runs` table in laposta.sqlite (raw download data) |
+| **Databases** | 4 SQLite files, all in `data/` directory |
+| **Configuration** | Single `.env` file per installation |
 
-### State Tracking Pattern
+### The Stats Object Opportunity
 
-SQLite database (`rondo-sync.sqlite`) stores:
-- `knvb_id` → `stadion_id` mapping (WordPress post ID)
-- `source_hash` (SHA-256 of member data)
-- `last_synced_hash` (hash of data last pushed to Stadion)
-- `last_synced_at` (timestamp)
-
-**Change detection:** Compare `source_hash != last_synced_hash` to determine if sync needed.
-
-### Hash-Based Change Detection
+Every pipeline already builds a structured stats object during execution. For example, `sync-people.js` produces:
 
 ```javascript
-// From lib/stadion-db.js
-function computeSourceHash(knvbId, data) {
-  const payload = stableStringify({ knvb_id: knvbId, data: data || {} });
-  return crypto.createHash('sha256').update(payload).digest('hex');
-}
-
-// Check if member needs sync
-function getMembersNeedingSync(db, force = false) {
-  return db.prepare(`
-    SELECT knvb_id, email, data_json, source_hash, stadion_id
-    FROM stadion_members
-    WHERE last_synced_hash IS NULL OR last_synced_hash != source_hash
-  `).all();
-}
-```
-
-## Proposed Architecture (Bidirectional)
-
-### Data Flow with Reverse Sync
-
-```
-Sportlink Club ←───────────────→ Stadion WordPress
-     ↓                                ↑
-     ↓ (download via browser)         ↑ (read via REST API)
-     ↓                                ↑
-     ↓                                ↑
-SQLite Database (state + timestamps)
-     ↓                                ↑
-     ↓ (compare timestamps)           ↑
-     ↓                                ↑
-     ↓                     ┌──────────┘
-     ↓                     ↓
-     ↓                 (if Stadion newer)
-     ↓                     ↓
-     ↓ (write via browser automation)
-     ↓                     ↓
-     ↓←────────────────────┘
-```
-
-### Modification Time Tracking
-
-WordPress REST API provides modification timestamps:
-- `modified` - Local timezone (e.g., "2026-01-29T10:30:45")
-- `modified_gmt` - UTC timezone (use this for comparisons)
-
-These fields are standard in all WordPress REST API responses for posts ([source](https://developer.wordpress.org/rest-api/reference/posts/)).
-
-**Strategy:** Store `stadion_modified_gmt` in SQLite to compare against Sportlink's last-modified time.
-
-### Schema Changes
-
-Add to `stadion_members` table:
-
-```sql
-ALTER TABLE stadion_members
-  ADD COLUMN stadion_modified_gmt TEXT;  -- Stadion's last modification timestamp
-  ADD COLUMN sportlink_modified_at TEXT;  -- Sportlink's last modification timestamp (from download)
-  ADD COLUMN last_reverse_synced_at TEXT; -- When we last pushed to Sportlink
-```
-
-### Conflict Resolution Strategy
-
-**Rule:** Last Write Wins (LWW) based on modification timestamps ([source](https://mobterest.medium.com/conflict-resolution-strategies-in-data-synchronization-2a10be5b82bc))
-
-```javascript
-function needsReverseSync(member) {
-  // No reverse sync if:
-  // 1. Never synced to Stadion (stadion_id is null)
-  if (!member.stadion_id) return false;
-
-  // 2. Already reverse synced and Sportlink version is newer
-  if (member.last_reverse_synced_at &&
-      member.sportlink_modified_at > member.stadion_modified_gmt) {
-    return false;
-  }
-
-  // Reverse sync if Stadion version is newer
-  return member.stadion_modified_gmt > member.sportlink_modified_at;
+stats = {
+  completedAt: '2026-02-08 14:00:00',
+  duration: '2m 30s',
+  downloaded: 1069,
+  prepared: 1050,
+  excluded: 19,
+  synced: 45,
+  added: 2,
+  updated: 43,
+  errors: [{ knvb_id: 'KNVB123', message: '...', system: 'laposta' }],
+  rondoClub: { total: 1069, synced: 45, created: 2, updated: 43, skipped: 1024, errors: [] },
+  photos: { downloaded: 3, uploaded: 2, deleted: 1, skipped: 0, errors: [] },
+  reverseSync: { synced: 0, failed: 0, errors: [], results: [] }
 }
 ```
 
-## New Components
+This is the **single most important architectural insight**: the structured data the dashboard needs is already computed by every pipeline. It is currently serialized to text and thrown away. The dashboard architecture's primary job is to intercept and persist this data.
 
-### 1. Fetch Stadion Changes
+## Proposed Architecture (To-Be)
 
-**Script:** `fetch-stadion-changes.js`
+### High-Level Component View
 
-**Purpose:** Query Stadion REST API for members modified since last sync.
+```
+ cron (crontab)           operator browser
+   |                          |
+   v                          v
+ sync.sh {pipeline}      Fastify web server (port 3000)
+   |                          |
+   v                          |
+ pipelines/sync-{type}.js     |
+   |                          |
+   +---> run-tracker.js  <----+    <-- NEW: persists stats, serves history
+   |         |                |
+   |         v                |
+   |    dashboard.sqlite <----+    <-- NEW: run history + error records
+   |
+   +---> steps/*  (unchanged)
+   |
+   +---> data/*.sqlite  (unchanged, existing sync state DBs)
+```
+
+### New Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| **Run Tracker** | Captures pipeline stats into dashboard.sqlite | `lib/run-tracker.js` |
+| **Dashboard DB** | Stores run history, step results, errors | `data/dashboard.sqlite` |
+| **Web Server** | Serves dashboard UI and API | `server/index.js` |
+| **API Routes** | REST endpoints for run data | `server/routes/` |
+| **UI Templates** | Server-rendered dashboard views | `server/views/` |
+
+### Modified Components
+
+| Component | Change | Why |
+|-----------|--------|-----|
+| **Each pipeline** | Add 3-4 lines to persist stats via run-tracker | Minimal change to capture data |
+| **Logger** | Optional: emit structured events alongside text | Enables real-time dashboard updates |
+| **sync.sh** | No changes needed | Pipelines handle their own tracking |
+
+### Components NOT Modified
+
+| Component | Why Unchanged |
+|-----------|---------------|
+| **steps/** | Steps return results to pipelines; tracking happens at pipeline level |
+| **lib/*-db.js** | Existing sync state databases remain independent |
+| **lib/*-client.js** | API clients are unaffected |
+| **config/** | Field mappings are sync-specific, not dashboard-relevant |
+| **tools/** | Maintenance scripts remain CLI-only |
+
+## Integration Points
+
+### 1. Run Tracker (lib/run-tracker.js)
+
+The run tracker is the central integration point. It provides a simple API for pipelines to record their execution.
+
+**Pattern: Wrap existing pipeline return values.**
+
+Each pipeline already returns `{ success, stats }`. The run tracker intercepts this result and persists it:
 
 ```javascript
-// Pseudocode
-async function fetchStadionChanges(db, options) {
-  const members = getAllTrackedMembers(db); // Get all with stadion_id
-  const changes = [];
+// lib/run-tracker.js
+const Database = require('better-sqlite3');
 
-  for (const member of members) {
-    const response = await stadionRequest(
-      `wp/v2/people/${member.stadion_id}`,
-      'GET',
-      null,
-      options
-    );
+function createRunTracker(dbPath) {
+  const db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');  // Critical for concurrent access
+  initSchema(db);
 
-    const stadionModified = response.body.modified_gmt;
-    const sportlinkModified = member.sportlink_modified_at;
-
-    // Compare timestamps
-    if (new Date(stadionModified) > new Date(sportlinkModified)) {
-      changes.push({
-        knvb_id: member.knvb_id,
-        stadion_id: member.stadion_id,
-        stadion_modified_gmt: stadionModified,
-        stadion_data: response.body.acf
-      });
+  return {
+    startRun(pipeline, trigger) {
+      // Insert run record, return run ID
+    },
+    recordStepResult(runId, stepName, result) {
+      // Insert step-level stats
+    },
+    completeRun(runId, stats) {
+      // Update run with final stats + errors
+    },
+    getRecentRuns(pipeline, limit) {
+      // Query for dashboard display
     }
-  }
-
-  return { success: true, changes };
-}
-```
-
-**Integration:** Runs after Sportlink download completes, before Stadion push.
-
-### 2. Reverse Sync to Sportlink
-
-**Script:** `submit-sportlink-reverse-sync.js`
-
-**Purpose:** Browser automation to update Sportlink member pages.
-
-**Fields to sync:** (from project context)
-- Contact details: `email`, `email2`, `mobile`, `phone` → /general page
-- VOG date: `datum-vog` → /other page, #inputRemarks8
-- FreeScout ID: `freescout-id` → /other page, #inputRemarks3
-- Financial block: `financiele-blokkade` → /financial page, toggle buttons
-
-**Architecture:** Mirror existing `download-data-from-sportlink.js` pattern.
-
-```javascript
-// Pseudocode
-async function runReverseSyncBrowser(changes, options) {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
-
-  // Login (reuse login flow from download script)
-  await loginToSportlink(page);
-
-  for (const change of changes) {
-    const memberUrl = `https://club.sportlink.com/member/edit/${change.knvb_id}/general`;
-    await page.goto(memberUrl);
-
-    // Update contact fields
-    await page.fill('#inputEmail', change.stadion_data.contact_info[0].contact_value);
-    // ... more field updates
-
-    await page.click('#btnSave');
-    await page.waitForSelector('.success-message', { timeout: 5000 });
-
-    // Update tracking
-    updateReverseSyncState(db, change.knvb_id, new Date().toISOString());
-  }
-
-  await browser.close();
-}
-```
-
-**Error handling:** If Sportlink page has changed since last update, log error and skip member. Notify operator via email.
-
-### 3. Update Orchestrator
-
-**Script:** `sync-people.js` (modify existing)
-
-**Changes:**
-
-```javascript
-// New step: Fetch Stadion changes after Sportlink download
-const stadionChanges = await fetchStadionChanges(db, { logger, verbose });
-
-// New step: Reverse sync if changes detected
-if (stadionChanges.changes.length > 0) {
-  logger.log(`${stadionChanges.changes.length} Stadion changes to push to Sportlink`);
-  const reverseResult = await runReverseSyncBrowser(stadionChanges.changes, { logger, verbose });
-  stats.reverse = {
-    total: stadionChanges.changes.length,
-    synced: reverseResult.synced,
-    errors: reverseResult.errors
   };
 }
 ```
 
-## Component Boundaries
+**Integration into pipelines is minimal** -- approximately 3-4 lines per pipeline:
 
-| Component | Responsibility | Input | Output |
-|-----------|---------------|-------|--------|
-| `fetch-stadion-changes.js` | Detect Stadion modifications via REST API | SQLite state | List of changes to push |
-| `submit-sportlink-reverse-sync.js` | Browser automation writes to Sportlink | Change list | Success/error results |
-| `lib/stadion-db.js` | Schema + queries for timestamps | - | Database functions |
-| `sync-people.js` | Orchestrate forward + reverse flows | CLI flags | Combined stats |
-
-## Build Order (Recommended Phases)
-
-### Phase 1: State Tracking (No Writes Yet)
-
-**Goal:** Add timestamp tracking without writing to Sportlink.
-
-**Tasks:**
-1. Add timestamp columns to SQLite schema
-2. Modify `download-data-from-sportlink.js` to extract Sportlink modification times
-3. Modify `submit-stadion-sync.js` to capture Stadion `modified_gmt` after writes
-4. Create `fetch-stadion-changes.js` to identify candidates
-5. Add logging to show what *would* be reverse synced
-
-**Output:** Dry-run mode shows reverse sync candidates without making changes.
-
-### Phase 2: Single-Field Reverse Sync
-
-**Goal:** Prove reverse sync with lowest-risk field.
-
-**Tasks:**
-1. Implement `submit-sportlink-reverse-sync.js` for `freescout-id` only
-2. Add browser automation to navigate to /other page
-3. Update #inputRemarks3 field
-4. Save and verify success
-5. Update `last_reverse_synced_at` in SQLite
-
-**Output:** FreeScout ID syncs from Stadion → Sportlink reliably.
-
-### Phase 3: Expand Field Coverage
-
-**Goal:** Add remaining fields incrementally.
-
-**Tasks:**
-1. Add contact fields (email, mobile, phone) on /general page
-2. Add VOG date on /other page
-3. Add financial block toggle on /financial page
-4. Test each field independently
-
-**Output:** All specified fields sync reverse direction.
-
-### Phase 4: Integration & Error Handling
-
-**Goal:** Production-ready orchestration.
-
-**Tasks:**
-1. Integrate into `sync-people.js` orchestrator
-2. Add error recovery (retry logic, skip on failure)
-3. Email notifications for reverse sync failures
-4. Add metrics to summary report
-5. Update cron schedule if needed (or keep 4x daily)
-
-**Output:** Reverse sync runs automatically in production.
-
-## Data Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ FORWARD SYNC (Sportlink → Stadion)                              │
-│                                                                  │
-│ 1. download-data-from-sportlink.js                              │
-│    ↓ (browser automation)                                       │
-│    Members JSON + sportlink_modified_at                         │
-│    ↓                                                             │
-│ 2. upsert to SQLite (stadion_members)                           │
-│    ↓                                                             │
-│ 3. Compare source_hash vs last_synced_hash                      │
-│    ↓ (if changed)                                               │
-│ 4. submit-stadion-sync.js                                       │
-│    ↓ (stadionRequest PUT/POST)                                  │
-│    Stadion WordPress ACF fields updated                         │
-│    ↓                                                             │
-│ 5. Capture stadion_modified_gmt from response                   │
-│    ↓                                                             │
-│ 6. Update last_synced_hash in SQLite                            │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│ REVERSE SYNC (Stadion → Sportlink)                              │
-│                                                                  │
-│ 7. fetch-stadion-changes.js                                     │
-│    ↓ (for each member with stadion_id)                          │
-│    GET /wp/v2/people/{stadion_id}                               │
-│    ↓                                                             │
-│ 8. Compare stadion_modified_gmt vs sportlink_modified_at        │
-│    ↓ (if Stadion newer)                                         │
-│ 9. submit-sportlink-reverse-sync.js                             │
-│    ↓ (browser automation)                                       │
-│    Navigate to member edit pages                                │
-│    ↓                                                             │
-│    Fill form fields + save                                      │
-│    ↓                                                             │
-│ 10. Update last_reverse_synced_at in SQLite                     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Modification Time Sources
-
-### Sportlink
-
-**Source:** Browser automation extracts from page metadata or API response headers.
-
-**Location:** Likely in member JSON response from SearchMembers POST:
 ```javascript
-// Hypothesis (needs verification):
-const member = jsonData.Members[0];
-const modifiedAt = member.ModifiedAt || member.LastModified;
-```
+// Before (current):
+async function runPeopleSync(options = {}) {
+  const stats = { /* ... */ };
+  // ... all existing pipeline logic ...
+  return { success, stats };
+}
 
-**Fallback:** If Sportlink doesn't provide modification time, use `last_seen_at` (when we downloaded it) as proxy. This is conservative but safe.
-
-### Stadion WordPress
-
-**Source:** REST API standard fields ([source](https://developer.wordpress.org/rest-api/reference/posts/))
-
-**Response format:**
-```json
-{
-  "id": 456,
-  "modified": "2026-01-29T10:30:45",
-  "modified_gmt": "2026-01-29T09:30:45",
-  "acf": { ... }
+// After (with tracking):
+async function runPeopleSync(options = {}) {
+  const tracker = getRunTracker();  // singleton
+  const runId = tracker.startRun('people', options.trigger || 'cron');
+  const stats = { /* ... */ };
+  // ... all existing pipeline logic unchanged ...
+  tracker.completeRun(runId, stats);
+  return { success, stats };
 }
 ```
 
-**Use:** `modified_gmt` (UTC timezone) for all comparisons.
+### 2. Dashboard Database (data/dashboard.sqlite)
 
-## Loop Prevention
+A new database dedicated to dashboard data. Separated from sync databases to avoid any interference with sync operations.
 
-**Risk:** Reverse sync could trigger forward sync, creating infinite loop.
-
-**Prevention strategies:**
-
-1. **Timestamp granularity:** Use second-level precision. If timestamps match, no sync needed.
-2. **Sync token:** Add `sync_source` field to track which system last modified:
-   ```sql
-   ALTER TABLE stadion_members ADD COLUMN last_modified_by TEXT; -- 'sportlink' or 'stadion'
-   ```
-3. **Cooldown period:** Only reverse sync if Stadion change is >5 minutes old (prevents immediate bounce).
-
-## Error Scenarios & Handling
-
-### Scenario 1: Sportlink Page Layout Changed
-
-**Symptom:** Playwright selectors fail (element not found).
-
-**Detection:** `page.waitForSelector()` times out.
-
-**Response:**
-- Log error with screenshot
-- Skip member, continue with others
-- Email operator with error details
-- Flag member for manual review
-
-### Scenario 2: Conflicting Simultaneous Edits
-
-**Symptom:** Both systems modified within same minute.
-
-**Detection:** `abs(stadion_modified_gmt - sportlink_modified_at) < 60 seconds`
-
-**Response:**
-- Use LWW (Last Write Wins) - most recent timestamp wins
-- Log conflict to separate audit table
-- Include in email report for operator awareness
-
-### Scenario 3: Network Failure Mid-Sync
-
-**Symptom:** Browser automation crashes or API request times out.
-
-**Detection:** Exception caught in sync loop.
-
-**Response:**
-- Transaction rollback (don't update `last_reverse_synced_at`)
-- Retry on next sync cycle (4 hours later)
-- If fails 3 consecutive times, email alert
-
-### Scenario 4: Data Validation Failure
-
-**Symptom:** Sportlink rejects field value (e.g., invalid email format).
-
-**Detection:** Success message not shown after save, or error message appears.
-
-**Response:**
-- Log validation error with field + value
-- Don't update `last_reverse_synced_at` (will retry next cycle)
-- Email operator with validation details
-- Consider adding pre-validation before browser automation
-
-## Rollback Strategy
-
-If reverse sync causes issues in production:
-
-1. **Immediate:** Set `ENABLE_REVERSE_SYNC=false` in .env (feature flag)
-2. **Data repair:** Run forward sync with `--force` to overwrite Sportlink values pushed to Stadion
-3. **Investigation:** Review logs/screenshots to identify root cause
-4. **Gradual re-enable:** Test with single member first (`--member=knvb_id` flag)
-
-## Monitoring & Observability
-
-### Metrics to Track
-
-| Metric | What to Measure | Alert Threshold |
-|--------|----------------|-----------------|
-| Reverse sync rate | Changes synced per run | >10% of members = investigate |
-| Conflict rate | Simultaneous edits detected | >5% = investigate timing |
-| Error rate | Failed reverse syncs | >1% = alert operator |
-| Sync duration | Time for reverse sync phase | >10 minutes = performance issue |
-
-### Log Outputs
-
-```javascript
-// Summary report format
-stats.reverse = {
-  total: 15,           // Members checked
-  candidates: 8,       // Stadion newer than Sportlink
-  synced: 7,           // Successfully pushed
-  skipped: 1,          // Skipped due to error
-  errors: [{
-    knvb_id: '12345',
-    field: 'email',
-    message: 'Invalid format',
-    screenshot: 'logs/error-12345-email.png'
-  }]
-};
-```
-
-## Performance Considerations
-
-### At 100 Members
-
-- Fetch changes: ~30 seconds (REST API reads)
-- Browser automation: ~2 min (if 10 members need updates, 12s each)
-- **Total:** ~2.5 minutes added to sync
-
-### At 500 Members
-
-- Fetch changes: ~2 minutes (parallelizable with Promise.all in batches)
-- Browser automation: ~10 min (if 50 members need updates)
-- **Total:** ~12 minutes added to sync
-
-**Optimization:** Batch browser automation (stay logged in, navigate between members without re-login).
-
-### At 1000+ Members
-
-- Consider splitting reverse sync to separate schedule (nightly instead of 4x daily)
-- Parallel browser contexts (5 concurrent sessions)
-- Incremental sync (only check members modified in last 48 hours)
-
-## Security Considerations
-
-### Credential Storage
-
-Same as forward sync:
-- `SPORTLINK_USERNAME`, `SPORTLINK_PASSWORD`, `SPORTLINK_OTP_SECRET` in .env
-- Server-only execution (production server at 46.202.155.16)
-
-### Audit Trail
-
-All reverse syncs logged:
-- What changed (field + old/new value)
-- Who triggered (system user)
-- When (timestamp)
-- Why (Stadion modification timestamp)
-
-**Implementation:** Add `reverse_sync_log` table:
+**Schema:**
 
 ```sql
-CREATE TABLE reverse_sync_log (
+-- Pipeline runs
+CREATE TABLE runs (
   id INTEGER PRIMARY KEY,
-  knvb_id TEXT NOT NULL,
-  field_name TEXT NOT NULL,
-  old_value TEXT,
-  new_value TEXT,
-  stadion_modified_gmt TEXT NOT NULL,
-  synced_at TEXT NOT NULL,
-  success INTEGER DEFAULT 1
+  pipeline TEXT NOT NULL,           -- 'people', 'teams', 'functions', etc.
+  trigger TEXT NOT NULL,            -- 'cron', 'manual', 'web'
+  status TEXT NOT NULL DEFAULT 'running',  -- 'running', 'completed', 'failed'
+  started_at TEXT NOT NULL,
+  completed_at TEXT,
+  duration_ms INTEGER,
+  stats_json TEXT,                  -- Full stats object as JSON
+  success INTEGER,                  -- 1 = success, 0 = failure
+  error_message TEXT                -- Top-level error if fatal
 );
+
+CREATE INDEX idx_runs_pipeline ON runs(pipeline, started_at DESC);
+CREATE INDEX idx_runs_status ON runs(status);
+
+-- Per-step results within a run
+CREATE TABLE run_steps (
+  id INTEGER PRIMARY KEY,
+  run_id INTEGER NOT NULL REFERENCES runs(id),
+  step_name TEXT NOT NULL,          -- 'download', 'prepare', 'submit-laposta', etc.
+  status TEXT NOT NULL,             -- 'completed', 'failed', 'skipped'
+  started_at TEXT,
+  completed_at TEXT,
+  duration_ms INTEGER,
+  stats_json TEXT,                  -- Step-specific stats
+  UNIQUE(run_id, step_name)
+);
+
+-- Individual errors from a run (member-level detail)
+CREATE TABLE run_errors (
+  id INTEGER PRIMARY KEY,
+  run_id INTEGER NOT NULL REFERENCES runs(id),
+  step_name TEXT,
+  identifier TEXT,                  -- knvb_id, email, or 'system'
+  system TEXT,                      -- 'laposta', 'rondoClub', 'photo-upload', etc.
+  message TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX idx_run_errors_run ON run_errors(run_id);
+CREATE INDEX idx_run_errors_identifier ON run_errors(identifier);
 ```
 
-## Integration with Existing Sync Schedule
+**Why a separate database:**
+- Sync databases (`rondo-sync.sqlite`, `laposta-sync.sqlite`, etc.) are critical to sync correctness. Dashboard data is read-heavy, append-only, and non-critical. Mixing them would add risk with no benefit.
+- Separate database file means the dashboard can be backed up, migrated, or reset independently.
+- Different access patterns: sync DBs are write-heavy during pipeline runs; dashboard DB is read-heavy from the web server.
 
-**Current:** 4x daily at 8am, 11am, 2pm, 5pm (people pipeline)
+### 3. Web Server (server/index.js)
 
-**Options:**
+A Fastify web server running as a long-lived process alongside the cron-triggered pipelines.
 
-**Option A: Same schedule** (recommended for MVP)
-- Add reverse sync as new step in existing `sync-people.js`
-- Minimal changes to cron
-- Keeps data fresh (4x daily in both directions)
+**Why Fastify over Express:**
+- Built-in JSON schema validation (useful for API responses)
+- Better performance for the read-heavy dashboard workload (2-3x Express throughput)
+- First-class plugin system for clean separation of routes, static files, auth
+- Active development with TypeScript support
+- Existing project uses no web framework, so no migration cost -- this is a greenfield addition
 
-**Option B: Separate schedule**
-- New cron job for reverse sync only (e.g., nightly at 2am)
-- Lower frequency acceptable for reverse direction (less urgent)
-- Better performance isolation (doesn't slow down forward sync)
+**Server responsibilities:**
+- Serve dashboard UI (server-rendered HTML)
+- Provide REST API for run history, error details, pipeline status
+- Read from dashboard.sqlite (read-only, never writes to sync databases)
+- Optionally trigger pipeline runs via the existing module API
 
-**Recommendation:** Start with Option A (same schedule). If performance becomes issue, split to Option B in Phase 4.
+**Server does NOT:**
+- Write to sync databases (rondo-sync.sqlite, laposta-sync.sqlite, etc.)
+- Replace cron scheduling
+- Modify pipeline behavior
+- Require running on the same process as pipelines
 
-## Success Criteria
+### 4. SQLite Concurrent Access Strategy
 
-Reverse sync is production-ready when:
+The most critical technical concern: cron-triggered pipelines write to SQLite databases while the web server reads from them.
 
-- [ ] Timestamp comparison correctly identifies Stadion-modified members
-- [ ] Browser automation successfully updates all 4 target field types
-- [ ] Loop prevention works (no infinite sync cycles)
-- [ ] Error handling gracefully skips failures without blocking entire sync
-- [ ] Email reports show reverse sync stats
-- [ ] Logs contain audit trail of all reverse syncs
-- [ ] Rollback procedure tested and documented
-- [ ] Performance acceptable (<15 min total for 500 members)
+**Solution: WAL (Write-Ahead Logging) mode.**
 
-## Open Questions (To Resolve in Phase 1)
+SQLite in WAL mode allows:
+- Multiple concurrent readers
+- One writer at a time (with readers not blocked by the writer)
+- This matches our access pattern exactly: pipelines write, web server reads
 
-1. **Sportlink modification time:** Does SearchMembers JSON include `ModifiedAt` or similar field? Need to verify during download phase.
-2. **Field accessibility:** Can all target fields be automated reliably, or do some require special handling (CAPTCHA, 2FA prompts)?
-3. **Rate limiting:** Does Sportlink throttle rapid page navigation? May need delays between members.
-4. **Session timeout:** How long does Sportlink session stay active? May need periodic re-login during long sync runs.
+**Implementation:**
 
-## Architecture Anti-Patterns to Avoid
+```javascript
+// All database opens should set WAL mode
+const db = new Database(dbPath);
+db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 5000');  // Wait up to 5s for locks
+```
 
-### ❌ Anti-Pattern 1: Full Data Sync on Every Run
+**Current state:** The existing codebase does NOT set WAL mode on any database. The default journal mode (DELETE) is fine for single-process access, but adding a web server reader requires WAL mode.
 
-**Problem:** Fetching all Stadion members via REST API on every sync (4x daily).
+**Migration:** WAL mode is set per-database and persists across connections. A one-time `PRAGMA journal_mode = WAL` on each database file converts it. This is backward-compatible -- existing CLI scripts will work fine with WAL mode databases.
 
-**Why bad:** Wasteful API calls, slow performance.
+**Checkpoint management:** When the web server has a long-running read connection, WAL checkpoint (reclaiming disk space) can be delayed. The web server should periodically run `db.pragma('wal_checkpoint(PASSIVE)')` to prevent WAL file growth.
 
-**Instead:** Only fetch members that *might* have changed (based on SQLite last sync timestamps).
+### 5. Process Architecture
 
-### ❌ Anti-Pattern 2: Writing to Both Systems Simultaneously
+**Recommended: Two separate processes.**
 
-**Problem:** Parallel writes to Sportlink and Stadion.
+```
+Process 1: Fastify web server (long-running, managed by PM2 or systemd)
+  - Reads dashboard.sqlite
+  - Reads sync databases (read-only, for member counts and stats)
+  - Serves HTTP on port 3000
 
-**Why bad:** Race conditions, unpredictable conflict resolution.
+Process 2: Cron-triggered pipeline runs (short-lived, managed by crontab)
+  - Writes to sync databases
+  - Writes to dashboard.sqlite (run tracking)
+  - Exits when pipeline completes
+```
 
-**Instead:** Sequential flow - forward sync completes before reverse sync starts.
+**Why two processes instead of one:**
+- The web server must be always running; pipelines run periodically and exit
+- Cron is battle-tested for scheduling; no need to replace it with in-process cron
+- Process isolation means a pipeline crash cannot take down the dashboard
+- Memory: Playwright (used by download steps) consumes significant memory; keeping it isolated from the web server prevents memory pressure
 
-### ❌ Anti-Pattern 3: Silent Failure
+**Why NOT embed the web server in pipelines:**
+- Pipelines are short-lived (run for 1-5 minutes, then exit)
+- A web server needs to be always-on
+- Pipelines use Playwright which consumes ~200-400MB RAM; the web server should stay lightweight
 
-**Problem:** Reverse sync errors logged but not surfaced to operator.
+**Process management for the web server:**
 
-**Why bad:** Data drift accumulates silently.
+Use PM2 or systemd to keep the Fastify server running:
 
-**Instead:** Email alerts for reverse sync failures, include in daily summary report.
+```bash
+# PM2 (simplest, already familiar Node.js tooling)
+pm2 start server/index.js --name rondo-dashboard
+pm2 save
+pm2 startup
 
-### ❌ Anti-Pattern 4: Blind Overwrites
+# Or systemd (more robust, OS-level)
+# /etc/systemd/system/rondo-dashboard.service
+```
 
-**Problem:** Pushing Stadion changes without checking Sportlink modification time.
+Since the server only runs as a single instance on a single machine, PM2 with `instances: 1` is sufficient. No need for cluster mode.
 
-**Why bad:** Loses legitimate Sportlink updates made after last sync.
+## Data Flow
 
-**Instead:** Always compare timestamps, use LWW conflict resolution.
+### Pipeline Run Data Flow
 
-## References
+```
+1. Cron triggers sync.sh people
+2. sync.sh calls node pipelines/sync-people.js
+3. Pipeline starts:
+   a. run-tracker.startRun('people', 'cron') --> inserts into dashboard.sqlite
+   b. Step 1: Download --> stats.downloaded = 1069
+   c. Step 2: Prepare  --> stats.prepared = 1050
+   d. Step 3: Submit   --> stats.synced = 45, stats.errors = [...]
+   e. Step 4-7: ...    --> more stats populated
+   f. run-tracker.completeRun(runId, stats) --> updates dashboard.sqlite
+4. Pipeline exits
+5. send-email.js sends log file report (unchanged)
+```
 
-**Architecture Patterns:**
-- [Bidirectional Data Synchronization Patterns](https://dev3lop.com/bidirectional-data-synchronization-patterns-between-systems/) - Overview of bi-directional sync architectures
-- [MuleSoft: Bi-Directional Sync Pattern](https://blogs.mulesoft.com/api-integration/patterns/data-integration-patterns-bi-directional-sync/) - Integration pattern fundamentals
+### Dashboard View Data Flow
 
-**Conflict Resolution:**
-- [Conflict Resolution Strategies in Data Synchronization](https://mobterest.medium.com/conflict-resolution-strategies-in-data-synchronization-2a10be5b82bc) - Timestamp-based resolution strategies
-- [Mastering Two-Way Sync](https://www.stacksync.com/blog/mastering-two-way-sync-from-concept-to-deployment) - Practical conflict handling
+```
+1. Operator opens browser to http://server:3000
+2. Fastify serves dashboard HTML (server-rendered)
+3. Page shows:
+   a. Last run per pipeline (from runs table)
+   b. Success/failure status
+   c. Key stats (members synced, errors count)
+4. Operator clicks a run for detail:
+   a. API call: GET /api/runs/{id}
+   b. Returns full stats_json + errors
+5. Operator clicks an error:
+   a. Shows member identifier, system, message
+   b. Optionally links to member in sync DB for context
+```
 
-**WordPress API:**
-- [WordPress REST API: Posts](https://developer.wordpress.org/rest-api/reference/posts/) - Standard `modified` and `modified_gmt` fields
-- [Stadion API Documentation](~/Code/rondo/rondo-club/docs/api-leden-crud.md) - Custom person ACF fields
+### Real-Time Updates (Phase 2 Enhancement)
 
----
+For real-time dashboard updates during a running pipeline:
 
-**Next Steps:** Proceed to Phase 1 implementation (state tracking without writes).
+**Option A: Polling (simplest).**
+Dashboard polls `GET /api/runs?status=running` every 5 seconds. Sufficient for a single-operator internal tool.
+
+**Option B: Server-Sent Events (SSE).**
+Pipeline writes progress to dashboard.sqlite. Web server watches for changes and pushes via SSE. More complex but provides true real-time feel.
+
+**Recommendation:** Start with polling. SSE is a Phase 2 enhancement if the operator wants to watch runs in real-time.
+
+## Multi-Club Architecture
+
+### Current: Single Club
+
+```
+/home/sportlink/
+  .env                    <-- single club credentials
+  data/
+    rondo-sync.sqlite     <-- single club state
+    laposta-sync.sqlite
+    nikki-sync.sqlite
+    freescout-sync.sqlite
+  logs/
+  pipelines/
+  steps/
+  lib/
+```
+
+### Multi-Club: Database-Per-Club Model
+
+The recommended approach is **database-per-club** isolation, which maps naturally to the existing architecture:
+
+```
+/home/sportlink/
+  clubs/
+    club-abc/
+      .env                    <-- club ABC credentials
+      data/
+        rondo-sync.sqlite     <-- club ABC state
+        laposta-sync.sqlite
+        nikki-sync.sqlite
+        freescout-sync.sqlite
+        dashboard.sqlite
+      logs/
+      photos/
+    club-xyz/
+      .env                    <-- club XYZ credentials
+      data/
+        rondo-sync.sqlite     <-- club XYZ state
+        ...
+  server/                     <-- shared web server
+  pipelines/                  <-- shared pipeline code
+  steps/                      <-- shared step code
+  lib/                        <-- shared libraries
+  config/                     <-- shared field mappings (or per-club overrides)
+```
+
+**Why database-per-club:**
+- **Complete isolation:** One club's data cannot leak to another's
+- **Natural fit:** The existing code already uses `process.cwd()` to locate databases (see `DEFAULT_DB_PATH` in `rondo-club-db.js` and `laposta-db.js`). Changing the working directory per club already gives data isolation.
+- **Independent operations:** One club can be synced, reset, or migrated without affecting others
+- **Simple backup:** `cp -r clubs/club-abc/data/ backup/` backs up one club
+- **No schema changes:** All existing database schemas work as-is
+
+**Implementation steps for multi-club:**
+
+1. **Club config registry:** A JSON file or simple table mapping club slugs to their data directories and .env paths
+2. **Cron per club:** Each club gets its own crontab entries with a club identifier
+3. **sync.sh accepts club:** `sync.sh --club abc people` sets the working directory before invoking the pipeline
+4. **Web server reads all clubs:** Dashboard aggregates runs across clubs, filterable by club
+5. **Environment isolation:** Each pipeline invocation loads the club-specific .env
+
+**Critical consideration:** The existing `server-check.js` uses hostname validation (`os.hostname() === 'srv888452'`) to prevent local runs. Multi-club does not change this -- all clubs still run on the same production server.
+
+### Multi-Club Readiness Without Building Multi-Club
+
+The single-club architecture should be structured so that multi-club is an additive change, not a rewrite:
+
+1. **Database paths as parameters:** Pass database paths rather than hardcoding. The existing `openDb(dbPath)` pattern already supports this.
+2. **Club context object:** Create a config object with `{ slug, dataDir, envPath }` that can default to the current single-club setup.
+3. **No global state:** The existing code mostly avoids global state (good), but `process.env` is effectively global. Multi-club requires either separate processes per club (simplest) or env-swapping per request.
+
+**Recommendation:** For now, design the dashboard database schema with a `club_slug` column on the `runs` table. This is free (one column) and means the dashboard is multi-club ready from day one, even if only one club exists.
+
+Updated schema:
+
+```sql
+CREATE TABLE runs (
+  id INTEGER PRIMARY KEY,
+  club_slug TEXT NOT NULL DEFAULT 'default',  -- Multi-club ready
+  pipeline TEXT NOT NULL,
+  -- ... rest unchanged
+);
+
+CREATE INDEX idx_runs_club ON runs(club_slug, pipeline, started_at DESC);
+```
+
+## UI Approach
+
+### Recommendation: Server-Rendered HTML with HTMX
+
+For an internal operator dashboard viewed by 1-2 people, a full React/Vue SPA is overkill. Server-rendered HTML with HTMX provides:
+
+- **No build step:** No webpack, no bundling, no transpiling. HTML templates rendered by Fastify.
+- **Minimal JavaScript:** HTMX is 14KB gzipped. The dashboard needs no client-side state management.
+- **Fast development:** HTML templates are simpler than React components for CRUD-style views.
+- **Team fit:** The existing codebase is pure Node.js with no frontend build toolchain. Adding one for a dashboard would be a disproportionate complexity increase.
+
+**Technology stack for the UI:**
+
+| Component | Technology | Why |
+|-----------|-----------|-----|
+| **Server** | Fastify | Fast, plugin-based, JSON schema support |
+| **Templating** | @fastify/view + EJS or Nunjucks | Server-side rendering, no build step |
+| **Interactivity** | HTMX | Partial page updates without full reloads |
+| **Styling** | Simple CSS or Pico CSS | Classless/minimal CSS framework, no build |
+| **Static files** | @fastify/static | Serve CSS, HTMX lib |
+
+### Dashboard Views
+
+**1. Overview page (/):**
+- Table of all pipelines with last run status, time, duration
+- Color-coded: green (success), red (errors), yellow (running)
+- Error count badges per pipeline
+
+**2. Pipeline detail (/pipelines/{name}):**
+- Run history table (paginated, most recent first)
+- Stats chart (members synced over time -- simple bar chart)
+- Current schedule (from cron)
+
+**3. Run detail (/runs/{id}):**
+- Full stats breakdown by step
+- Error list with member identifiers
+- Log file content (if available)
+- Duration per step
+
+**4. Errors view (/errors):**
+- All errors across recent runs
+- Filterable by pipeline, system, member
+- Recurring error detection (same member failing across runs)
+
+## Suggested Build Order
+
+Build in phases that each deliver usable value:
+
+### Phase 1: Run Tracking Foundation
+
+**Goal:** Capture structured run data without any UI.
+
+1. Create `data/dashboard.sqlite` with schema
+2. Build `lib/run-tracker.js`
+3. Integrate into one pipeline (people) as proof of concept
+4. Verify data is captured correctly
+
+**Value:** Historical run data starts accumulating. Can be queried with `sqlite3` CLI.
+
+**Risk:** Low. Adds 3-4 lines to one pipeline file.
+
+### Phase 2: Web Server + API
+
+**Goal:** Serve run data via HTTP.
+
+1. Set up Fastify server in `server/`
+2. Build API routes: `GET /api/runs`, `GET /api/runs/:id`, `GET /api/errors`
+3. Add PM2 config for process management
+4. Configure WAL mode on all databases
+
+**Value:** Run data accessible via HTTP, scriptable.
+
+**Risk:** Low-medium. WAL mode migration needs testing on production.
+
+### Phase 3: Dashboard UI
+
+**Goal:** Visual dashboard for operators.
+
+1. Add HTMX and templates
+2. Build overview page
+3. Build run detail page
+4. Build error browser
+
+**Value:** Operators can see sync status without SSH + reading log files.
+
+**Risk:** Low. Purely additive, no existing code changes.
+
+### Phase 4: All Pipelines Instrumented
+
+**Goal:** All 8 pipelines tracked.
+
+1. Add run-tracker to remaining 7 pipelines
+2. Ensure consistent stats structure across pipelines
+3. Add per-step tracking (not just final stats)
+
+**Value:** Complete visibility into all sync operations.
+
+**Risk:** Low. Same pattern repeated 7 times.
+
+### Phase 5: Multi-Club Readiness
+
+**Goal:** Architecture supports multiple clubs.
+
+1. Add club context to run-tracker
+2. Club config registry
+3. Modify sync.sh for --club flag
+4. Dashboard club filter
+
+**Value:** Can onboard second club.
+
+**Risk:** Medium. Requires careful env/database isolation testing.
+
+## Anti-Patterns to Avoid
+
+### 1. Do NOT embed the web server inside pipelines
+
+Pipelines are short-lived processes that exit after completion. Embedding a web server would mean the server dies every time a pipeline finishes, or the pipeline would need to be kept alive artificially.
+
+### 2. Do NOT parse log files for structured data
+
+The existing log files are human-readable text. Parsing them to extract stats (regex on "Members synced: 45/1069") is fragile and loses the rich structure already available in the stats objects. Capture the stats objects directly.
+
+### 3. Do NOT share database connections between web server and pipelines
+
+Each process should open its own database connection. SQLite handles multi-process access through file-level locking. Sharing connections (via IPC, shared memory, etc.) adds complexity with no benefit.
+
+### 4. Do NOT replace cron with in-process scheduling
+
+The existing cron setup is battle-tested and well-documented. The flock-based locking in sync.sh prevents overlapping runs. Replacing this with `node-cron` or `fastify-cron` would lose the flock isolation and introduce new failure modes.
+
+### 5. Do NOT read sync databases from the web server for real-time member data
+
+The dashboard should read from `dashboard.sqlite` for run history and errors. Reading `rondo-sync.sqlite` for member counts or status is acceptable (read-only), but the web server should NEVER write to sync databases.
+
+### 6. Do NOT add authentication before the dashboard has value
+
+The server runs on an internal IP (`46.202.155.16`). Adding auth is important but should not gate the initial build. Use IP-based access control first (bind to localhost + reverse proxy, or firewall rules), add auth in a later phase.
+
+## Technology Decisions
+
+### New Dependencies Needed
+
+| Package | Purpose | Version | Confidence |
+|---------|---------|---------|------------|
+| `fastify` | Web server | ^5.x | HIGH |
+| `@fastify/static` | Serve CSS/JS assets | ^8.x | HIGH |
+| `@fastify/view` | Server-side templates | ^10.x | HIGH |
+| `ejs` or `nunjucks` | Template engine | latest | HIGH |
+| `htmx.org` | Client-side interactivity | ^2.x | HIGH (vendored, not npm) |
+
+### No New Dependencies Needed For
+
+| Capability | Already Available |
+|-----------|------------------|
+| SQLite access | `better-sqlite3` (already in package.json) |
+| Environment loading | `varlock` (already in package.json) |
+| HTTP client (for API tests) | Node.js built-in `http` |
+| Process management | PM2 (installed globally on server) |
+
+## Confidence Assessment
+
+| Area | Confidence | Reasoning |
+|------|------------|-----------|
+| Stats capture approach | HIGH | Verified: every pipeline already builds structured stats objects |
+| SQLite concurrent access | HIGH | WAL mode is well-documented for this exact multi-process pattern |
+| Fastify for web server | HIGH | Well-established, no competing concerns with existing stack |
+| HTMX for dashboard UI | HIGH | Appropriate for internal single-operator CRUD dashboard |
+| Multi-club database-per-club | MEDIUM | Pattern is sound, but env isolation needs careful implementation |
+| PM2 for process management | MEDIUM | Standard approach, but needs testing alongside existing cron |
+| Real-time SSE updates | LOW | Not researched in depth, deferred to later phase |
+
+## Sources
+
+- Existing codebase analysis: `pipelines/sync-people.js`, `pipelines/sync-all.js`, `lib/logger.js`, `lib/rondo-club-db.js`, `lib/laposta-db.js`, `scripts/sync.sh`, `lib/server-check.js`
+- Existing documentation: `docs/database-schema.md`, `docs/sync-architecture.md`
+- [better-sqlite3 concurrency documentation](https://wchargin.com/better-sqlite3/performance.html) -- WAL mode and checkpoint management
+- [SQLite WAL mode documentation](https://sqlite.org/wal.html) -- concurrent read/write guarantees
+- [Fastify official site](https://fastify.dev/) -- framework capabilities and plugin ecosystem
+- [HTMX vs React comparison](https://dualite.dev/blog/htmx-vs-react) -- framework choice rationale
+- [HTMX production comparison](https://medium.com/@the_atomic_architect/htmx-vs-react-6-months-production-cdf0468206b5) -- real-world admin dashboard rebuild
+- [Fastify vs Express comparison](https://betterstack.com/community/guides/scaling-nodejs/fastify-express/) -- performance and features
+- [Multi-tenant architecture guide](https://dev.to/rampa2510/guide-to-building-multi-tenant-architecture-in-nodejs-40og) -- database-per-tenant pattern
+- [PM2 with cron jobs](https://greenydev.com/blog/pm2-cron-job-multiple-instances/) -- coexistence patterns
+- [SQLite concurrent access patterns](https://blog.skypilot.co/abusing-sqlite-to-handle-concurrency/) -- multi-process strategies
+- [better-sqlite3 multiprocess access](https://github.com/WiseLibs/better-sqlite3/issues/250) -- known considerations

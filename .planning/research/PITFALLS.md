@@ -1,1214 +1,567 @@
-# Domain Pitfalls: Adding Bidirectional Sync
+# Domain Pitfalls: Adding a Web Dashboard to an Existing CLI/Cron Sync System
 
-**Domain:** Bidirectional sync with browser automation and last-edit-wins conflict resolution
-**Researched:** 2026-01-29
-**Context:** Adding reverse sync (Stadion → Sportlink) to existing one-way sync system
+**Domain:** Web dashboard for Node.js CLI sync tool on production server
+**Researched:** 2026-02-08
+**Context:** Server (46.202.155.16) currently runs only cron-triggered sync jobs via SSH. Adding a web dashboard means introducing a long-running HTTP process, public network exposure, and concurrent database access -- all on a server that holds production credentials for Sportlink, Laposta, WordPress, FreeScout, and Nikki.
 
 ## Executive Summary
 
-Adding bidirectional sync to an existing one-way system introduces fundamental architectural challenges that go beyond "just running the sync in reverse." The most critical pitfalls involve:
+Adding a web dashboard to this system introduces five categories of risk that do not exist in the current SSH-only, cron-only architecture:
 
-1. **Infinite sync loops** - The #1 cause of production incidents in bidirectional systems
-2. **Clock drift and timestamp comparison** - Last-edit-wins requires reliable time comparison across systems
-3. **Browser automation fragility** - Form selectors break when Sportlink updates their UI
-4. **Silent data loss** - Last-write-wins silently discards conflicting updates
-5. **State tracking complexity** - SQLite databases must track bidirectional modification times
+1. **SQLite concurrent access** -- The existing database layer uses `better-sqlite3` in default rollback journal mode with no WAL, no busy_timeout, and no multi-process awareness. A web server reading while sync writes will cause `SQLITE_BUSY` errors or stale reads.
+2. **Attack surface expansion** -- The server currently has no open HTTP/HTTPS ports. Opening port 443 exposes every credential in `.env` to network-based attacks.
+3. **Process lifecycle mismatch** -- Cron jobs are transient (run and exit). A web server is persistent (must survive crashes, reboots, memory leaks). These require fundamentally different process management.
+4. **Credential and data isolation** -- Multi-club means multiple `.env` files and multiple database sets on one server. Tenant boundary violations leak one club's member data to another.
+5. **Authentication bolt-on syndrome** -- Rushing to add auth to an internal tool often produces weak implementations that are worse than no auth at all.
+
+---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Infinite Sync Loops
+Mistakes that cause data corruption, security breaches, or require architectural rewrites.
+
+### Pitfall 1: SQLite SQLITE_BUSY Errors from Concurrent Access
 
 **What goes wrong:**
-When Sportlink → Stadion sync runs, it updates Stadion. Then Stadion → Sportlink reverse sync runs, sees "new" changes in Stadion, and pushes them back to Sportlink. This triggers Sportlink → Stadion again, creating an infinite loop that:
-- Generates thousands of API calls
-- Triggers email floods to OPERATOR_EMAIL
-- Exhausts API rate limits
-- Creates database bloat
+The web dashboard opens a `better-sqlite3` connection to read sync status, member data, and logs. Simultaneously, a cron-triggered sync process opens the same database file to write updates. Without WAL mode, SQLite uses rollback journal mode where **readers block writers and writers block readers**. The web server gets `SQLITE_BUSY: database is locked` errors, or worse, the sync process fails mid-run because the web server holds a read lock.
 
-**Why it happens:**
-The sync system can't distinguish between:
-- Human-initiated changes (should trigger sync)
-- Sync-initiated changes (should NOT trigger sync)
-
-Without origin tracking, every write looks like a user edit.
-
-**Real-world scenario:**
-```
-09:00 - Forward sync runs, updates email field in Stadion
-09:15 - Reverse sync runs, sees "changed" email, writes to Sportlink
-09:30 - Forward sync runs, sees "changed" email, writes to Stadion
-09:45 - Reverse sync runs... (loop continues)
-```
-
-**Consequences:**
-- Production outage (rate limiting)
-- Hundreds of duplicate webhook/email notifications
-- Database lock contention
-- Difficult to diagnose (logs show "legitimate" changes)
-
-**Prevention strategies:**
-
-1. **Origin Tracking (REQUIRED)**
-   - Add `modified_by` field to database tables tracking who made the change
-   - Values: `'user'`, `'sync-forward'`, `'sync-reverse'`
-   - Only sync records where `modified_by = 'user'`
-
-   ```javascript
-   // In stadion-db.js
-   CREATE TABLE stadion_members (
-     ...
-     modified_by TEXT NOT NULL DEFAULT 'user',
-     modified_at TEXT NOT NULL
-   );
-
-   // When reverse sync updates Sportlink
-   UPDATE stadion_members
-   SET modified_by = 'sync-reverse'
-   WHERE knvb_id = ?;
-
-   // Forward sync query
-   SELECT * FROM stadion_members
-   WHERE modified_by = 'user'
-   AND modified_at > last_synced_at;
-   ```
-
-2. **Hash-Based Duplicate Detection**
-   - Already implemented for forward sync (`source_hash` vs `last_synced_hash`)
-   - **Must implement for reverse direction**
-   - Compute hash of Stadion state, skip if unchanged since last reverse sync
-
-   ```javascript
-   // Add to stadion-db.js
-   ALTER TABLE stadion_members
-   ADD COLUMN last_reverse_synced_hash TEXT;
-
-   // Before reverse sync
-   const currentHash = computeSourceHash(knvbId, stadionData);
-   if (currentHash === lastReverseSyncedHash) {
-     logger.verbose('No changes in Stadion, skipping reverse sync');
-     continue;
-   }
-   ```
-
-3. **Sync Coordination Window**
-   - Never run forward and reverse sync simultaneously
-   - Enforce minimum gap (e.g., 30 minutes between directions)
-   - Use flock locking with separate lock files per direction
-
-   ```bash
-   # scripts/sync.sh modification needed
-   flock -n /tmp/sync-forward.lock scripts/sync-people.js
-   # Wait 30 minutes before reverse sync can run
-   flock -n /tmp/sync-reverse.lock scripts/sync-reverse.js
-   ```
-
-4. **Circuit Breaker Pattern**
-   - Track sync frequency per record
-   - If same record syncs >3 times in 1 hour, flag as loop
-   - Alert operator and stop syncing that record
-
-   ```javascript
-   // Add loop detection table
-   CREATE TABLE sync_loop_detector (
-     knvb_id TEXT PRIMARY KEY,
-     sync_count INTEGER DEFAULT 0,
-     window_start TEXT,
-     is_blocked INTEGER DEFAULT 0
-   );
-   ```
-
-**Detection (early warning signs):**
-- Sync logs show same KNVB IDs repeating across consecutive runs
-- Email volume increases (multiple sync reports per hour)
-- Database size grows rapidly (every sync creates new timestamps)
-- Laposta/Stadion API shows elevated request counts
-
-**Which phase addresses this:**
-- **Phase 1: Foundation** - Must implement origin tracking and hash-based deduplication BEFORE any reverse sync runs
-- **Phase 3: Reverse Sync** - Add circuit breaker and monitoring
-
-### Pitfall 2: Clock Drift and Timestamp Comparison Failures
-
-**What goes wrong:**
-Last-edit-wins requires comparing timestamps from two systems (Stadion and Sportlink). If clocks are out of sync:
-
-```
-Sportlink server time: 09:00:00 (5 minutes fast)
-Stadion server time:   08:56:00 (actual time)
-
-User edits email in Sportlink at 09:00:00
-Reverse sync runs at 08:57:00, compares:
-  Sportlink timestamp: 09:00:00
-  Stadion timestamp:   08:56:30
-  Decision: Sportlink is "newer", push to Stadion ✓
-
-User edits email in Stadion at 08:59:00
-Forward sync runs at 09:01:00, compares:
-  Stadion timestamp:   08:59:00
-  Sportlink timestamp: 09:00:00
-  Decision: Sportlink is "newer", overwrite Stadion ✗
-
-Result: Stadion edit is LOST
-```
-
-**Why it happens:**
-- WordPress servers use local timezone (not necessarily UTC)
-- Sportlink server timezone unknown (likely Europe/Amsterdam)
-- NTP sync can drift by [100-250ms with proper configuration, but "tens or even hundreds of milliseconds" in practice](https://www.geeksforgeeks.org/distributed-systems/clock-synchronization-in-distributed-system/)
-- Server reboots can introduce minutes of clock drift before NTP resync
-
-**Consequences:**
-- Silent data loss (no error, no log entry, just missing updates)
-- Non-deterministic behavior (works fine when clocks agree)
-- Difficult to debug (requires correlating logs with actual wall clock time)
-- User complaints about "changes disappearing"
-
-**Prevention strategies:**
-
-1. **Normalize All Timestamps to UTC**
-   - WordPress by default uses UTC (since 5.3)
-   - Sportlink timestamps must be converted to UTC before storage
-   - SQLite stores all timestamps as UTC ISO 8601
-
-   ```javascript
-   // When downloading from Sportlink
-   const sportlinkModified = browserDetectTimestamp(); // Local time
-   const utcModified = convertToUTC(sportlinkModified, 'Europe/Amsterdam');
-
-   // When comparing
-   const stadionUTC = new Date(row.modified_at).getTime();
-   const sportlinkUTC = new Date(utcModified).getTime();
-   if (sportlinkUTC > stadionUTC + GRACE_PERIOD_MS) {
-     // Sportlink wins
-   }
-   ```
-
-2. **Clock Skew Grace Period**
-   - Don't compare timestamps exactly
-   - Add 5-minute grace period (300,000ms) to account for drift
-   - Only update if difference > grace period
-
-   ```javascript
-   const CLOCK_SKEW_TOLERANCE_MS = 5 * 60 * 1000; // 5 minutes
-
-   const timeDiff = Math.abs(sportlinkTime - stadionTime);
-   if (timeDiff < CLOCK_SKEW_TOLERANCE_MS) {
-     logger.verbose('Timestamps within grace period, keeping current value');
-     continue;
-   }
-   ```
-
-3. **Verify NTP Configuration on Production Server**
-   - SSH to 46.202.155.16
-   - Check NTP status: `timedatectl status`
-   - Ensure NTP service is active and synchronized
-   - Document server timezone in README (currently unclear)
-
-   ```bash
-   # Add to deployment checklist
-   ssh root@46.202.155.16
-   timedatectl status
-   # Should show: "System clock synchronized: yes"
-   ```
-
-4. **Log Actual Timestamps for Debugging**
-   - When conflict resolution runs, log both timestamps
-   - Include timezone information
-   - Helps diagnose clock drift issues
-
-   ```javascript
-   logger.log(`Conflict resolution for ${knvbId}:`);
-   logger.log(`  Sportlink: ${sportlinkModified} (UTC: ${utcModified})`);
-   logger.log(`  Stadion:   ${stadionModified}`);
-   logger.log(`  Winner:    ${winner} (diff: ${timeDiff}ms)`);
-   ```
-
-5. **WordPress ACF Timezone Gotchas**
-   - [WordPress 5.3 changed date_i18n() behavior](https://github.com/AdvancedCustomFields/acf/issues/252), breaking ACF date fields
-   - [ACF stores dates as 'Y-m-d H:i:s' in database](https://www.advancedcustomfields.com/resources/date-time-picker/), but interpretation depends on WordPress timezone setting
-   - [Never use `date_default_timezone_set()` with WordPress](https://support.advancedcustomfields.com/forums/topic/date-picker-fields-in-repeaters-gone-wrong-after-wp-5-3-update/) - breaks core functionality
-   - Must use `get_option('gmt_offset')` to interpret ACF timestamps correctly
-
-**Detection:**
-- User reports "my changes disappeared"
-- Changes oscillate between two values
-- Sync logs show back-and-forth updates for same field
-- Check: `timedatectl` shows clock not synchronized
-- Check: Stadion WordPress timezone setting (Settings → General)
-
-**Which phase addresses this:**
-- **Phase 1: Foundation** - Implement UTC normalization and grace period
-- **Phase 2: Timestamps** - Add comprehensive timestamp logging
-- **Phase 5: Monitoring** - Add clock drift monitoring and alerts
-
-### Pitfall 3: Browser Automation Selector Fragility
-
-**What goes wrong:**
-Sportlink has no API. Reverse sync must use Playwright to:
-1. Login to Sportlink
-2. Navigate to member edit page
-3. Fill form fields
-4. Submit changes
-
-If Sportlink updates their UI (new CSS classes, restructured HTML, added validation), selectors break:
-
+**Why it happens in THIS codebase:**
+Every `openDb()` function across all five database modules (`rondo-club-db.js`, `laposta-db.js`, `nikki-db.js`, `freescout-db.js`, `discipline-db.js`) does:
 ```javascript
-// Worked yesterday
-await page.fill('#contact_email', newEmail);
-
-// Sportlink added a modal, selector fails
-Error: Timeout waiting for selector '#contact_email'
-```
-
-Reverse sync silently fails, leaving systems out of sync.
-
-**Why it happens:**
-- Sportlink controls their UI, updates without notice
-- [Selectors tied to DOM hierarchy are fragile](https://ghostinspector.com/blog/css-selector-strategies-automated-browser-testing/)
-- No stable `data-test` attributes (Sportlink doesn't design for automation)
-- [Dynamic SPAs require careful scripting and increase maintenance](https://www.browserstack.com/guide/playwright-vs-puppeteer)
-
-**Real-world scenario:**
-```
-Month 1: Reverse sync works perfectly
-Month 2: Sportlink adds CAPTCHA to /general page
-Month 3: Sportlink redesigns member edit UI
-Month 4: Sportlink adds client-side validation requiring specific order
-
-Each change breaks automation. No notification. Sync silently stops.
-```
-
-**Consequences:**
-- Silent failures (no error if selector doesn't exist)
-- Stadion updates never reach Sportlink
-- Systems diverge for weeks before discovery
-- Manual cleanup required
-
-**Prevention strategies:**
-
-1. **Resilient Selector Strategy**
-   - Use multiple fallback selectors per field
-   - Prefer stable attributes (name, aria-label) over classes
-
-   ```javascript
-   // Bad: Single fragile selector
-   await page.fill('#contact_email', email);
-
-   // Good: Multiple fallbacks
-   async function fillSportlinkField(page, fieldName, value, selectors) {
-     for (const selector of selectors) {
-       if (await page.locator(selector).count() > 0) {
-         await page.fill(selector, value);
-         return true;
-       }
-     }
-     throw new Error(`Could not find field ${fieldName}`);
-   }
-
-   const emailSelectors = [
-     'input[name="email"]',           // Most stable
-     '#contact_email',                 // Current ID
-     'input[type="email"]',            // Fallback
-     'label:has-text("E-mail") + input' // Last resort
-   ];
-   ```
-
-2. **Visual Regression Testing**
-   - Take screenshots of Sportlink forms during each sync
-   - Compare screenshots to detect UI changes
-   - Alert operator before selectors break
-
-   ```javascript
-   // In download-sportlink-reverse.js
-   const screenshot = await page.screenshot({
-     path: `logs/sportlink-ui-${date}.png`
-   });
-
-   // Compare with previous screenshot
-   const diff = compareImages(previousScreenshot, screenshot);
-   if (diff > threshold) {
-     logger.error('Sportlink UI has changed significantly!');
-     sendAlert('UI change detected, verify selectors');
-   }
-   ```
-
-3. **Form Submission Verification**
-   - After submitting form, verify change took effect
-   - Re-download member data and compare
-   - Alert if submission failed silently
-
-   ```javascript
-   // After form submission
-   await page.click('button[type="submit"]');
-   await page.waitForLoadState('networkidle');
-
-   // Verify change
-   await page.goto(memberUrl);
-   const actualEmail = await page.inputValue(emailSelectors[0]);
-   if (actualEmail !== expectedEmail) {
-     throw new Error(`Email update failed: expected ${expectedEmail}, got ${actualEmail}`);
-   }
-   ```
-
-4. **Graceful Degradation**
-   - If reverse sync fails, don't crash entire sync
-   - Log failure, continue with other members
-   - Accumulate failures in summary email
-
-   ```javascript
-   const failures = [];
-   for (const member of membersToSync) {
-     try {
-       await updateSportlinkMember(member);
-     } catch (error) {
-       logger.error(`Failed to update ${member.knvb_id}: ${error.message}`);
-       failures.push({ knvb_id: member.knvb_id, error: error.message });
-     }
-   }
-
-   if (failures.length > 0) {
-     emailOperator({
-       subject: 'Reverse Sync Failures',
-       body: `Failed to update ${failures.length} members: ${JSON.stringify(failures)}`
-     });
-   }
-   ```
-
-5. **Selector Smoke Tests**
-   - Daily cron job just tests selectors (no data modification)
-   - Verify all expected form fields exist
-   - Alert operator before reverse sync runs
-
-   ```javascript
-   // scripts/test-sportlink-selectors.js
-   async function verifySportlinkSelectors() {
-     const page = await loginToSportlink();
-     await page.goto('member/edit/12345'); // Test member
-
-     const expectedFields = [
-       { name: 'email', selectors: emailSelectors },
-       { name: 'phone', selectors: phoneSelectors },
-       { name: 'vog_date', selectors: vogSelectors }
-     ];
-
-     for (const field of expectedFields) {
-       const found = await findWorkingSelector(page, field.selectors);
-       if (!found) {
-         throw new Error(`Field ${field.name} not found!`);
-       }
-     }
-   }
-   ```
-
-**Detection:**
-- Reverse sync logs show "Element not found" errors
-- Sync completion time increases (timeouts)
-- Operator email reports failures
-- Manual check shows Stadion changes didn't reach Sportlink
-
-**Which phase addresses this:**
-- **Phase 3: Reverse Sync** - Implement resilient selectors and verification
-- **Phase 4: Form Testing** - Add selector smoke tests
-- **Phase 5: Monitoring** - Add screenshot diffing and alerts
-
-### Pitfall 4: Silent Data Loss with Last-Write-Wins
-
-**What goes wrong:**
-Last-write-wins (LWW) conflict resolution [always bears the risk of data loss](https://dzone.com/articles/conflict-resolution-using-last-write-wins-vs-crdts). When concurrent edits occur:
-
-```
-09:00 - User edits email in Sportlink: old@example.com → new@example.com
-09:01 - User edits phone in Stadion: 555-1234 → 555-5678
-09:05 - Forward sync runs (Sportlink → Stadion)
-        - Pushes email change
-        - Overwrites phone back to 555-1234 (older timestamp)
-09:10 - Phone change is LOST, no error reported
-```
-
-**Why it happens:**
-- LWW compares entire record timestamps, not per-field
-- [The cost of LWW is a lost update](https://www.numberanalytics.com/blog/last-writer-wins-distributed-systems)
-- No conflict detection, just silent overwrite
-- [Lack of causal ordering](https://dev.to/danyson/last-write-wins-a-conflict-resolution-strategy-2al6) means concurrent changes aren't detected
-
-**Consequences:**
-- User changes disappear without explanation
-- Difficult to reproduce (requires precise timing)
-- No audit trail of lost data
-- Damages user trust
-
-**Prevention strategies:**
-
-1. **Per-Field Timestamps (RECOMMENDED)**
-   - Track modification time per field, not per record
-   - Compare timestamps field-by-field
-   - Only overwrite fields that are older
-
-   ```javascript
-   // In stadion-db.js
-   CREATE TABLE stadion_member_fields (
-     id INTEGER PRIMARY KEY,
-     knvb_id TEXT NOT NULL,
-     field_name TEXT NOT NULL,
-     field_value TEXT,
-     modified_at TEXT NOT NULL,
-     modified_by TEXT NOT NULL,
-     UNIQUE(knvb_id, field_name)
-   );
-
-   // During sync
-   for (const field of fieldsToSync) {
-     const sportlinkTime = sportlinkData[`${field}_modified`];
-     const stadionTime = stadionData[`${field}_modified`];
-
-     if (sportlinkTime > stadionTime) {
-       // Sportlink wins for this field only
-       updateField(knvbId, field, sportlinkData[field]);
-     }
-   }
-   ```
-
-2. **Field-Level Sync Scope**
-   - Reverse sync only syncs specific fields (email, phone, vog_date, freescout_id, financiele_blokkade)
-   - Forward sync syncs everything else
-   - Reduces conflict surface area
-   - Already partially implemented (reverse sync targets specific fields)
-
-3. **Conflict Detection and Alerting**
-   - Before overwriting, detect if local value changed since last sync
-   - If both systems changed same field, flag as conflict
-   - Email operator with both values for manual resolution
-
-   ```javascript
-   // Check for conflict
-   const sportlinkChanged = sportlinkHash !== lastSportlinkHash;
-   const stadionChanged = stadionHash !== lastStadionHash;
-
-   if (sportlinkChanged && stadionChanged) {
-     logger.error(`Conflict detected for ${knvbId} field ${field}`);
-     logger.error(`  Sportlink: ${sportlinkValue} (modified: ${sportlinkTime})`);
-     logger.error(`  Stadion:   ${stadionValue} (modified: ${stadionTime})`);
-
-     // Don't sync, wait for manual resolution
-     conflicts.push({ knvb_id: knvbId, field, sportlinkValue, stadionValue });
-     continue;
-   }
-   ```
-
-4. **Sync Direction Priority**
-   - Document which system is authoritative for each field
-   - Reverse sync only writes to Sportlink fields that Stadion owns
-   - Forward sync only writes to Stadion fields that Sportlink owns
-
-   ```javascript
-   const fieldAuthority = {
-     // Stadion is authoritative
-     'datum-vog': 'stadion',
-     'freescout-id': 'stadion',
-     'financiele-blokkade': 'stadion',
-
-     // Sportlink is authoritative
-     'first_name': 'sportlink',
-     'last_name': 'sportlink',
-     'date_of_birth': 'sportlink',
-
-     // Bidirectional (LWW applies)
-     'email': 'bidirectional',
-     'phone': 'bidirectional'
-   };
-   ```
-
-5. **Audit Trail**
-   - Log every field change with old value, new value, timestamp
-   - Allows investigating data loss after the fact
-   - Helps identify patterns (e.g., phone always loses to email)
-
-   ```javascript
-   CREATE TABLE field_change_audit (
-     id INTEGER PRIMARY KEY,
-     knvb_id TEXT NOT NULL,
-     field_name TEXT NOT NULL,
-     old_value TEXT,
-     new_value TEXT,
-     changed_at TEXT NOT NULL,
-     sync_direction TEXT NOT NULL,
-     conflict_detected INTEGER DEFAULT 0
-   );
-   ```
-
-**Detection:**
-- User reports: "I updated my phone number but it changed back"
-- Pattern of same field being updated repeatedly
-- Audit logs show value oscillation
-- Manual comparison shows systems out of sync
-
-**Which phase addresses this:**
-- **Phase 2: Timestamps** - Implement per-field timestamp tracking
-- **Phase 3: Reverse Sync** - Add conflict detection
-- **Phase 5: Monitoring** - Add audit trail and conflict reporting
-
-### Pitfall 5: State Tracking Database Complexity
-
-**What goes wrong:**
-Forward sync uses SQLite to track:
-- `source_hash` - Hash of Sportlink data
-- `last_synced_hash` - Hash of last pushed data
-- `last_synced_at` - Timestamp of last push
-
-Reverse sync needs to track:
-- `stadion_hash` - Hash of Stadion data
-- `last_reverse_synced_hash` - Hash of last pulled data
-- `last_reverse_synced_at` - Timestamp of last pull
-- `modified_by` - Origin tracking (user vs sync)
-- `stadion_modified_at` - Stadion's modification time
-
-This doubles database complexity. Common mistakes:
-
-```javascript
-// BUG: Using forward sync hash for reverse direction
-if (stadion_hash === last_synced_hash) {
-  // Wrong hash! Should be last_reverse_synced_hash
-  continue;
+function openDb(dbPath = DEFAULT_DB_PATH) {
+  const db = new Database(dbPath);
+  initDb(db);
+  return db;
 }
-
-// BUG: Updating wrong timestamp
-UPDATE stadion_members
-SET last_synced_at = NOW()
-WHERE knvb_id = ?;
-// Should update last_reverse_synced_at for reverse direction
 ```
+No `PRAGMA journal_mode = WAL` is set. No `busy_timeout` is configured. The default journal mode is `DELETE` (rollback), which uses exclusive locks for writes and shared locks for reads that are incompatible with concurrent processes.
 
-**Why it happens:**
-- Bidirectional sync requires dual state tracking
-- Easy to confuse forward vs reverse hashes/timestamps
-- SQLite schema must support both directions
-- [Two one-way pipelines introduce fundamental architectural flaws](https://www.stacksync.com/blog/the-engineering-challenges-of-bi-directional-sync-why-two-one-way-pipelines-fail)
+Current sync processes never collide because `flock` in `sync.sh` prevents same-type overlap, and different sync types write to different tables. A persistent web server breaks this assumption completely.
 
 **Consequences:**
-- Sync loops (using wrong hash comparison)
-- Changes not detected (comparing wrong timestamps)
-- Data corruption (overwriting wrong direction)
-- Difficult debugging (must trace both directions)
+- Web dashboard shows "database locked" errors during sync windows (8:00, 11:00, 14:00, 17:00 and other scheduled times)
+- Sync process fails because web server holds read transaction open
+- If web server uses long-running read transactions (e.g., generating a report), WAL checkpoint starvation causes the WAL file to grow without bound
+- In worst case, sync process silently skips members because it cannot acquire write lock
 
-**Prevention strategies:**
+**Warning signs:**
+- Intermittent 500 errors in dashboard during sync windows
+- Sync logs show "SQLITE_BUSY" errors that did not exist before
+- `data/*.sqlite-wal` files growing to megabytes
+- Dashboard works fine at night but breaks during business hours
 
-1. **Clear Naming Convention**
-   - Prefix all forward sync fields with `forward_`
-   - Prefix all reverse sync fields with `reverse_`
-   - No ambiguous names like `last_synced_at`
+**Prevention strategy:**
 
-   ```sql
-   -- GOOD: Clear direction
-   CREATE TABLE stadion_members (
-     -- Forward sync: Sportlink → Stadion
-     forward_source_hash TEXT NOT NULL,
-     forward_last_synced_hash TEXT,
-     forward_last_synced_at TEXT,
-
-     -- Reverse sync: Stadion → Sportlink
-     reverse_source_hash TEXT,
-     reverse_last_synced_hash TEXT,
-     reverse_last_synced_at TEXT,
-
-     -- Origin tracking
-     modified_by TEXT NOT NULL DEFAULT 'user',
-     modified_at TEXT NOT NULL
-   );
-
-   -- BAD: Ambiguous names
-   CREATE TABLE stadion_members (
-     source_hash TEXT,      -- Which direction?
-     last_synced_at TEXT,   -- Forward or reverse?
-     last_synced_hash TEXT  -- Confusing!
-   );
-   ```
-
-2. **Separate Functions for Each Direction**
-   - Don't reuse forward sync code for reverse
-   - Create `reverse-sync-lib.js` with distinct functions
-   - Prevents accidentally using forward logic in reverse
+1. **Enable WAL mode on all databases before adding the web server.** This is a prerequisite, not an optimization. WAL allows concurrent readers and one writer without blocking.
 
    ```javascript
-   // lib/forward-sync-lib.js
-   function getForwardSyncChanges(db) {
-     return db.prepare(`
-       SELECT * FROM stadion_members
-       WHERE forward_source_hash != forward_last_synced_hash
-       AND modified_by != 'sync-forward'
-     `).all();
-   }
-
-   // lib/reverse-sync-lib.js
-   function getReverseSyncChanges(db) {
-     return db.prepare(`
-       SELECT * FROM stadion_members
-       WHERE reverse_source_hash != reverse_last_synced_hash
-       AND modified_by != 'sync-reverse'
-     `).all();
+   function openDb(dbPath = DEFAULT_DB_PATH) {
+     const db = new Database(dbPath);
+     db.pragma('journal_mode = WAL');
+     db.pragma('busy_timeout = 5000');  // Wait 5 seconds before SQLITE_BUSY
+     initDb(db);
+     return db;
    }
    ```
 
-3. **Database Schema Migration Plan**
-   - Existing `rondo-sync.sqlite` schema designed for forward sync only
-   - Must add reverse sync columns without breaking forward sync
-   - Migration script with rollback capability
+2. **Set `busy_timeout` to at least 5000ms.** Research shows that anything below 5 seconds leads to occasional `SQLITE_BUSY` errors under concurrent load. The sync processes already have 500ms-2s delays between API calls, so a 5-second timeout will not create bottlenecks.
 
-   ```javascript
-   // scripts/migrate-db-for-reverse-sync.js
-   function migrateForReverseSync(db) {
-     // Rename existing columns to forward_* prefix
-     db.exec(`
-       ALTER TABLE stadion_members
-       RENAME COLUMN source_hash TO forward_source_hash;
+3. **Keep web server read transactions short.** Do not hold open database connections across HTTP request lifecycles. Open, query, close within each request handler. Never stream query results while holding a read lock.
 
-       ALTER TABLE stadion_members
-       RENAME COLUMN last_synced_hash TO forward_last_synced_hash;
+4. **Monitor WAL file size.** Add a health check endpoint that reports `*.sqlite-wal` file sizes. If a WAL file exceeds 10MB, checkpoint starvation is occurring.
 
-       ALTER TABLE stadion_members
-       RENAME COLUMN last_synced_at TO forward_last_synced_at;
-     `);
+**Which phase should address this:** Foundation/infrastructure phase. WAL mode must be enabled BEFORE the web server is deployed. This change is backward-compatible with existing sync processes and should be made first.
 
-     // Add reverse sync columns
-     db.exec(`
-       ALTER TABLE stadion_members
-       ADD COLUMN reverse_source_hash TEXT;
+**Confidence:** HIGH -- verified by inspecting all five `openDb()` functions in the codebase. None set WAL mode or busy_timeout.
 
-       ALTER TABLE stadion_members
-       ADD COLUMN reverse_last_synced_hash TEXT;
+---
 
-       ALTER TABLE stadion_members
-       ADD COLUMN reverse_last_synced_at TEXT;
+### Pitfall 2: Exposing Production Credentials via HTTP Attack Surface
 
-       ALTER TABLE stadion_members
-       ADD COLUMN modified_by TEXT NOT NULL DEFAULT 'user';
+**What goes wrong:**
+The server at 46.202.155.16 currently has SSH as its only network entry point. The `.env` file contains credentials for six external systems:
+- Sportlink (username, password, TOTP secret)
+- Laposta (API key)
+- WordPress/Rondo Club (URL, username, app password)
+- FreeScout (API key, URL)
+- Nikki (API key, URL)
+- Postmark (API key, sender email)
 
-       ALTER TABLE stadion_members
-       ADD COLUMN modified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP;
-     `);
+Adding an HTTP/HTTPS server opens a new attack surface. A vulnerability in the web framework, a misconfigured route, or an unpatched Node.js version exposes all of these credentials.
+
+**Why it happens:**
+- Node.js web servers should never be directly exposed to the internet without a reverse proxy. Direct exposure means the Node.js process handles TLS termination, HTTP parsing, and request routing -- any bug in these layers is exploitable.
+- The `.env` file is loaded into `process.env` at startup. Every dependency in `node_modules` has access to these environment variables. A supply-chain attack in any dependency can exfiltrate all credentials.
+- Express (or similar) in development mode returns full stack traces in error responses, leaking file paths and internal structure.
+- The server runs as root (`ssh root@46.202.155.16`), meaning the web server process likely runs as root too, giving any exploit full system access.
+
+**Consequences:**
+- Attacker gains Sportlink credentials (access to all member personal data for the entire club)
+- Attacker gains Laposta API key (can send emails to all club members)
+- Attacker gains WordPress app password (can modify/delete all club data)
+- Complete member data breach (names, addresses, phone numbers, birthdates, financial data)
+
+**Warning signs:**
+- Port scan shows Node.js server responding directly on port 3000/8080
+- No nginx/caddy reverse proxy in front of Node.js
+- Web server process running as root
+- TLS certificate errors or missing HTTPS
+- `.env` file readable by non-root users
+
+**Prevention strategy:**
+
+1. **Never expose Node.js directly to the internet.** Use nginx or Caddy as a reverse proxy with TLS termination. Bind Node.js to `127.0.0.1:3000` (localhost only).
+
+   ```nginx
+   server {
+       listen 443 ssl;
+       server_name dashboard.rondoclub.nl;
+
+       ssl_certificate /etc/letsencrypt/live/dashboard.rondoclub.nl/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/dashboard.rondoclub.nl/privkey.pem;
+
+       location / {
+           proxy_pass http://127.0.0.1:3000;
+           proxy_set_header X-Forwarded-For $remote_addr;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
    }
    ```
 
-4. **Integration Tests**
-   - Test forward sync still works after DB changes
-   - Test reverse sync doesn't interfere with forward
-   - Test both running in sequence (no loops)
+2. **Run the web server as a non-root user.** Create a dedicated `rondo-web` user with read-only access to the database files and no access to `.env` directly. Pass only the credentials the web server needs (e.g., a session secret) via a separate config file.
+
+3. **Separate web server credentials from sync credentials.** The web server does NOT need Sportlink credentials, Laposta API keys, or Postmark tokens. It only needs read access to SQLite databases and its own session secret. Create a `.env.web` with only the minimum required variables.
+
+4. **Implement Content Security Policy headers, rate limiting, and security headers** via the reverse proxy (Helmet.js for Express, or nginx config).
+
+5. **Never serve the `.env` file or `data/` directory as static content.** Ensure the static file serving configuration explicitly excludes sensitive paths.
+
+**Which phase should address this:** Infrastructure/foundation phase. The reverse proxy, TLS, and process isolation must be set up before any routes are exposed.
+
+**Confidence:** HIGH -- verified server access is currently root-only via SSH, and `.env` contains all listed credentials.
+
+---
+
+### Pitfall 3: Web Server Process Dies and Nobody Notices
+
+**What goes wrong:**
+Cron jobs are fire-and-forget: they run, do their work, and exit. If one fails, the next scheduled run tries again. A web server must stay alive continuously. Without proper process management:
+- Node.js crashes (unhandled rejection, OOM) and the dashboard goes down
+- Server reboots and the web server does not restart
+- Memory leaks slowly degrade performance over days/weeks until crash
+- No alerting tells anyone the dashboard is down
+
+**Why it happens in THIS system:**
+The current system has no process manager. Cron jobs are scheduled via `crontab` and `sync.sh`, which is appropriate for transient processes. There is no systemd service, no PM2 configuration, no Docker container. Adding a web server by running `node server.js &` or adding it to crontab with `@reboot` is fragile.
+
+**Consequences:**
+- Dashboard unavailable for hours/days without anyone knowing
+- If the web server process also triggers sync jobs (future feature), sync stops entirely
+- Memory leak causes OOM killer to also kill sync processes sharing the server
+- Zombie processes accumulate (if web server spawns child processes for reports)
+
+**Warning signs:**
+- Dashboard URL returns connection refused intermittently
+- `ps aux | grep node` shows no web server process
+- Server uptime is high but dashboard has been down for days
+- Memory usage slowly climbs over weeks
+
+**Prevention strategy:**
+
+1. **Use systemd for the web server process.** Systemd provides automatic restart on crash, boot-time startup, logging integration, memory limits, and process isolation.
+
+   ```ini
+   [Unit]
+   Description=Rondo Dashboard
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=rondo-web
+   WorkingDirectory=/home/sportlink
+   ExecStart=/usr/bin/node /home/sportlink/dashboard/server.js
+   Restart=always
+   RestartSec=5
+   MemoryMax=512M
+   Environment=NODE_ENV=production
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+2. **Do NOT use PM2 alongside cron.** PM2's built-in cron restart feature causes problems when you also have system cron jobs. The cron jobs and PM2 have different process models and can conflict. Use systemd for the web server and keep cron for sync jobs -- they serve different purposes.
+
+3. **Add a health check endpoint** that monitoring can poll. Return sync status and database accessibility.
+
+4. **Set memory limits** to prevent the web server from OOM-killing sync processes. The web server should be limited to 256-512MB. If it exceeds this, systemd restarts it cleanly.
+
+5. **Separate log streams.** Web server logs should go to a different location than sync logs. Use systemd journal or a dedicated log file so web server crashes do not get lost in sync logs.
+
+**Which phase should address this:** Infrastructure phase, before the web server goes to production.
+
+**Confidence:** HIGH -- verified no systemd service or process manager exists on the server.
+
+---
+
+### Pitfall 4: Multi-Club Database Isolation Failure
+
+**What goes wrong:**
+When the system expands to support multiple clubs, each club needs:
+- Its own set of SQLite databases (4 per club)
+- Its own `.env` credentials (Sportlink, Laposta, WordPress per club)
+- Its own sync schedule
+
+A common mistake is using a shared database with a `club_id` column to separate data. This is dangerous with SQLite because:
+- Single-writer contention: all clubs compete for the same write lock
+- A bug in a WHERE clause leaks Club A's member data to Club B's admin
+- Schema migrations must be backward-compatible with all clubs simultaneously
+- One club's large sync can block all other clubs' dashboard access
+
+**Why it happens:**
+The "add a column" approach feels simpler than managing multiple database sets. Developers underestimate the risk of cross-tenant data leakage, especially in a system where queries are built dynamically from field mappings.
+
+The current codebase uses hardcoded paths like:
+```javascript
+const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'rondo-sync.sqlite');
+```
+
+This works for single-club but provides no tenant isolation.
+
+**Consequences:**
+- Club A's admin sees Club B's member personal data (GDPR violation)
+- One club's sync blocks another club's dashboard (SQLite write lock)
+- Database migration failure corrupts all clubs' data at once
+- Credential mix-up sends sync data to wrong WordPress instance
+
+**Warning signs:**
+- Queries that don't include `WHERE club_id = ?` anywhere
+- Single `.env` file with credentials for multiple clubs
+- All clubs' data in one SQLite file
+- No automated tests for tenant isolation
+
+**Prevention strategy:**
+
+1. **Use database-per-tenant (per-club).** SQLite's file-based architecture makes this natural. Each club gets its own `data/{club_slug}/` directory with its own set of 4 databases. This provides physical isolation -- a query cannot accidentally cross tenant boundaries because the database connection itself is scoped.
+
+   ```
+   data/
+     fc-example/
+       rondo-sync.sqlite
+       laposta-sync.sqlite
+       nikki-sync.sqlite
+       freescout-sync.sqlite
+     sv-other-club/
+       rondo-sync.sqlite
+       ...
+   ```
+
+2. **Scope database connections per request.** Use middleware that determines the club from the authenticated session and opens only that club's databases. Never keep cross-club connections in a shared pool.
 
    ```javascript
-   // tests/bidirectional-sync.test.js
-   test('forward then reverse sync maintains consistency', async () => {
-     // Setup: Member exists in both systems
-     const sportlinkData = { email: 'old@example.com' };
-     const stadionData = { email: 'old@example.com' };
-
-     // User edits in Sportlink
-     sportlinkData.email = 'new@example.com';
-
-     // Forward sync
-     await runForwardSync();
-     expect(stadionData.email).toBe('new@example.com');
-
-     // User edits in Stadion
-     stadionData.phone = '555-9999';
-
-     // Reverse sync
-     await runReverseSync();
-     expect(sportlinkData.phone).toBe('555-9999');
-
-     // Forward sync again (should NOT overwrite phone)
-     await runForwardSync();
-     expect(sportlinkData.phone).toBe('555-9999');
-   });
+   function getClubDb(clubSlug, dbName) {
+     const dbPath = path.join(DATA_DIR, clubSlug, `${dbName}.sqlite`);
+     const db = new Database(dbPath);
+     db.pragma('journal_mode = WAL');
+     db.pragma('busy_timeout = 5000');
+     return db;
+   }
    ```
 
-5. **Database State Diagram Documentation**
-   - Document all possible states and transitions
-   - Helps developers understand bidirectional flow
-   - Include in `.planning/research/ARCHITECTURE.md`
+3. **Store credentials per-club in separate config files**, not in a shared `.env`. Each club gets its own `config/{club_slug}.env` with its Sportlink credentials, Laposta key, WordPress URL, etc.
 
-   ```
-   State diagram:
+4. **Test tenant isolation explicitly.** Write tests that verify: given two clubs' databases, a request authenticated as Club A cannot access Club B's data.
 
-   [User edits in Sportlink]
-     ↓
-   modified_by = 'user'
-   forward_source_hash changes
-     ↓
-   [Forward sync detects change]
-     ↓
-   Updates Stadion
-   modified_by = 'sync-forward'
-   forward_last_synced_hash updated
-     ↓
-   [Reverse sync runs]
-     ↓
-   Sees modified_by = 'sync-forward'
-   SKIPS (prevents loop)
-   ```
+**Which phase should address this:** Multi-club preparation phase. Design the directory structure and config approach before adding the second club. Retrofitting isolation is much harder.
 
-**Detection:**
-- Sync loops occur after database changes
-- Forward sync reports false positives (no actual changes)
-- Changes sync in wrong direction
-- Database queries return unexpected results
+**Confidence:** HIGH -- verified the hardcoded `DEFAULT_DB_PATH` pattern in all five database modules.
 
-**Which phase addresses this:**
-- **Phase 1: Foundation** - Design and implement database schema changes
-- **Phase 2: Timestamps** - Add bidirectional timestamp tracking
-- **Phase 6: Testing** - Write comprehensive integration tests
+---
+
+### Pitfall 5: Authentication That Is Worse Than No Authentication
+
+**What goes wrong:**
+The current system has strong security: SSH key-based access only. Adding a web dashboard with weak authentication (basic auth over HTTP, JWT in localStorage, session without CSRF protection) creates a false sense of security while actually being less secure than SSH.
+
+Common authentication mistakes for internal dashboards:
+- **Basic auth without HTTPS**: credentials sent in cleartext
+- **JWT stored in localStorage**: vulnerable to XSS exfiltration, every npm dependency can read it
+- **No session expiration**: a stolen cookie grants permanent access
+- **Shared password for all users**: no accountability, no revocation
+- **No CSRF protection**: malicious site can trigger actions on the dashboard
+- **Rolling your own auth**: custom password hashing, custom token generation
+
+**Why it happens:**
+Internal tool developers think "it's just for us" and implement minimal auth. The dashboard starts as "just for the admin" but eventually needs to be accessible to multiple board members, team managers, or committee leads. Quick-and-dirty auth does not scale and creates liability.
+
+**Consequences:**
+- Stolen session cookie provides full access to all member personal data
+- XSS vulnerability in any dashboard page exfiltrates all active sessions
+- No audit trail of who accessed what data
+- GDPR compliance issues (member data accessible without proper access controls)
+- Password shared via WhatsApp/email becomes known to ex-board members
+
+**Warning signs:**
+- Login form on HTTP (not HTTPS)
+- Password stored in `.env` or config file rather than hashed in database
+- No "logout" functionality
+- Sessions never expire
+- No rate limiting on login attempts
+- Same credentials work for everyone
+
+**Prevention strategy:**
+
+1. **Use an established session library**, not custom JWT implementation. For a small internal dashboard, server-side sessions with `express-session` and a SQLite session store are simpler and more secure than JWT. Sessions can be revoked (just delete from store), have built-in expiration, and do not require client-side storage.
+
+2. **HTTPS is non-negotiable.** TLS must be in place before any login page exists. Use Let's Encrypt with Certbot auto-renewal via the nginx reverse proxy.
+
+3. **Store session cookies as HttpOnly, Secure, SameSite=Strict.** This prevents JavaScript access (XSS cannot steal the cookie), ensures cookies are only sent over HTTPS, and prevents CSRF from other domains.
+
+4. **Hash passwords with bcrypt or argon2.** Never store plaintext passwords. Even for a single admin user, use proper password hashing.
+
+5. **Implement rate limiting on the login endpoint.** Limit to 5 attempts per IP per 15 minutes. This prevents brute force attacks.
+
+6. **Add session expiration.** Sessions should expire after 8 hours of inactivity and have a maximum lifetime of 24 hours regardless of activity.
+
+7. **Plan for multi-user from the start.** Even if v1 has one admin user, store users in a database table with hashed passwords and roles. Adding users later is trivial; retrofitting a user model is not.
+
+**Which phase should address this:** Authentication phase, before the dashboard is accessible from outside localhost.
+
+**Confidence:** HIGH -- these are well-established security best practices, not speculative.
+
+---
 
 ## Moderate Pitfalls
 
-### Pitfall 6: Session Management and Cookie Expiry
+Mistakes that cause operational pain, degraded experience, or technical debt.
+
+### Pitfall 6: Web Server Interferes with Sync Process Memory/CPU
 
 **What goes wrong:**
-Sportlink login requires:
-1. Username/password
-2. TOTP 2FA code
-3. Session cookie (expires after inactivity)
+The server has finite resources. Sync processes (especially Playwright browser automation) are memory-intensive. A web server with a frontend build (React/Vite) serving dashboards with charts and tables also uses significant memory. Together, they can exceed the server's RAM, triggering the OOM killer which randomly kills processes.
 
-If reverse sync runs infrequently (e.g., hourly), session cookies expire. Next run fails authentication, sync stops.
+**Why it matters here:**
+Playwright launches headless Chromium, which uses 200-500MB per instance. The sync processes already use significant memory during the Sportlink scraping phase. Adding a web server with in-memory session store, database caches, and chart rendering can push total memory usage past the server's limits.
 
 **Prevention:**
-- Re-authenticate for every reverse sync run (don't rely on persistent sessions)
-- Use [Playwright's BrowserContext per run](https://playwright.dev/docs/api/class-browsercontext) (already implemented in `download-data-from-sportlink.js`)
-- Log authentication failures clearly
+- **Profile current server memory usage** during peak sync. Run `free -h` during a people sync to establish baseline.
+- **Set memory limits via systemd** for the web server (MemoryMax=512M).
+- **Never run Playwright from the web server.** The web server should only read database state, not trigger sync operations. Keep sync as cron-only.
+- **If adding "trigger sync" button to dashboard**, use a message queue or signal file, not a direct function call. The web server writes a request; the sync process picks it up independently.
 
-```javascript
-// In download-sportlink-reverse.js
-async function updateSportlinkMember(member) {
-  // Fresh browser context per sync run
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+**Which phase should address this:** Infrastructure phase. Memory profiling before adding the web server.
 
-  try {
-    await loginToSportlink(page); // Fresh login each time
-    await updateMemberFields(page, member);
-  } finally {
-    await browser.close(); // Clean up
-  }
-}
-```
-
-**Phase:** Phase 3 (Reverse Sync)
-
-### Pitfall 7: Form Validation and Business Rules
+### Pitfall 7: Dashboard Shows Stale or Inconsistent Data During Sync
 
 **What goes wrong:**
-Sportlink forms have client-side and server-side validation:
-- Email format validation
-- Phone number format (must match country)
-- VOG date cannot be in the future
-- Financial block requires admin privileges
+A sync run takes 5-30 minutes. During this time, the database is in a transitional state: some members are updated, others are not yet. The dashboard reads this mid-sync state and shows inconsistent data:
+- Member counts fluctuate during sync
+- Some members show updated data, adjacent members show old data
+- Progress indicators are meaningless (database does not track "sync progress")
+- "Last synced" timestamp updates per-member, so the global "last sync" time is misleading
 
-Reverse sync bypasses client-side validation, but server-side validation still rejects invalid data.
+**Why it matters here:**
+The hash-based change detection pattern means `source_hash != last_synced_hash` for members not yet synced in the current run. The dashboard could show "247 members pending sync" which drops to 0 over 20 minutes, confusing users into thinking something is broken.
 
 **Prevention:**
-- Validate data in reverse sync code before submitting
-- Match Sportlink's validation rules exactly
-- Handle validation errors gracefully
+- **Show sync status prominently.** If a sync is running (detect via flock lock file existence), show a banner: "Sync in progress, data may be updating."
+- **Use `last_synced_at` timestamps** to show per-member freshness rather than a single global timestamp.
+- **Do not cache dashboard data aggressively.** Since data changes during sync, cache TTL should be short (10-30 seconds) or absent.
+- **Consider a "sync runs" table** that tracks start/end time of each sync run, providing a reliable "last completed sync" timestamp.
 
-```javascript
-// In reverse-sync-validation.js
-function validateForSportlink(field, value) {
-  switch (field) {
-    case 'email':
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-        throw new ValidationError('Invalid email format');
-      }
-      break;
-    case 'phone':
-      // Sportlink expects Netherlands format
-      if (!/^(\+31|0)[0-9]{9}$/.test(value)) {
-        throw new ValidationError('Phone must be Netherlands format');
-      }
-      break;
-    case 'datum-vog':
-      if (new Date(value) > new Date()) {
-        throw new ValidationError('VOG date cannot be in future');
-      }
-      break;
-  }
-}
-```
+**Which phase should address this:** Dashboard UI phase.
 
-**Phase:** Phase 3 (Reverse Sync)
-
-### Pitfall 8: Rate Limiting and Throttling
+### Pitfall 8: Sync.sh Flock and Web Server Conflict
 
 **What goes wrong:**
-Stadion WordPress and Sportlink have undocumented rate limits. Reverse sync that updates 100 members in rapid succession may hit rate limits:
-- Sportlink: Form submissions per minute
-- Stadion: API requests per hour
+The current `sync.sh` uses `flock` to prevent concurrent runs of the same sync type. If the web server also needs to read lock state (to show "sync in progress") or trigger sync operations, it must interact with the same lock files. Getting this wrong causes:
+- Web server acquires lock, preventing cron sync from running
+- Web server cannot detect lock state (checks wrong file path)
+- Lock files on `process.cwd()` differ between web server and cron context
+
+**Why it matters here:**
+`sync.sh` resolves `PROJECT_DIR` from the script's location and creates lock files at `$PROJECT_DIR/.sync-${SYNC_TYPE}.lock`. The web server runs from a different working directory or with a different user, so `process.cwd()` returns a different path.
 
 **Prevention:**
-- Add delay between member updates (e.g., 500ms)
-- Batch updates (10 members per sync run)
-- Respect HTTP 429 responses
+- **Use absolute paths for lock files.** Hardcode `/home/sportlink/.sync-*.lock` rather than relying on `process.cwd()`.
+- **Web server should only READ lock state, never acquire locks.** Check lock file existence with `flock -n` in test mode, or simply check if the lock file is being held by another process.
+- **Do not add "run sync" functionality** to the web server in the initial version. This is a significant source of bugs. Read-only dashboard first.
 
-```javascript
-// In download-sportlink-reverse.js
-const MEMBERS_PER_BATCH = 10;
-const DELAY_BETWEEN_MEMBERS_MS = 500;
+**Which phase should address this:** Dashboard infrastructure phase.
 
-const membersToUpdate = getReverseSyncChanges(db);
-const batch = membersToUpdate.slice(0, MEMBERS_PER_BATCH);
-
-for (const member of batch) {
-  await updateSportlinkMember(member);
-  await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_MEMBERS_MS));
-}
-```
-
-**Phase:** Phase 3 (Reverse Sync)
-
-### Pitfall 9: Race Conditions on Concurrent Edits
+### Pitfall 9: Deploying Web Server Changes Breaks Running Sync
 
 **What goes wrong:**
-User edits same member in both systems simultaneously:
+Current deployment is `git pull && npm install`. If this runs while a sync process is active, Node.js modules are replaced underneath the running process. This can cause:
+- Segfaults (native modules like `better-sqlite3` replaced mid-execution)
+- Module not found errors (dependency tree changed)
+- Sync process uses mix of old and new code
 
-```
-09:00:00 - User A edits email in Sportlink
-09:00:05 - User B edits phone in Stadion
-09:00:10 - Forward sync starts reading Sportlink
-09:00:15 - Reverse sync starts reading Stadion
-09:00:20 - Forward sync writes to Stadion (email + old phone)
-09:00:25 - Reverse sync writes to Sportlink (old email + phone)
-Result: Both changes lost
-```
+With a persistent web server, deployment is more complex: the server must be restarted after code changes. But restarting the web server while a sync is running (and they share database access) can cause lock issues.
 
 **Prevention:**
-- [Database-level uniqueness constraints](https://makandracards.com/makandra/13901-understanding-race-conditions-with-duplicate-unique-keys-in-rails) prevent duplicate writes
-- [SELECT FOR UPDATE](https://on-systems.tech/blog/128-preventing-read-committed-sql-concurrency-errors/) locks rows during updates
-- Grace period (5 minutes) reduces race window
-- Per-field timestamps (Pitfall 4) minimize conflict scope
+- **Restart web server separately from sync.** Deploy sequence: (1) `git pull`, (2) `npm install`, (3) wait for any running sync to finish, (4) `systemctl restart rondo-dashboard`.
+- **Use `systemctl reload`** if supported, for zero-downtime restarts.
+- **Never deploy during peak sync windows** (8:00, 11:00, 14:00, 17:00 Amsterdam time).
+- **Add a deployment script** that checks for running sync processes before restarting.
 
-```javascript
-// In stadion-db.js
-function updateMemberWithLock(db, knvbId, updates) {
-  const txn = db.transaction(() => {
-    // Lock row for update
-    const current = db.prepare(`
-      SELECT * FROM stadion_members
-      WHERE knvb_id = ?
-    `).get(knvbId);
+**Which phase should address this:** Infrastructure/deployment phase.
 
-    // Apply only newer fields
-    for (const [field, value] of Object.entries(updates)) {
-      if (updates[`${field}_modified`] > current[`${field}_modified`]) {
-        // This field is newer, update it
-        db.prepare(`
-          UPDATE stadion_members
-          SET ${field} = ?, ${field}_modified = ?
-          WHERE knvb_id = ?
-        `).run(value, updates[`${field}_modified`], knvbId);
-      }
-    }
-  });
-
-  txn();
-}
-```
-
-**Phase:** Phase 2 (Timestamps) and Phase 3 (Reverse Sync)
-
-### Pitfall 10: Email Flood from Sync Failures
+### Pitfall 10: Bolting Dashboard Routes onto Sync Codebase
 
 **What goes wrong:**
-If reverse sync fails (selector broke, validation error, network issue), it sends failure email to operator. If it fails for 100 members, operator receives 100 emails.
-
-Cron runs hourly = 100 emails/hour = 2,400 emails/day.
+The temptation is to add Express routes directly into the existing sync codebase: import `rondo-club-db.js`, add `app.get('/api/members', ...)`, done. This creates a monolith where:
+- Web server startup initializes Playwright (not needed for dashboard)
+- Database module changes for dashboard break sync processes
+- Web server dependencies bloat the sync deployment
+- `require()` order issues cause initialization side effects
+- Testing web routes requires mocking sync infrastructure
 
 **Prevention:**
-- Batch errors into single summary email
-- Rate limit emails (max 1 per sync run)
-- Escalate only after N consecutive failures
+- **Separate the web server entry point from sync pipelines.** The dashboard should have its own `dashboard/server.js` that imports only the database modules it needs.
+- **Database modules are the shared layer.** The `lib/*-db.js` files should be the ONLY shared code between sync and dashboard. All other code (routes, middleware, templates) lives in a separate `dashboard/` directory.
+- **Do not add web framework dependencies to the main `package.json`** if they are not needed by sync. Consider whether a separate `package.json` for the dashboard makes sense, or carefully manage that Express/Fastify/etc. are devDependencies for the sync side.
 
-```javascript
-// In scripts/sync.sh
-const failures = [];
+   ```
+   lib/               # Shared: database modules (used by both sync and dashboard)
+   pipelines/         # Sync-only: pipeline orchestrators
+   steps/             # Sync-only: pipeline steps
+   dashboard/         # Dashboard-only: web server, routes, templates
+     server.js        # Entry point
+     routes/          # API routes
+     views/           # Templates
+   ```
 
-for (const member of membersToSync) {
-  try {
-    await updateSportlinkMember(member);
-  } catch (error) {
-    failures.push({ knvb_id: member.knvb_id, error: error.message });
-  }
-}
+**Which phase should address this:** Architecture/foundation phase. Establish the directory structure before writing the first route.
 
-// Single summary email
-if (failures.length > 0) {
-  await sendEmail({
-    subject: `Reverse Sync: ${failures.length} failures`,
-    body: renderFailureSummary(failures)
-  });
-}
-
-// Escalate only after 3 consecutive failures
-const failureCount = getConsecutiveFailureCount(db);
-if (failureCount >= 3) {
-  await sendEmail({
-    subject: 'URGENT: Reverse sync failing repeatedly',
-    body: 'Manual intervention required'
-  });
-}
-```
-
-**Phase:** Phase 3 (Reverse Sync) and Phase 5 (Monitoring)
+---
 
 ## Minor Pitfalls
 
-### Pitfall 11: Photo Sync Timing
+Mistakes that cause annoyance but are recoverable.
+
+### Pitfall 11: Overengineering the First Dashboard Version
 
 **What goes wrong:**
-Current architecture downloads photos via HTTP URLs from Sportlink API. Reverse sync doesn't have photo URLs (Stadion stores uploaded photos).
-
-If user uploads photo to Stadion, reverse sync can't push it to Sportlink (no API for photo upload).
+Building a full React SPA with real-time WebSocket updates, interactive data tables, chart libraries, and admin panels before the basic read-only dashboard is validated. The team spends weeks on framework setup, build tooling, and component libraries before answering: "Does anyone actually use this dashboard?"
 
 **Prevention:**
-- Document photos as one-way only (Sportlink → Stadion)
-- If reverse photo sync needed, requires different approach:
-  - Download photo from Stadion media library
-  - Upload via Sportlink form file input
-  - Much more complex than field updates
+- **Start with server-rendered HTML.** A few pages showing sync status, member counts, and recent errors is all that is needed initially. Pug/EJS templates with minimal CSS.
+- **Add interactivity only where needed.** If a table needs sorting, add it. Do not pre-build a component library.
+- **Validate usage before investing.** If the dashboard is used daily by board members after 2 weeks, invest in richer UI. If it's checked once a month, keep it simple.
 
-**Phase:** Phase 1 (Foundation) - Document scope exclusion
+**Which phase should address this:** MVP dashboard phase.
 
-### Pitfall 12: Transaction Boundaries
+### Pitfall 12: Ignoring GDPR Implications of Web Access
 
 **What goes wrong:**
-SQLite updates span multiple operations:
-1. Read current state
-2. Compute hash
-3. Call Sportlink/Stadion API
-4. Update database
-
-If step 3 fails, database is inconsistent (believes sync succeeded but it didn't).
+Member personal data (names, addresses, phone numbers, birthdates, financial status) was previously only accessible via SSH to authorized administrators. A web dashboard makes this data accessible via a browser, potentially from personal devices, shared computers, or public WiFi. GDPR requires:
+- Purpose limitation (why is this data displayed?)
+- Data minimization (show only what is needed)
+- Access logging (who viewed what, when?)
+- Right to erasure (can a member request their data be removed from the dashboard cache?)
 
 **Prevention:**
-- Only update database after confirmed API success
-- Use SQLite transactions for multi-step updates
-- Add retry logic with exponential backoff
+- **Do not display full addresses or phone numbers unless necessary.** Show masked versions (e.g., "A*****straat **", "+31 6 **** **78").
+- **Log dashboard access** (who logged in, which pages they visited, when).
+- **Implement role-based access.** Board treasurer sees financial data; team manager sees only their team's members.
+- **Add a privacy notice** explaining what data is shown and why.
 
-```javascript
-function syncMemberWithRetry(db, member, maxRetries = 3) {
-  let attempt = 0;
-  let lastError;
+**Which phase should address this:** Authentication and authorization phase (roles), with privacy considerations from the start.
 
-  while (attempt < maxRetries) {
-    const txn = db.transaction(() => {
-      try {
-        // Call API
-        const result = updateSportlinkAPI(member);
-
-        // Only update DB if API succeeded
-        if (result.success) {
-          db.prepare(`
-            UPDATE stadion_members
-            SET reverse_last_synced_hash = reverse_source_hash,
-                reverse_last_synced_at = ?
-            WHERE knvb_id = ?
-          `).run(new Date().toISOString(), member.knvb_id);
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error) {
-        lastError = error;
-        throw error; // Rollback transaction
-      }
-    });
-
-    try {
-      txn();
-      return; // Success
-    } catch (error) {
-      attempt++;
-      await sleep(Math.pow(2, attempt) * 1000); // Exponential backoff
-    }
-  }
-
-  throw new Error(`Failed after ${maxRetries} attempts: ${lastError}`);
-}
-```
-
-**Phase:** Phase 3 (Reverse Sync)
-
-### Pitfall 13: Field Mapping Inconsistencies
+### Pitfall 13: Database Path Differences Between Environments
 
 **What goes wrong:**
-Sportlink uses different field names than Stadion:
-- Sportlink: `email_contact`
-- Stadion ACF: `email`
-- SQLite: `contact_email`
-
-Mapping errors cause wrong field updates or data loss.
+Sync processes resolve database paths relative to `process.cwd()`, which is `/home/sportlink` on the server. The web server, if started from a different directory or by systemd with a different `WorkingDirectory`, resolves to a different path and creates empty databases instead of reading existing ones.
 
 **Prevention:**
-- Centralize field mapping in `field-mapping.json` (already exists for forward sync)
-- Add reverse mapping section
-- Validate mappings in tests
+- **Use absolute paths in database modules.** Change `DEFAULT_DB_PATH` to use `__dirname` resolution or a config constant, not `process.cwd()`.
+- **Verify on first web server startup** that all expected database files exist and are non-empty. Log a clear error if databases are missing.
+- **Set `WorkingDirectory=/home/sportlink`** in the systemd service file.
 
-```json
-// field-mapping.json
-{
-  "forward": {
-    "sportlink_field": "stadion_acf_field"
-  },
-  "reverse": {
-    "email": {
-      "stadion": "email",
-      "sportlink": "email_contact",
-      "sportlinkPage": "/general",
-      "sportlinkSelector": "input[name='email']"
-    },
-    "datum-vog": {
-      "stadion": "datum-vog",
-      "sportlink": "vog_expiry_date",
-      "sportlinkPage": "/other",
-      "sportlinkSelector": "input[name='vog_date']"
-    }
-  }
-}
-```
+**Which phase should address this:** Foundation phase.
 
-**Phase:** Phase 1 (Foundation)
-
-### Pitfall 14: Logging Verbosity
-
-**What goes wrong:**
-Reverse sync adds significant logging (authentication, navigation, form filling, verification). Log files grow rapidly:
-- Forward sync: ~50KB per run
-- Reverse sync: ~500KB per run (10x larger)
-- Daily logs: 12MB (24 runs)
-- Monthly logs: 360MB
-
-**Prevention:**
-- Use `verbose` mode judiciously (only for debugging)
-- Rotate logs more aggressively (weekly instead of monthly)
-- Separate reverse sync logs from forward sync logs
-
-```javascript
-// lib/logger.js modification
-function createSyncLogger({ verbose, logType = 'forward' }) {
-  const logDir = path.join(process.cwd(), 'logs', logType);
-  ensureDir(logDir);
-
-  const logPath = path.join(logDir, `sync-${date}.log`);
-  // ... existing logger code
-}
-
-// In sync-reverse.js
-const logger = createSyncLogger({
-  verbose: false,  // Default to quiet
-  logType: 'reverse'
-});
-```
-
-**Phase:** Phase 3 (Reverse Sync)
+---
 
 ## Phase-Specific Warnings
 
-| Phase | Likely Pitfall | Mitigation |
-|-------|---------------|------------|
-| Phase 1: Foundation | Infinite sync loops (Pitfall 1) | **MUST** implement origin tracking (`modified_by`) and hash-based deduplication before any reverse sync code |
-| Phase 2: Timestamps | Clock drift (Pitfall 2) | Implement UTC normalization and 5-minute grace period; verify NTP on production server |
-| Phase 3: Reverse Sync | Browser automation fragility (Pitfall 3) | Use resilient selectors with fallbacks; add form submission verification |
-| Phase 3: Reverse Sync | State tracking complexity (Pitfall 5) | Clear naming convention (`forward_*` vs `reverse_*`); separate functions per direction |
-| Phase 4: Testing | Missing integration tests | Test forward-then-reverse-then-forward sequence; verify no loops |
-| Phase 5: Monitoring | Silent failures (Pitfalls 3, 4) | Screenshot diffing, conflict detection, audit trail |
-| Phase 6: Production | All pitfalls at once | Comprehensive monitoring before enabling automated reverse sync |
+| Phase Topic | Likely Pitfall | Mitigation | Severity |
+|-------------|---------------|------------|----------|
+| Infrastructure / Foundation | SQLite SQLITE_BUSY (Pitfall 1) | Enable WAL mode and busy_timeout on ALL databases before adding web server | CRITICAL |
+| Infrastructure / Foundation | Credential exposure (Pitfall 2) | Reverse proxy + TLS + non-root user + credential separation before any HTTP exposure | CRITICAL |
+| Infrastructure / Foundation | Process management (Pitfall 3) | systemd service with memory limits and auto-restart | CRITICAL |
+| Infrastructure / Foundation | Database path resolution (Pitfall 13) | Absolute paths or verified WorkingDirectory | MODERATE |
+| Architecture | Monolith coupling (Pitfall 10) | Separate `dashboard/` directory, shared only `lib/*-db.js` | MODERATE |
+| Authentication | Weak auth (Pitfall 5) | Server-side sessions, bcrypt, HttpOnly cookies, rate limiting | CRITICAL |
+| Dashboard MVP | Stale data during sync (Pitfall 7) | Sync status indicator, lock file detection | MODERATE |
+| Dashboard MVP | Overengineering (Pitfall 11) | Start with server-rendered HTML, validate usage first | MINOR |
+| Deployment | Deploy breaks running sync (Pitfall 9) | Deployment script that waits for sync completion | MODERATE |
+| Multi-club | Tenant isolation (Pitfall 4) | Database-per-tenant from the start, not shared tables | CRITICAL |
+| Multi-club | GDPR compliance (Pitfall 12) | Data masking, access logging, role-based access | MODERATE |
+| Operations | Web server resource contention (Pitfall 6) | Memory limits, never run Playwright from web server | MODERATE |
+| Operations | Flock conflict (Pitfall 8) | Absolute lock file paths, read-only lock state checking | MODERATE |
 
 ## Domain-Specific Anti-Patterns
 
-### Anti-Pattern 1: Treating Bidirectional Sync as "Two One-Way Syncs"
+### Anti-Pattern 1: "Just Add Express to the Sync Process"
 
 **Why it fails:**
-[Two one-way pipelines introduce fundamental architectural flaws](https://www.stacksync.com/blog/the-engineering-challenges-of-bi-directional-sync-why-two-one-way-pipelines-fail) because they don't coordinate. Each pipeline:
-- Doesn't know the other exists
-- Has independent state tracking
-- Can't prevent loops
-- Creates race conditions
+Combining the web server and sync process into one Node.js process means:
+- Sync failures crash the web server
+- Web server memory leaks eventually crash the sync
+- Cannot restart web server without interrupting running sync
+- Cannot scale them independently (sync is CPU-bound during scraping; web is I/O-bound)
 
-**Instead:**
-Design bidirectional sync as unified system with:
-- Shared state tracking (single SQLite database)
-- Origin tracking (`modified_by` field)
-- Coordinated scheduling (never run simultaneously)
-- Central conflict resolution logic
+**Instead:** Run them as separate processes that share only database files. The web server is a **consumer** of sync output, not part of the sync pipeline.
 
-### Anti-Pattern 2: Assuming Clock Synchronization
+### Anti-Pattern 2: "SQLite Is Fine for a Web Server Without Changes"
 
 **Why it fails:**
-[Timestamps are not a reliable resolution mechanism in distributed systems](https://www.geeksforgeeks.org/distributed-systems/clock-synchronization-in-distributed-system/). [Clock drift](https://scalardynamic.com/resources/articles/21-when-logs-lie-how-clock-drift-skews-reality-and-breaks-systems) is inevitable:
-- NTP provides 100-250ms accuracy at best
-- Server reboots introduce minutes of drift
-- WordPress timezone settings add confusion
-- Network latency affects timestamp capture
+SQLite is excellent for web servers -- but only when configured correctly. The default rollback journal mode was designed for single-process access. Multi-process access requires WAL mode, which is a one-line change but must be made explicitly. Assuming the existing database configuration "just works" for a web server leads to intermittent failures that are difficult to reproduce and diagnose.
 
-**Instead:**
-- Always normalize timestamps to UTC
-- Add 5-minute grace period for comparisons
-- Log actual timestamps for debugging
-- Monitor clock drift on production server
+**Instead:** Enable WAL mode in the `openDb()` function before deploying the web server. This is a non-breaking change that also improves performance for the existing sync processes.
 
-### Anti-Pattern 3: Relying on Stable Selectors
+### Anti-Pattern 3: "We'll Add Security Later"
 
 **Why it fails:**
-[Selectors tied to DOM hierarchy are fragile](https://ghostinspector.com/blog/css-selector-strategies-automated-browser-testing/). Sportlink has no `data-test` attributes, no stable IDs, no automation-friendly design.
+Security retrofits are always more expensive than upfront design. An internal dashboard without auth "just until we add it" gets shared via URL, bookmarked on personal devices, and accessed from untrusted networks. By the time auth is added, the habits are formed and users resist the friction.
 
-**Instead:**
-- Multiple fallback selectors per field
-- Visual regression testing (screenshot diffing)
-- Form submission verification
-- Graceful degradation on failure
+**Instead:** No dashboard route should be accessible without authentication from day one. Even a simple username/password form with bcrypt hashing is sufficient for v1, as long as it is served over HTTPS with HttpOnly session cookies.
 
-### Anti-Pattern 4: Ignoring Update Conflicts
+### Anti-Pattern 4: "Shared Password Is Good Enough for Now"
 
 **Why it fails:**
-["What are the odds of that happening?" is not a strategy](https://www.stacksync.com/blog/two-way-sync-demystified-key-principles-and-best-practices). In production:
-- Admins edit members frequently
-- Sync runs 4x daily (forward) + 1x daily (reverse)
-- 500+ members = high probability of concurrent edits
-- Batch operations increase conflict likelihood
+A shared admin password (stored in `.env` or config) cannot be revoked when a board member steps down. It provides no audit trail. It will be shared via WhatsApp and become known to people who should no longer have access. For a system holding personal data of ~1000 club members, this is a GDPR liability.
 
-**Instead:**
-- Per-field timestamps
-- Conflict detection and alerting
-- Audit trail for lost updates
-- Manual resolution workflow
+**Instead:** Individual user accounts from day one. Even if there are only 2-3 users initially, store them in a `users` table with hashed passwords. When someone leaves the board, disable their account.
+
+---
 
 ## Sources
 
-Bidirectional Sync:
-- [The Engineering Challenges of Bi-Directional Sync: Why Two One-Way Pipelines Fail](https://www.stacksync.com/blog/the-engineering-challenges-of-bi-directional-sync-why-two-one-way-pipelines-fail)
-- [Two-Way Sync Demystified: Key Principles And Best Practices](https://www.stacksync.com/blog/two-way-sync-demystified-key-principles-and-best-practices)
+SQLite Concurrent Access:
+- [SQLite Write-Ahead Logging](https://sqlite.org/wal.html)
+- [better-sqlite3 Performance / Concurrency](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/performance.md)
+- [SQLite Performance Tuning (phiresky)](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/)
+- [SQLite Concurrent Writes and "database is locked" errors](https://tenthousandmeters.com/blog/sqlite-concurrent-writes-and-database-is-locked-errors/)
+- [What to do about SQLITE_BUSY errors despite setting a timeout](https://berthub.eu/articles/posts/a-brief-post-on-sqlite3-database-locked-despite-timeout/)
 
-Infinite Loop Prevention:
-- [How to prevent infinite loops in bi-directional data syncs | Workato](https://www.workato.com/product-hub/how-to-prevent-infinite-loops-in-bi-directional-data-syncs/)
-- [How To Stop Infinite Loops In Bidirectional Syncs — Valence](https://docs.valence.app/en/latest/guides/stop-infinite-loops.html)
-- [The Infinite Loop Trap: How to Prevent Your Integration from Talking to Itself](https://www.ambientia.fi/en/news/the-infinite-loop-trap-how-to-prevent-your-integration-from-talking-to-itself)
+Production Node.js:
+- [How to Set Up a Node.js Application for Production (DigitalOcean)](https://www.digitalocean.com/community/tutorials/how-to-set-up-a-node-js-application-for-production-on-ubuntu-20-04)
+- [Why Use a Reverse Proxy with Node.js](https://medium.com/intrinsic-blog/why-should-i-use-a-reverse-proxy-if-node-js-is-production-ready-5a079408b2ca)
+- [Node.js Security Best Practices](https://nodejs.org/en/learn/getting-started/security-best-practices)
+- [Nginx Reverse Proxy for Node.js (Better Stack)](https://betterstack.com/community/guides/scaling-nodejs/nodejs-reverse-proxy-nginx/)
 
-Clock Synchronization:
-- [Clock Synchronization in Distributed Systems - GeeksforGeeks](https://www.geeksforgeeks.org/distributed-systems/clock-synchronization-in-distributed-system/)
-- [When Logs Lie: How Clock Drift Skews Reality and Breaks Systems | Scalar Dynamic](https://scalardynamic.com/resources/articles/21-when-logs-lie-how-clock-drift-skews-reality-and-breaks-systems)
+Process Management:
+- [PM2 Guide (Better Stack)](https://betterstack.com/community/guides/scaling-nodejs/pm2-guide/)
+- [PM2 Cron Job Multiple Instances](https://greenydev.com/blog/pm2-cron-job-multiple-instances/)
 
-Last-Write-Wins:
-- [Conflict Resolution: Using Last-Write-Wins vs. CRDTs](https://dzone.com/articles/conflict-resolution-using-last-write-wins-vs-crdts)
-- [Last Writer Wins in Distributed Systems](https://www.numberanalytics.com/blog/last-writer-wins-distributed-systems)
-- [Last Write Wins - A Conflict resolution strategy - DEV Community](https://dev.to/danyson/last-write-wins-a-conflict-resolution-strategy-2al6)
+Multi-Tenant SQLite:
+- [Database-per-Tenant: Consider SQLite](https://medium.com/@dmitry.s.mamonov/database-per-tenant-consider-sqlite-9239113c936c)
+- [Multi-tenancy - High Performance SQLite](https://highperformancesqlite.com/watch/multi-tenancy)
+- [Multi-Tenancy with Node.js AsyncLocalStorage](https://medium.com/@jfelipevalr/multi-tenancy-with-node-js-asynclocalstorage-4c771a3d06ed)
 
-Browser Automation:
-- [CSS Selector Cheat Sheet for Automated Browser Testing](https://ghostinspector.com/blog/css-selector-strategies-automated-browser-testing/)
-- [Playwright vs Puppeteer: Which to choose in 2026? | BrowserStack](https://www.browserstack.com/guide/playwright-vs-puppeteer)
-- [Managing Cookies using Playwright | BrowserStack](https://www.browserstack.com/guide/playwright-cookies)
-- [Authentication | Playwright](https://playwright.dev/docs/auth)
-
-Race Conditions:
-- [Understanding race conditions with duplicate unique keys in Rails - makandra dev](https://makandracards.com/makandra/13901-understanding-race-conditions-with-duplicate-unique-keys-in-rails)
-- [Preventing Postgres SQL Race Conditions with SELECT FOR UPDATE](https://on-systems.tech/blog/128-preventing-read-committed-sql-concurrency-errors/)
-- [Avoiding race conditions using MySQL locks | Engineering Blog | Kraken](https://engineering.kraken.tech/news/2025/01/20/mysql-race-conditions.html)
-
-WordPress ACF Timestamps:
-- [ACF Pro field time are not taking timezone · Issue #252 · AdvancedCustomFields/acf](https://github.com/AdvancedCustomFields/acf/issues/252)
-- [Date Picker fields in Repeaters gone wrong after WP 5.3 update - ACF Support](https://support.advancedcustomfields.com/forums/topic/date-picker-fields-in-repeaters-gone-gone-wrong-after-wp-5-3-update/)
-- [ACF | Date Time Picker](https://www.advancedcustomfields.com/resources/date-time-picker/)
+Authentication and Security:
+- [Do not use secrets in environment variables (Node.js Security)](https://www.nodejs-security.com/blog/do-not-use-secrets-in-environment-variables-and-here-is-how-to-do-it-better)
+- [How to Avoid JWT Security Mistakes in Node.js](https://www.nodejs-security.com/blog/how-avoid-jwt-security-mistakes-nodejs)
+- [Stop using JWTs for sessions](https://gist.github.com/samsch/0d1f3d3b4745d778f78b230cf6061452)
+- [JWT vs Session-Based Auth](https://medium.com/@aysunitai/jwt-vs-session-based-auth-a-developers-complete-guide-9e0a7929afda)

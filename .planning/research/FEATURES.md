@@ -1,312 +1,307 @@
-# Feature Landscape: Bidirectional Sync with Browser Automation
+# Feature Landscape: Sync Monitoring Dashboard
 
-**Domain:** Bidirectional data synchronization with last-edit-wins conflict resolution
-**Researched:** 2026-01-29
-**Confidence:** MEDIUM (verified with multiple sources for general patterns, project-specific details need validation)
+**Domain:** Pipeline monitoring / operations dashboard for a Node.js sync tool
+**Researched:** 2026-02-08
+**Confidence:** HIGH (based on analysis of existing codebase data structures + industry patterns from Prefect, Cronitor, Azure Data Factory, and similar tools)
 
 ## Executive Summary
 
-Bidirectional sync systems require robust change detection, conflict resolution, rollback capabilities, and comprehensive audit logging. When implemented via browser automation (rather than APIs), additional reliability patterns become critical: verification of form submission success, retry mechanisms with exponential backoff, and state validation after updates.
+The Rondo Sync tool currently runs 6 pipelines on cron, each producing structured stats objects (counts for created/updated/skipped/errors) and plain-text log files. The operator monitors the system via email reports sent after each run. A dashboard adds visual, at-a-glance monitoring with drill-down capability -- replacing "check your email" with "open the dashboard."
 
-For this project's reverse sync (Stadion → Sportlink), the core challenge is implementing reliable browser automation to update contact fields, free fields, and toggle states in Sportlink while maintaining data integrity through change detection and conflict resolution.
+The core challenge is not visualization but **data capture**: the system currently writes stats to stdout/log files but does not persist structured run data to a database. The first requirement is a `sync_runs` table that captures what each pipeline already computes. Everything else builds on that.
 
 ## Table Stakes
 
-Features users expect. Missing = sync feels incomplete or unreliable.
+Features users expect from any sync/pipeline monitoring dashboard. Missing any of these makes the dashboard feel incomplete -- the operator would still need to check emails or SSH into the server.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| **Change Detection** | Only sync what changed | Medium | Timestamp-based or hash-based; prevents unnecessary writes |
-| **Conflict Detection** | Identify simultaneous edits | Medium | Compare modification timestamps; flag conflicts before resolution |
-| **Last-Edit-Wins Resolution** | Resolve conflicts automatically | Low | Timestamp comparison; simpler than merge strategies |
-| **Modification Timestamp Tracking** | Enable conflict detection | Medium | Track last_modified in both systems; requires schema additions |
-| **Verification After Update** | Confirm write succeeded | Medium | Read-back verification via browser automation; critical for reliability |
-| **Rollback on Partial Failure** | Maintain consistency | High | If 2 of 4 fields fail, rollback all; prevents inconsistent state |
-| **Audit Trail** | Track who changed what when | Medium | Log all sync operations with timestamps; compliance requirement |
-| **Retry on Transient Failure** | Handle network/timeout errors | Medium | Exponential backoff (2s, 4s, 8s); distinguishes transient vs permanent failures |
-| **Dry Run Mode** | Preview changes before applying | Low | Show what would be synced without writing; essential for testing |
-| **Sync Status Reporting** | Communicate success/failure | Low | Email reports with counts; already exists for forward sync |
-| **Field-Level Granularity** | Update only changed fields | Medium | Avoid overwriting unchanged data; reduces conflict surface |
-| **Idempotent Operations** | Safe to retry sync | Medium | Same input produces same output; critical for retry logic |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|-------------|-------|
+| **Pipeline overview page** | At-a-glance status of all 6 pipelines: last run time, success/fail, record counts | Low | `sync_runs` table | Traffic-light indicators (green/yellow/red) per pipeline. Yellow = ran with errors, red = failed or overdue. |
+| **Run history per pipeline** | See when each pipeline ran, how long it took, what it did | Low | `sync_runs` table | Paginated list of runs with timestamp, duration, status, summary counts. Filter by pipeline type. |
+| **Run detail view** | Click a run to see full breakdown: per-step counts, which records changed | Medium | `sync_runs` + `sync_run_errors` tables | Shows the same data currently in email reports: downloaded X, created Y, updated Z, skipped W. |
+| **Error list with drill-down** | Browse errors across runs, see which member/record failed and why | Medium | `sync_run_errors` table | Errors currently exist as arrays in pipeline stats (knvb_id + message + system). Must persist these. |
+| **Overdue pipeline detection** | Flag pipelines that should have run but haven't | Low | `sync_runs` table + schedule config | Compare last run time against expected schedule. People pipeline expected every 3 hours, teams weekly, etc. |
+| **Authentication** | Protect the dashboard with login | Low | Session/cookie or token | Single operator use case. Simple username/password is sufficient. |
+| **Responsive layout** | Usable on phone when operator is not at desk | Low | CSS | Operator checks sync status from phone. Dashboard must be mobile-friendly. |
 
 ## Differentiators
 
-Features that set good implementations apart. Not expected, but valued.
+Features that elevate the dashboard from "basic status page" to "operations tool." Not expected in an MVP, but valued.
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| **Pre-Sync Validation** | Catch errors before writing | Low | Validate email format, phone format, field constraints before submission |
-| **Field-Specific Conflict Policies** | Granular resolution rules | Medium | E.g., always prefer Stadion for datum-vog, Sportlink for membership status |
-| **Change Preview with Diff** | Show before/after for review | Medium | Visual diff of pending changes; builds confidence |
-| **Conflict Notification** | Alert on unresolvable conflicts | Low | Email when last-edit-wins makes questionable choice |
-| **Success Message Detection** | Confirm form submission | Medium | Parse Sportlink success messages; stronger than element presence |
-| **Multi-Step Verification** | Verify across page transitions | High | Confirm /general page save, then verify on /other page |
-| **Batch Update Optimization** | Update multiple fields atomically | Medium | Submit all changed fields in one page save; reduces sync time |
-| **Graceful Degradation** | Continue on non-critical failure | Medium | E.g., if freescout-id fails, still sync contact details |
-| **State Reconciliation** | Detect and fix drift | High | Periodic full comparison of Stadion vs Sportlink; identifies missed updates |
-| **Change Attribution** | Track sync vs manual changes | Medium | Distinguish operator edits from sync edits in audit log |
-| **Rate Limiting** | Prevent overwhelming Sportlink | Low | 2-second delay between member updates; already exists for Stadion |
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|-------------|-------|
+| **Duration trend chart** | Spot performance degradation over time (e.g., Sportlink getting slower) | Medium | Run history data | Line chart of duration per pipeline over last 30 days. Useful for capacity planning. |
+| **Manual trigger button** | Run a pipeline from the dashboard instead of SSH | High | Server-side execution, websocket for progress | Replaces `ssh root@server "scripts/sync.sh people"`. Needs careful security (auth + CSRF). |
+| **Live run progress** | See pipeline steps completing in real-time during a run | High | WebSocket or SSE | Currently pipelines log to stdout. Would need to push step completion events. |
+| **Per-member error history** | "Show me all errors for KNVB123456 across all runs" | Medium | `sync_run_errors` table indexed by knvb_id | Useful for diagnosing persistent member issues (bad email, missing data). |
+| **Database statistics page** | Show record counts from all 4 SQLite databases | Low | Direct SQLite queries | Members: X, Parents: Y, Teams: Z, Commissies: W. Quick health check. |
+| **Comparison: email vs dashboard** | Side-by-side of email report and dashboard view for same run | Low | Existing email HTML + run data | Builds confidence during migration from email to dashboard. |
+| **Email report toggle** | Disable email reports once dashboard is trusted | Low | Config change | Reduces email noise. Keep emails for errors only. |
+| **Run diff view** | Compare two runs: "What changed between today's sync and yesterday's?" | Medium | Two runs from `sync_runs` | Shows delta: new members, removed members, changed fields. |
+| **Log file viewer** | Read log files from the dashboard instead of SSH | Low | File system access | Serve log files (already stored in `logs/cron/`). Syntax highlighting optional. |
+| **Scheduled overview** | Visual timeline of when each pipeline runs (cron schedule visualization) | Low | Static config from `install-cron.sh` | Shows daily/weekly schedule. Helps operator understand timing. |
 
 ## Anti-Features
 
-Features to explicitly NOT build. Common mistakes in this domain.
+Features to explicitly NOT build. Common mistakes when building internal dashboards.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Real-Time Sync** | Adds complexity, no business need | Use scheduled batch sync (e.g., hourly); member data changes infrequently |
-| **Three-Way Merge** | Complex conflict resolution | Use last-edit-wins; simpler and predictable |
-| **Delete Sync** | Dangerous, no recovery | Never delete in Sportlink based on Stadion; manual deletion only |
-| **Bidirectional Photo Sync** | Photos don't originate in Stadion | Only sync Sportlink → Stadion; one-way is correct |
-| **Automatic Conflict Resolution Without Logging** | Silent data loss | Always log conflicts even when auto-resolved; enables audit |
-| **Sync on Every Field Change** | Chatty, inefficient | Batch changes; sync on schedule or manual trigger |
-| **Optimistic Updates** | Assumes write succeeded | Always verify; browser automation can fail silently |
-| **Global Last-Write-Wins** | Wrong for all data types | Use field-level resolution; some fields have clear authority |
-| **Retry Without Backoff** | Hammers failing system | Use exponential backoff; prevents cascading failures |
-| **Sync Without Change Detection** | Updates everything every time | Only sync changed data; reduces load and conflict surface |
+| **Real-time auto-refresh** | Pipelines run on cron (4x daily max). No benefit to polling every 5 seconds. Wastes resources. | Manual refresh button + optional 60-second auto-refresh toggle. |
+| **Full log streaming** | Log files can be 50-500KB. Streaming them to the browser is wasteful and complex (WebSocket). | Show structured summary from `sync_runs`. Offer log file download link. |
+| **CRUD for member data** | The dashboard monitors sync; it does not replace WordPress or Sportlink for data management. | Link to WordPress admin and Sportlink for data edits. |
+| **Pipeline configuration UI** | Changing cron schedules, field mappings, or environment variables from the dashboard. Too dangerous. | Configuration stays in `.env`, `config/field-mapping.json`, and `install-cron.sh`. SSH for changes. |
+| **Multi-tenant / multi-club** | This tool serves one club. Adding multi-tenancy adds complexity with zero benefit. | Hardcode to single instance. |
+| **Complex role-based permissions** | One or two operators use this. Building admin/viewer/editor roles is over-engineering. | Single login with full access. Add roles only if more users are added later. |
+| **Notification center in dashboard** | Push notifications, in-app alerts, notification badges. Over-engineered for this use case. | Keep email reports for critical errors. Dashboard is pull-based. |
+| **GraphQL API** | Adds complexity. The dashboard is the only consumer of the data. | Simple REST endpoints or server-rendered pages. |
+| **SPA with client-side routing** | For a simple dashboard with 4-5 pages, a full SPA framework is over-engineering. | Server-rendered pages with minimal JavaScript for interactivity. Or a lightweight framework. |
+| **External monitoring service** | Services like Cronitor/Healthchecks.io cost money and add external dependency for a single-club tool. | Self-hosted dashboard reading from local SQLite. |
 
 ## Feature Dependencies
 
 ```
-Change Detection
-  ↓
-Conflict Detection
-  ↓
-Last-Edit-Wins Resolution
-  ↓
-Browser Form Update
-  ↓
-Success Verification
-  ↓
-Audit Logging
+[Data Layer - Must build first]
+  sync_runs table (persist pipeline results)
+  sync_run_errors table (persist per-record errors)
+    |
+    v
+[API Layer]
+  GET /api/pipelines (overview status)
+  GET /api/pipelines/:type/runs (run history)
+  GET /api/runs/:id (run detail with errors)
+  GET /api/errors (cross-pipeline error list)
+    |
+    v
+[Auth Layer]
+  Login page + session management
+    |
+    v
+[UI Layer]
+  Pipeline overview page
+  Run history page (per pipeline)
+  Run detail page
+  Error browser page
 ```
 
-**Critical Path:**
-1. Modification timestamps must exist before conflict detection works
-2. Conflict detection must run before resolution
-3. Verification must succeed before marking as synced
-4. Rollback requires transaction-like semantics (all or nothing per member)
+### Critical Path
 
-**Parallel Concerns:**
-- Retry logic applies to any browser automation step
-- Audit logging runs for all operations (success, failure, conflict)
-- Dry run mode bypasses actual writes but exercises all other logic
+1. **Data capture must come first.** Without a `sync_runs` table, there is nothing to display. Each pipeline already computes stats objects -- they just need to be written to SQLite after the run completes.
 
-## Edge Cases and Failure Modes
+2. **Error persistence must come with data capture.** The error arrays in pipeline stats contain knvb_id, message, and system. These must be stored in `sync_run_errors` with a foreign key to `sync_runs`.
 
-### Simultaneous Edit Conflicts
+3. **API before UI.** The API endpoints are simple SELECT queries against `sync_runs` and `sync_run_errors`. Building these first allows testing with `curl` before any frontend work.
 
-**Scenario:** Operator edits email in Stadion at 10:00. Member updates same email in Sportlink at 10:02. Sync runs at 10:05.
+4. **Auth before deployment.** The dashboard exposes operational data. Even simple auth must exist before the dashboard is accessible externally.
 
-**Resolution:** Last-edit-wins sees Sportlink change (10:02) is newer than Stadion change (10:00). Sportlink → Stadion overwrites Stadion edit in next forward sync.
+## Existing Data Available for Dashboard
 
-**Mitigation:** Track modification times in both directions. If Stadion change (10:00) hasn't synced yet when Sportlink change arrives (10:02), flag as conflict in audit log.
+### Already Computed by Pipelines (Just Needs Persisting)
 
-### Partial Update Failures
+Each pipeline already returns a structured `stats` object. Here is what is available per pipeline:
 
-**Scenario:** Updating member X. Email field saves successfully. Mobile field submission times out. Phone field not attempted.
+**People pipeline (`sync-people.js`):**
+- `completedAt`, `duration`
+- `downloaded` (member count from Sportlink)
+- `prepared`, `excluded` (Laposta preparation)
+- `synced`, `added`, `updated` (Laposta submission)
+- `rondoClub.total`, `.synced`, `.created`, `.updated`, `.skipped`
+- `photos.downloaded`, `.uploaded`, `.deleted`, `.skipped`
+- `reverseSync.synced`, `.failed`
+- `errors[]` (array with knvb_id/email, message, system)
+- `rondoClub.errors[]`, `photos.errors[]`, `reverseSync.errors[]`
 
-**Current Risk:** Member has inconsistent state (new email, old mobile/phone).
+**Teams pipeline (`sync-teams.js`):**
+- `completedAt`, `duration`
+- `download.teamCount`, `.memberCount`
+- `teams.total`, `.synced`, `.created`, `.updated`, `.skipped`
+- `workHistory.total`, `.synced`, `.created`, `.ended`, `.skipped`
+- Errors per step
 
-**Resolution:** Requires rollback pattern:
-1. Read current state before any writes
-2. Track which fields were written
-3. On failure, restore previous values to written fields
-4. Mark sync as failed for this member
+**Functions pipeline (`sync-functions.js`):**
+- `completedAt`, `duration`
+- `download.total`, `.functionsCount`, `.committeesCount`
+- `commissies.total`, `.synced`, `.created`, `.updated`, `.skipped`, `.deleted`
+- `workHistory.total`, `.synced`, `.created`, `.ended`, `.skipped`
+- Errors per step
 
-**Complexity:** HIGH - browser automation doesn't have native transactions. Must implement manually with read-before-write snapshots.
+**Nikki pipeline (`sync-nikki.js`):**
+- `completedAt`, `duration`
+- `download.count`
+- `rondoClub.updated`, `.skipped`, `.noRondoClubId`, `.errors`
 
-### Browser Automation Failure Modes
+**FreeScout pipeline (`sync-freescout.js`):**
+- `completedAt`, `duration`
+- `total`, `synced`, `created`, `updated`, `skipped`, `deleted`
+- `errors[]`
 
-| Failure Type | Detection | Retry? | Resolution |
-|--------------|-----------|--------|------------|
-| Network timeout | No response within 30s | YES | Exponential backoff, max 3 attempts |
-| Element not found | Selector fails | YES | Self-healing selectors; fallback patterns |
-| Form validation error | Error message appears | NO | Log validation error; flag for manual review |
-| Session expired | Redirect to login | YES | Re-authenticate; retry operation |
-| Rate limiting | HTTP 429 or slow response | YES | Longer backoff (60s); respect server limits |
-| Success message absent | Can't confirm save | NO | Unsafe to mark as synced; flag for verification |
+**Discipline pipeline (`sync-discipline.js`):**
+- `completedAt`, `duration`
+- `download.caseCount`
+- `sync.total`, `.synced`, `.created`, `.updated`, `.skipped`, `.linked`, `.skipped_no_person`
+- Errors per step
 
-### Change Detection Edge Cases
+### Already Available on Disk
 
-**Hash Collision:** Astronomically unlikely with SHA-256, but could cause missed updates.
+- **Log files** in `logs/cron/sync-{type}-{date}.log` -- one per cron run
+- **Log files** in `logs/sync-{type}-{date}.log` -- one per interactive run
+- **SQLite databases** with record counts and last-sync timestamps
+- **Lock files** `.sync-{type}.lock` -- indicate running syncs
 
-**Timestamp Skew:** Server clocks differ by >1 minute. Last-edit-wins makes wrong choice.
+### Not Currently Captured (Must Be Added)
 
-**Normalization Differences:** "555-1234" vs "5551234" hash differently but are same value.
+- **Structured run results** -- stats objects are printed to stdout but not persisted to database
+- **Per-run error records** -- error arrays are included in email but not stored queryably
+- **Run start time** -- `startTime` exists in code as `Date.now()` but only used for duration calculation
+- **Pipeline schedule config** -- cron schedule lives in `install-cron.sh` and is not queryable
 
-**Mitigations:**
-- Use stable stringification for hashing (already implemented)
-- Use NTP time sync on server
-- Normalize phone numbers before hashing
+## Proposed Data Model
 
-## Stadion-Specific Patterns
-
-### Existing Change Detection (Forward Sync)
-
-Current implementation uses **hash-based change detection** with SHA-256:
-- Compute hash from `{ knvb_id, data }`
-- Compare `source_hash` vs `last_synced_hash`
-- Only sync if hashes differ
-
-**Advantage:** Timestamp-independent; reliable even if clocks drift.
-
-**Limitation:** Doesn't track WHO made the change or WHEN. Can't distinguish Stadion operator edit from sync update.
-
-### Required Schema Additions for Reverse Sync
-
-To support bidirectional sync with last-edit-wins:
+### `sync_runs` Table
 
 ```sql
-ALTER TABLE stadion_members ADD COLUMN stadion_modified_at TEXT;
-ALTER TABLE stadion_members ADD COLUMN stadion_modified_fields TEXT; -- JSON array
-ALTER TABLE stadion_members ADD COLUMN sportlink_modified_at TEXT;
-ALTER TABLE stadion_members ADD COLUMN reverse_sync_state TEXT; -- 'pending', 'synced', 'failed', 'conflict'
-ALTER TABLE stadion_members ADD COLUMN reverse_sync_error TEXT;
+CREATE TABLE sync_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pipeline TEXT NOT NULL,          -- 'people', 'teams', 'functions', 'nikki', 'freescout', 'discipline'
+  started_at TEXT NOT NULL,        -- ISO 8601 UTC
+  completed_at TEXT NOT NULL,      -- ISO 8601 UTC
+  duration_ms INTEGER NOT NULL,    -- milliseconds
+  success INTEGER NOT NULL,        -- 1 = no errors, 0 = had errors
+  stats_json TEXT NOT NULL,        -- Full stats object as JSON
+  log_file TEXT,                   -- Path to log file (relative to project)
+  trigger TEXT DEFAULT 'cron',     -- 'cron', 'manual', 'dashboard'
+  error_count INTEGER DEFAULT 0,   -- Count of errors for quick filtering
+  created INTEGER DEFAULT 0,       -- Quick access: records created
+  updated INTEGER DEFAULT 0,       -- Quick access: records updated
+  skipped INTEGER DEFAULT 0        -- Quick access: records skipped (unchanged)
+);
+
+CREATE INDEX idx_sync_runs_pipeline ON sync_runs(pipeline, started_at DESC);
+CREATE INDEX idx_sync_runs_success ON sync_runs(success, started_at DESC);
 ```
 
-**Purpose:**
-- `stadion_modified_at`: Timestamp when Stadion was last edited (from WordPress)
-- `stadion_modified_fields`: Which fields changed in Stadion (enables field-level resolution)
-- `sportlink_modified_at`: Last modification time in Sportlink (from MemberHeader API)
-- `reverse_sync_state`: Track sync progress for Stadion → Sportlink direction
-- `reverse_sync_error`: Store error details for failed reverse syncs
+### `sync_run_errors` Table
 
-### Stadion WordPress Modification Tracking
+```sql
+CREATE TABLE sync_run_errors (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id INTEGER NOT NULL REFERENCES sync_runs(id),
+  identifier TEXT,                 -- knvb_id, email, team_name, dossier_id, etc.
+  identifier_type TEXT,            -- 'knvb_id', 'email', 'team_name', 'dossier_id', 'system'
+  message TEXT NOT NULL,           -- Error message
+  system TEXT,                     -- 'laposta', 'rondoClub', 'photo-download', 'freescout', etc.
+  step TEXT,                       -- Pipeline step that produced the error
+  created_at TEXT NOT NULL         -- ISO 8601 UTC
+);
 
-WordPress posts have `post_modified` timestamp. For ACF fields:
-- Query `wp/v2/people/{id}` returns `modified` timestamp
-- Timestamp updates on any field change
-- No field-level granularity (can't see which ACF field changed)
-
-**Workaround:** Store hash of target fields (email, email2, mobile, phone, datum-vog, freescout-id, financiele-blokkade) and compare on each sync run to detect changes.
-
-## Sportlink Browser Automation Patterns
-
-### Target Pages and Fields
-
-| Field | Sportlink Page | Element | Type | Notes |
-|-------|---------------|---------|------|-------|
-| email | /general | `#inputEmail` | text input | Primary email address |
-| email2 | /general | `#inputEmail2` | text input | Secondary email |
-| mobile | /general | `#inputMobile` | text input | Mobile phone |
-| phone | /general | `#inputPhone` | text input | Landline |
-| datum-vog | /other | `#inputRemarks8` | text input | Free field - VOG certificate date |
-| freescout-id | /other | `#inputRemarks3` | text input | Free field - FreeScout customer ID |
-| financiele-blokkade | /financial | Toggle buttons | button group | Financial block status |
-
-### Verification Patterns
-
-**After /general page save:**
-1. Wait for success message element
-2. Read back `#inputEmail`, `#inputEmail2`, `#inputMobile`, `#inputPhone` values
-3. Compare with intended values
-4. If mismatch, mark as failed
-
-**After /other page save:**
-1. Wait for success message
-2. Read back `#inputRemarks8`, `#inputRemarks3`
-3. Verify against intended values
-
-**After /financial page toggle:**
-1. Check which button has active state
-2. Verify matches intended state
-
-### Form Submission Reliability
-
-Based on 2026 best practices:
-
-1. **Fill fields:** `await page.fill('#inputEmail', newValue)`
-2. **Blur to trigger validation:** `await page.evaluate(() => document.activeElement.blur())`
-3. **Check for validation errors:** Look for `.error` class or error text
-4. **Click save button:** `await page.click('#btnSave')`
-5. **Wait for success indicator:** `await page.waitForSelector('.alert-success', { timeout: 10000 })`
-6. **Verify via read-back:** Re-query field values
-7. **Log outcome:** Success message or error details
-
-**Retry Logic:**
-- Network timeout: Retry with exponential backoff
-- Validation error: Do NOT retry; log for manual review
-- Session expired: Re-authenticate, then retry
-- Success message absent: Wait additional 5s, then mark as unverified
+CREATE INDEX idx_sync_run_errors_run ON sync_run_errors(run_id);
+CREATE INDEX idx_sync_run_errors_identifier ON sync_run_errors(identifier);
+```
 
 ## MVP Recommendation
 
-For initial bidirectional sync (v2.0 MVP), prioritize:
+For the first version of the dashboard, prioritize features that replace the current email-only workflow.
 
-### Phase 1: Foundation (Must Have)
-1. **Modification timestamp tracking** - Add stadion_modified_at and sportlink_modified_at columns
-2. **Reverse change detection** - Hash-based detection of Stadion → Sportlink changes
-3. **Basic conflict detection** - Compare timestamps to identify conflicts
-4. **Last-edit-wins resolution** - Simple timestamp comparison; newest wins
-5. **Audit logging** - Log all reverse sync operations with timestamps
+### Phase 1: Data Capture (Foundation -- No UI Yet)
 
-### Phase 2: Reliability (Must Have)
-6. **Browser automation for /general page** - Update email, email2, mobile, phone fields
-7. **Success verification** - Read-back confirmation after save
-8. **Retry on transient failure** - Exponential backoff for network errors
-9. **Email reporting** - Add reverse sync stats to existing reports
+1. **Create `sync_runs` and `sync_run_errors` tables** in a new `dashboard.sqlite` database
+2. **Modify each pipeline** to persist its stats object after completion (one INSERT per run)
+3. **Extract errors** from stats objects into `sync_run_errors` rows
+4. **Verify** by running pipelines and inspecting the database
 
-### Phase 3: Advanced Fields (Should Have)
-10. **Browser automation for /other page** - Update datum-vog, freescout-id free fields
-11. **Browser automation for /financial page** - Toggle financiele-blokkade status
-12. **Rollback on partial failure** - Restore previous values if update fails mid-way
+This phase has zero UI but is the prerequisite for everything else.
 
-### Defer to Post-MVP:
+### Phase 2: Core Dashboard
 
-- **Dry run mode with preview** - Useful but not blocking; can test in dev first
-- **Conflict notification emails** - Can use audit log to investigate conflicts initially
-- **State reconciliation** - Full Stadion vs Sportlink comparison; needed eventually but not MVP
-- **Field-specific conflict policies** - Start with global last-edit-wins; refine later
-- **Multi-step verification** - Verify across page transitions; adds complexity
-- **Change attribution** - Distinguish sync vs manual changes; nice-to-have for audit
+5. **Pipeline overview page** -- all 6 pipelines with last-run status, time, counts
+6. **Run history page** -- paginated list per pipeline with filtering
+7. **Run detail page** -- full breakdown for a single run
+8. **Error browser** -- list errors across runs, filter by pipeline/member
+9. **Authentication** -- simple login page
 
-## Implementation Checklist
+### Phase 3: Polish
 
-Before reverse sync can work:
+10. **Overdue detection** -- flag pipelines that missed their schedule
+11. **Database statistics** -- record counts from all 4 SQLite databases
+12. **Log file viewer** -- read and display log files from the dashboard
+13. **Duration trend chart** -- performance over time
 
-- [ ] Schema: Add modification timestamp columns to stadion_members table
-- [ ] Schema: Add reverse_sync_state tracking columns
-- [ ] Detection: Implement Stadion change detection (hash or timestamp-based)
-- [ ] Conflict: Compare stadion_modified_at vs sportlink_modified_at
-- [ ] Resolution: Implement last-edit-wins logic (prefer newer timestamp)
-- [ ] Automation: Browser login to Sportlink (already exists)
-- [ ] Automation: Navigate to member /general page
-- [ ] Automation: Fill email/email2/mobile/phone fields
-- [ ] Automation: Submit form and wait for success message
-- [ ] Verification: Read back field values to confirm write
-- [ ] Retry: Implement exponential backoff for transient failures
-- [ ] Rollback: Snapshot current values before update; restore on failure
-- [ ] Audit: Log all reverse sync operations to database or file
-- [ ] Reporting: Add reverse sync stats to email reports
+### Defer to Post-MVP
+
+- **Manual trigger button** -- significant security implications, needs careful design
+- **Live run progress** -- requires WebSocket infrastructure
+- **Run diff view** -- nice but not critical for monitoring
+- **Email report toggle** -- keep both channels initially
+
+## UI Wireframe Concepts
+
+### Pipeline Overview Page
+
+```
++------------------------------------------------------------------+
+|  Rondo Sync Dashboard                          [Refresh] [Logout] |
++------------------------------------------------------------------+
+|                                                                    |
+|  PIPELINE STATUS                                                   |
+|                                                                    |
+|  [GREEN] People     Last run: 14:03 (2m 34s)  1069 ok, 0 errors  |
+|  [GREEN] Functions  Last run: 13:32 (8m 12s)  47 ok, 0 errors    |
+|  [YELLOW] Nikki     Last run: 07:01 (1m 05s)  892 ok, 3 errors   |
+|  [GREEN] FreeScout  Last run: 08:02 (45s)     502 ok, 0 errors   |
+|  [GREEN] Teams      Last run: Sun 06:04 (3m)  38 ok, 0 errors    |
+|  [RED]   Discipline Last run: 6 days ago       OVERDUE            |
+|                                                                    |
++------------------------------------------------------------------+
+```
+
+### Run Detail Page
+
+```
++------------------------------------------------------------------+
+|  People Sync - Run #1247                                          |
+|  2026-02-08 14:03:21 - Duration: 2m 34s - SUCCESS                |
++------------------------------------------------------------------+
+|                                                                    |
+|  SPORTLINK DOWNLOAD                                               |
+|  Members downloaded: 1069                                         |
+|                                                                    |
+|  LAPOSTA SYNC                                                     |
+|  Prepared: 1142 (73 excluded as duplicates)                       |
+|  Synced: 12 (2 added, 10 updated)                                |
+|                                                                    |
+|  RONDO CLUB SYNC                                                  |
+|  Synced: 8/1069 (0 created, 8 updated, 1061 skipped)             |
+|                                                                    |
+|  PHOTO SYNC                                                       |
+|  No photo changes                                                 |
+|                                                                    |
+|  [View Log File]  [View Email Report]                             |
++------------------------------------------------------------------+
+```
 
 ## Sources
 
-**Bidirectional Sync Patterns:**
-- [Two-Way Sync Demystified: Key Principles And Best Practices](https://www.stacksync.com/blog/two-way-sync-demystified-key-principles-and-best-practices)
-- [Bidirectional synchronization: what it is and how it works](https://www.workato.com/the-connector/bidirectional-synchronization/)
-- [The Engineering Challenges of Bi-Directional Sync](https://www.stacksync.com/blog/the-engineering-challenges-of-bi-directional-sync-why-two-one-way-pipelines-fail)
+**Pipeline Monitoring Best Practices:**
+- [Data Pipeline Monitoring: Best Practices for Full Observability - Prefect](https://www.prefect.io/blog/data-pipeline-monitoring-best-practices) -- Consistency, timeliness, validity metrics; at-a-glance workflow status
+- [10 Best Data Pipeline Monitoring Tools in 2026 - Integrate.io](https://www.integrate.io/blog/data-pipeline-monitoring-tools/) -- Tool comparison and feature expectations
+- [The right metrics to monitor cloud data pipelines - Google Cloud](https://cloud.google.com/blog/products/management-tools/the-right-metrics-to-monitor-cloud-data-pipelines) -- Core metrics: throughput, latency, error rate, freshness
 
-**Conflict Resolution:**
-- [Conflict Resolution: Using Last-Write-Wins vs. CRDTs](https://dzone.com/articles/conflict-resolution-using-last-write-wins-vs-crdts)
-- [Last Write Wins - A Conflict Resolution Strategy](https://dev.to/danyson/last-write-wins-a-conflict-resolution-strategy-2al6)
+**Cron Job Monitoring Patterns:**
+- [10 Best Cron Job Monitoring Tools in 2026 - Better Stack](https://betterstack.com/community/comparisons/cronjob-monitoring-tools/) -- Feature comparison across monitoring tools
+- [Cronitor - Cron Job Monitoring](https://cronitor.io/cron-job-monitoring) -- Heartbeat monitoring, performance dashboards, alerting patterns
+- [Healthchecks.io](https://healthchecks.io) -- Event logs, overdue detection, status badges
 
-**Browser Automation Reliability:**
-- [2026 Outlook: AI-Driven Browser Automation](https://www.browserless.io/blog/state-of-ai-browser-automation-2026)
-- [Enhancing Automation Reliability with Retry Patterns](https://www.thegreenreport.blog/articles/enhancing-automation-reliability-with-retry-patterns/enhancing-automation-reliability-with-retry-patterns.html)
-- [Automating Form Submissions - Browserbase Documentation](https://docs.browserbase.com/use-cases/automating-form-submissions)
+**Dashboard UI Patterns:**
+- [How to monitor pipeline runs - Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/data-factory/monitor-pipeline-runs) -- Gantt views, error drill-down, run history filtering
+- [Visually monitor Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually) -- Hierarchical navigation: dashboard -> pipeline -> activity level
+- [ETL Monitoring Dashboard - Retool](https://retool.com/templates/etl-monitoring-dashboard) -- Template for ETL monitoring UI
+- [ETL Monitoring Dashboard - Metabase](https://www.metabase.com/dashboards/etl-monitoring-dashboard) -- Dashboard design for ETL monitoring
 
-**Change Detection:**
-- [The Architect's Guide to Data Integration Patterns](https://medium.com/@prayagvakharia/the-architects-guide-to-data-integration-patterns-migration-broadcast-bi-directional-a4c92b5f908d)
-- [Build-Systems Should Use Hashes Over Timestamps](https://medium.com/@buckaroo.pm/build-systems-should-use-hashes-over-timestamps-54d09f6f2c4)
+**Error Drill-Down Patterns:**
+- [Data Pipeline Monitoring: Key Concepts - Pantomath](https://www.pantomath.com/guide-data-observability/data-pipeline-monitoring) -- Health dashboards with drill-down
+- [Data Pipeline Monitoring - 5 Strategies - Monte Carlo Data](https://www.montecarlodata.com/blog-data-pipeline-monitoring/) -- Data health dashboards with aggregate-to-detail navigation
 
-**Rollback and Error Handling:**
-- [Building a Reliable Rollback System with SAGA, Event Sourcing and Outbox Patterns](https://medium.com/@mehhmetoz/building-a-reliable-rollback-system-with-saga-event-sourcing-and-outbox-patterns-0477e713b010)
-- [Database Updates: Roll Back or Fix Forward?](https://www.red-gate.com/hub/product-learning/flyway/database-updates-rolling-back-and-fixing-forward)
-
-**Audit Logging:**
-- [CIS Control 8: Audit Log Management](https://cas.docs.cisecurity.org/en/latest/source/Controls8/)
-- [Security log retention: Best practices and compliance guide](https://auditboard.com/blog/security-log-retention-best-practices-guide)
-
-**Dry Run and Testing:**
-- [Sync Dry Runs | Census Docs](https://docs.getcensus.com/syncs/sync-monitoring/sync-dry-runs)
-- [Rsync Best Practices Always Test New Options With Dry-Run](https://eduvola.com/blog/rsync-best-practices-always-test)
+**Existing System Analysis (HIGH confidence):**
+- Direct code review of `pipelines/sync-people.js`, `sync-teams.js`, `sync-functions.js`, `sync-nikki.js`, `sync-freescout.js`, `sync-discipline.js` -- all stats objects documented above are verified from source code
+- Direct review of `lib/logger.js`, `scripts/sync.sh`, `scripts/send-email.js` -- current reporting mechanism verified
+- Direct review of `docs/database-schema.md`, `docs/sync-architecture.md`, `docs/operations.md` -- current operational patterns verified
