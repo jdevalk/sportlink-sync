@@ -30,10 +30,10 @@ Transform Rondo Sync from a CLI-only cron tool into a web-monitored system with 
   2. Every existing SQLite database opens in WAL journal mode with a busy_timeout configured
   3. `dashboard.sqlite` exists with `runs`, `run_steps`, and `run_errors` tables, all including a `club_slug` column
   4. All existing cron pipelines continue to run successfully after the upgrade (no regressions)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 34-01: Node.js 22 upgrade, WAL migration, and dashboard database schema
+- [ ] 34-01-PLAN.md -- WAL mode + busy_timeout on all databases, dashboard schema, Node.js 22 upgrade
 
 ### Phase 35: Run Tracking
 **Goal**: Every pipeline run produces structured, queryable data in the dashboard database
