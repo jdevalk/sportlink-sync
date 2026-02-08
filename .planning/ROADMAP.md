@@ -11,7 +11,7 @@ Transform Rondo Sync from a CLI-only cron tool into a web-monitored system with 
 - Integer phases (34, 35, 36): Planned milestone work
 - Decimal phases (35.1, 35.2): Urgent insertions if needed (marked with INSERTED)
 
-- [ ] **Phase 34: Infrastructure Foundation** - Node.js 22 upgrade, WAL mode on all databases, dashboard database schema
+- [x] **Phase 34: Infrastructure Foundation** - Node.js 22 upgrade, WAL mode on all databases, dashboard database schema
 - [ ] **Phase 35: Run Tracking** - Persist pipeline stats to dashboard database, instrument all 6 pipelines
 - [ ] **Phase 36: Web Server and Authentication** - Fastify server with nginx/TLS, systemd service, per-user login
 - [ ] **Phase 37: Dashboard UI** - Pipeline overview, run history, run detail, and error browser views
@@ -33,7 +33,7 @@ Transform Rondo Sync from a CLI-only cron tool into a web-monitored system with 
 **Plans**: 1 plan
 
 Plans:
-- [ ] 34-01-PLAN.md -- WAL mode + busy_timeout on all databases, dashboard schema, Node.js 22 upgrade
+- [x] 34-01-PLAN.md -- WAL mode + busy_timeout on all databases, dashboard schema, Node.js 22 upgrade
 
 ### Phase 35: Run Tracking
 **Goal**: Every pipeline run produces structured, queryable data in the dashboard database
@@ -119,7 +119,7 @@ Phase 39 is deferred (not in active execution order).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 34. Infrastructure Foundation | 0/1 | Not started | - |
+| 34. Infrastructure Foundation | 1/1 | Complete | 2026-02-08 |
 | 35. Run Tracking | 0/1 | Not started | - |
 | 36. Web Server and Authentication | 0/1 | Not started | - |
 | 37. Dashboard UI | 0/2 | Not started | - |

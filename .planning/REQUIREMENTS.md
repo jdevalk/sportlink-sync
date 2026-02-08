@@ -9,9 +9,9 @@ Requirements for the web dashboard milestone. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Node.js upgraded from 18 to 22 LTS on the production server
-- [ ] **INFRA-02**: All SQLite databases use WAL journal mode with busy_timeout for concurrent access
-- [ ] **INFRA-03**: Dashboard database (`dashboard.sqlite`) created with run tracking schema
+- [x] **INFRA-01**: Node.js upgraded from 18 to 22 LTS on the production server
+- [x] **INFRA-02**: All SQLite databases use WAL journal mode with busy_timeout for concurrent access
+- [x] **INFRA-03**: Dashboard database (`dashboard.sqlite`) created with run tracking schema
 - [ ] **INFRA-04**: Web server runs as non-root user with minimal permissions
 
 ### Run Tracking
@@ -56,7 +56,7 @@ Requirements for the web dashboard milestone. Each maps to roadmap phases.
 
 ### Multi-Club Readiness
 
-- [ ] **MULTI-01**: Dashboard database schema includes `club_slug` column for future multi-club support
+- [x] **MULTI-01**: Dashboard database schema includes `club_slug` column for future multi-club support
 - [ ] **MULTI-02**: Code architecture supports adding clubs without restructuring (database-per-club model)
 
 ## v3.1+ Requirements
@@ -100,9 +100,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 34 | Pending |
-| INFRA-02 | Phase 34 | Pending |
-| INFRA-03 | Phase 34 | Pending |
+| INFRA-01 | Phase 34 | Complete |
+| INFRA-02 | Phase 34 | Complete |
+| INFRA-03 | Phase 34 | Complete |
 | INFRA-04 | Phase 36 | Pending |
 | TRACK-01 | Phase 35 | Pending |
 | TRACK-02 | Phase 35 | Pending |
@@ -129,7 +129,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DASH-09 | Phase 37 | Pending |
 | EMAIL-01 | Phase 38 | Pending |
 | EMAIL-02 | Phase 38 | Pending |
-| MULTI-01 | Phase 34 | Pending |
+| MULTI-01 | Phase 34 | Complete |
 | MULTI-02 | Phase 39 | Pending |
 
 **Coverage:**
