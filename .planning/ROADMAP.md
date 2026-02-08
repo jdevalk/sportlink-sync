@@ -49,7 +49,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 35-01-PLAN.md -- Run tracker library and pipeline instrumentation
+- [ ] 35-01-PLAN.md — Run tracker library and pipeline instrumentation
 
 ### Phase 36: Web Server and Authentication
 **Goal**: An authenticated web server is running on the production server, accessible via HTTPS, managed by systemd
