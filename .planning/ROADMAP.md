@@ -12,7 +12,7 @@ Transform Rondo Sync from a CLI-only cron tool into a web-monitored system with 
 - Decimal phases (35.1, 35.2): Urgent insertions if needed (marked with INSERTED)
 
 - [x] **Phase 34: Infrastructure Foundation** - Node.js 22 upgrade, WAL mode on all databases, dashboard database schema
-- [ ] **Phase 35: Run Tracking** - Persist pipeline stats to dashboard database, instrument all 6 pipelines
+- [x] **Phase 35: Run Tracking** - Persist pipeline stats to dashboard database, instrument all 6 pipelines
 - [ ] **Phase 36: Web Server and Authentication** - Fastify server with nginx/TLS, systemd service, per-user login
 - [ ] **Phase 37: Dashboard UI** - Pipeline overview, run history, run detail, and error browser views
 - [ ] **Phase 38: Email Migration** - Switch email reports to error-only alerts with dashboard links
@@ -49,7 +49,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 35-01-PLAN.md — Run tracker library and pipeline instrumentation
+- [x] 35-01-PLAN.md — Run tracker library and pipeline instrumentation
 
 ### Phase 36: Web Server and Authentication
 **Goal**: An authenticated web server is running on the production server, accessible via HTTPS, managed by systemd
@@ -120,7 +120,7 @@ Phase 39 is deferred (not in active execution order).
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 34. Infrastructure Foundation | 1/1 | Complete | 2026-02-08 |
-| 35. Run Tracking | 0/1 | Not started | - |
+| 35. Run Tracking | 1/1 | Complete | 2026-02-08 |
 | 36. Web Server and Authentication | 0/1 | Not started | - |
 | 37. Dashboard UI | 0/2 | Not started | - |
 | 38. Email Migration | 0/1 | Not started | - |

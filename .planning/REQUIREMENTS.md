@@ -16,11 +16,11 @@ Requirements for the web dashboard milestone. Each maps to roadmap phases.
 
 ### Run Tracking
 
-- [ ] **TRACK-01**: Each pipeline run records start time, end time, duration, and outcome (success/failure) to dashboard database
-- [ ] **TRACK-02**: Per-step statistics (created, updated, skipped, failed counts) are persisted per run
-- [ ] **TRACK-03**: Individual sync errors are stored with member identifier, step, error message, and timestamp
-- [ ] **TRACK-04**: All 6 pipelines (people, nikki, teams, functions, discipline, freescout) are instrumented with run tracking
-- [ ] **TRACK-05**: Run tracking adds minimal code to each pipeline (thin wrapper, not restructuring)
+- [x] **TRACK-01**: Each pipeline run records start time, end time, duration, and outcome (success/failure) to dashboard database
+- [x] **TRACK-02**: Per-step statistics (created, updated, skipped, failed counts) are persisted per run
+- [x] **TRACK-03**: Individual sync errors are stored with member identifier, step, error message, and timestamp
+- [x] **TRACK-04**: All 6 pipelines (people, nikki, teams, functions, discipline, freescout) are instrumented with run tracking
+- [x] **TRACK-05**: Run tracking adds minimal code to each pipeline (thin wrapper, not restructuring)
 
 ### Authentication
 
@@ -104,11 +104,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-02 | Phase 34 | Complete |
 | INFRA-03 | Phase 34 | Complete |
 | INFRA-04 | Phase 36 | Pending |
-| TRACK-01 | Phase 35 | Pending |
-| TRACK-02 | Phase 35 | Pending |
-| TRACK-03 | Phase 35 | Pending |
-| TRACK-04 | Phase 35 | Pending |
-| TRACK-05 | Phase 35 | Pending |
+| TRACK-01 | Phase 35 | Complete |
+| TRACK-02 | Phase 35 | Complete |
+| TRACK-03 | Phase 35 | Complete |
+| TRACK-04 | Phase 35 | Complete |
+| TRACK-05 | Phase 35 | Complete |
 | AUTH-01 | Phase 36 | Pending |
 | AUTH-02 | Phase 36 | Pending |
 | AUTH-03 | Phase 36 | Pending |
