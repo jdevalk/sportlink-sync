@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A CLI tool that synchronizes member data bidirectionally between Sportlink Club (a Dutch sports club management system) and multiple destinations: Laposta email marketing lists and Stadion (a WordPress-based member management app). It downloads member data via browser automation, transforms it according to field mappings, syncs changes to both destinations including photos and team assignments, enables corrections in Stadion to flow back to Sportlink via browser automation, and runs automatically on scheduled intervals with email reports via Postmark.
+A sync system with web dashboard that synchronizes member data bidirectionally between Sportlink Club (a Dutch sports club management system) and multiple destinations: Laposta email marketing lists and Rondo Club (a WordPress-based member management app). It downloads member data via browser automation, transforms it according to field mappings, syncs changes to both destinations including photos and team assignments, enables corrections in Rondo Club to flow back to Sportlink via browser automation, runs automatically on scheduled intervals, and provides a web interface for monitoring sync status, browsing run history, and investigating errors.
 
 ## Core Value
 
@@ -154,13 +154,31 @@ Full bidirectional sync pipeline operational:
 - ✓ Remove or deprecate the `stadion_important_dates` DB table — v2.3
 - ✓ Update email reports to remove the separate birthday sync section — v2.3
 
+## Current Milestone: v3.0 Web Dashboard
+
+**Goal:** Add a web interface running on the sync server for monitoring pipeline status, browsing run history, and investigating sync errors — with per-user authentication and error-only email alerts.
+
+**Target features:**
+- Dashboard with at-a-glance status for all 6 pipelines (last run, next run, success/failure)
+- Run history per pipeline with duration, sync counts, and outcome
+- Error browser to drill into failed syncs and see which members failed and why
+- Per-user login for access control
+- Email alerts only on errors (replaces always-send reports)
+- Structured run data logging (SQLite) to feed the web UI
+- Multi-club-ready architecture (one club now, structured for adding more later)
+
 ### Active
 
-(None — next milestone not yet planned)
+- [ ] Web server running on sync server with per-user authentication
+- [ ] Dashboard showing pipeline status overview
+- [ ] Run history with structured data per pipeline run
+- [ ] Error browser with drill-down into individual sync failures
+- [ ] Email notifications only on errors (replace always-send reports)
+- [ ] Multi-club-ready code architecture (single club for now)
 
 ### Out of Scope
 
-- Web UI — CLI tool is sufficient for operator use
+- ~~Web UI~~ — Now building in v3.0
 - Real-time sync — scheduled batch sync is appropriate for member data
 - Slack/Discord notifications — Email reports are sufficient for now
 - Fallback to local mail — Postmark is reliable enough, no fallback needed
@@ -266,4 +284,4 @@ Full bidirectional sync pipeline operational:
 | @deprecated JSDoc for DB functions | Functions retained in exports but clearly marked for future removal | ✓ Good |
 
 ---
-*Last updated: 2026-02-06 after v2.3 milestone*
+*Last updated: 2026-02-08 after v3.0 milestone started*

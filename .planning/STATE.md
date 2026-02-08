@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-06)
+See: .planning/PROJECT.md (updated 2026-02-08)
 
-**Core value:** Keep downstream systems (Laposta, Stadion) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** Planning next milestone
+**Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention.
+**Current focus:** Milestone v3.0 Web Dashboard
 
 ## Current Position
 
-Phase: 33 of 33 (last completed)
-Plan: N/A
-Status: Between milestones
-Last activity: 2026-02-06 — v2.3 Birthday Field Migration shipped
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-08 — Milestone v3.0 started
 
-Progress: [██████████] v2.3 complete
+Progress: [░░░░░░░░░░] 0%
 
 ## Accumulated Context
 
@@ -43,7 +43,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-06
-Stopped at: v2.3 milestone complete, archived
+Last session: 2026-02-08
+Stopped at: Defining requirements for v3.0
 Resume file: None
-Next steps: `/gsd:new-milestone`
+Next steps: Complete requirements → roadmap
