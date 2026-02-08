@@ -5,29 +5,30 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v3.0 Web Dashboard -- Phase 34: Infrastructure Foundation
+**Current focus:** v3.0 Web Dashboard -- Phase 35: Run Tracking
 
 ## Current Position
 
-Phase: 34 of 38 (Infrastructure Foundation) -- first of 5 active phases
+Phase: 35 of 38 (Run Tracking) -- second of 5 active phases
 Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-02-08 -- Completed 34-01-PLAN.md
+Last activity: 2026-02-08 -- Completed 35-01-PLAN.md
 
-Progress: [██░░░░░░░░] 14%
+Progress: [████░░░░░░] 28%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: --
-- Total execution time: --
+- Total plans completed: 2
+- Average duration: 37.5 min
+- Total execution time: 75 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 34-infrastructure-foundation | 1 | 8 min | 8 min |
+| 35-run-tracking | 1 | 67 min | 67 min |
 
 *Updated after each plan completion*
 
@@ -35,7 +36,12 @@ Progress: [██░░░░░░░░] 14%
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
+| Phase | Decision | Impact |
+|-------|----------|--------|
+| 34 | 5000ms busy_timeout for concurrent access | Enough time for writes without excessive blocking |
+| 35 | RunTracker methods wrapped in _safe() | Tracking failures never crash pipelines |
+| 35 | Per-run database connection | Each pipeline run gets its own connection, closed after endRun |
+| 35 | sync-all delegates step tracking | 'all' pipeline tracks run-level, delegated pipelines track their own step details |
 
 ### Pending Todos
 
@@ -59,6 +65,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed Phase 34 (Infrastructure Foundation)
+Stopped at: Completed Phase 35 (Run Tracking)
 Resume file: None
-Next steps: `/gsd:plan-phase 35` to plan Run Tracking
+Next steps: `/gsd:plan-phase 36` to plan Web Server
