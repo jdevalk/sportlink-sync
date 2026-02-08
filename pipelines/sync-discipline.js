@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp } = require('../lib/utils');
+const { RunTracker } = require('../lib/run-tracker');
 const { runDownload } = require('../steps/download-discipline-cases');
 const { runSync: runDisciplineSync } = require('../steps/submit-rondo-club-discipline');
 
@@ -81,6 +82,9 @@ async function runDisciplineSyncPipeline(options = {}) {
   const logger = createSyncLogger({ verbose, prefix: 'discipline' });
   const startTime = Date.now();
 
+  const tracker = new RunTracker('discipline');
+  tracker.startRun();
+
   const stats = {
     completedAt: '',
     duration: '',
@@ -103,6 +107,7 @@ async function runDisciplineSyncPipeline(options = {}) {
   try {
     // Step 1: Download discipline cases from Sportlink
     logger.verbose('Downloading discipline cases from Sportlink...');
+    const downloadStepId = tracker.startStep('discipline-download');
     try {
       const downloadResult = await runDownload({ logger, verbose });
       stats.download.caseCount = downloadResult.caseCount || 0;
@@ -112,16 +117,30 @@ async function runDisciplineSyncPipeline(options = {}) {
           system: 'discipline-download'
         });
       }
+      tracker.endStep(downloadStepId, {
+        outcome: downloadResult.success ? 'success' : 'failure',
+        created: stats.download.caseCount,
+        failed: stats.download.errors.length
+      });
+      tracker.recordErrors('discipline-download', downloadStepId, stats.download.errors);
     } catch (err) {
       logger.error(`Discipline download failed: ${err.message}`);
       stats.download.errors.push({
         message: `Discipline download failed: ${err.message}`,
         system: 'discipline-download'
       });
+      tracker.endStep(downloadStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'discipline-download',
+        stepId: downloadStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
     }
 
     // Step 2: Sync cases to Rondo Club
     logger.verbose('Syncing discipline cases to Rondo Club...');
+    const syncStepId = tracker.startStep('discipline-sync');
     try {
       const syncResult = await runDisciplineSync({ logger, verbose, force });
       stats.sync.total = syncResult.total;
@@ -139,11 +158,26 @@ async function runDisciplineSyncPipeline(options = {}) {
           system: 'discipline-sync'
         }));
       }
+      tracker.endStep(syncStepId, {
+        outcome: 'success',
+        created: stats.sync.created,
+        updated: stats.sync.updated,
+        skipped: stats.sync.skipped,
+        failed: stats.sync.errors.length
+      });
+      tracker.recordErrors('discipline-sync', syncStepId, stats.sync.errors);
     } catch (err) {
       logger.error(`Discipline sync failed: ${err.message}`);
       stats.sync.errors.push({
         message: `Discipline sync failed: ${err.message}`,
         system: 'discipline-sync'
+      });
+      tracker.endStep(syncStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'discipline-sync',
+        stepId: syncStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
       });
     }
 
@@ -151,18 +185,20 @@ async function runDisciplineSyncPipeline(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
+    const success = stats.download.errors.length === 0 && stats.sync.errors.length === 0;
+
+    tracker.endRun(success, stats);
+
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
     logger.close();
 
-    return {
-      success: stats.download.errors.length === 0 &&
-               stats.sync.errors.length === 0,
-      stats
-    };
+    return { success, stats };
   } catch (err) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
+
+    tracker.endRun(false, stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

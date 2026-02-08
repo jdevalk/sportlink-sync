@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp, parseCliArgs } = require('../lib/utils');
+const { RunTracker } = require('../lib/run-tracker');
 const { runNikkiDownload } = require('../steps/download-nikki-contributions');
 const { runNikkiRondoClubSync } = require('../steps/sync-nikki-to-rondo-club');
 
@@ -50,6 +51,9 @@ async function runNikkiSync(options = {}) {
   const logger = createSyncLogger({ verbose, prefix: 'nikki' });
   const startTime = Date.now();
 
+  const tracker = new RunTracker('nikki');
+  tracker.startRun();
+
   const stats = {
     completedAt: '',
     duration: '',
@@ -68,6 +72,7 @@ async function runNikkiSync(options = {}) {
   try {
     // Step 1: Download Nikki contributions
     logger.verbose('Downloading Nikki contributions...');
+    const downloadStepId = tracker.startStep('nikki-download');
     try {
       const downloadResult = await runNikkiDownload({ logger, verbose });
       stats.download.count = downloadResult.count || 0;
@@ -77,42 +82,72 @@ async function runNikkiSync(options = {}) {
           system: 'nikki-download'
         });
       }
+      tracker.endStep(downloadStepId, {
+        outcome: downloadResult.success ? 'success' : 'failure',
+        created: stats.download.count,
+        failed: stats.download.errors.length
+      });
+      tracker.recordErrors('nikki-download', downloadStepId, stats.download.errors);
     } catch (err) {
       logger.error(`Nikki download failed: ${err.message}`);
       stats.download.errors.push({
         message: `Nikki download failed: ${err.message}`,
         system: 'nikki-download'
       });
+      tracker.endStep(downloadStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'nikki-download',
+        stepId: downloadStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
     }
 
     // Step 2: Sync to Rondo Club
     logger.verbose('Syncing Nikki contributions to Rondo Club...');
+    const rondoClubStepId = tracker.startStep('rondo-club-sync');
     try {
       const rondoClubResult = await runNikkiRondoClubSync({ logger, verbose, force });
       stats.rondoClub.updated = rondoClubResult.updated;
       stats.rondoClub.skipped = rondoClubResult.skipped;
       stats.rondoClub.noRondoClubId = rondoClubResult.noRondoClubId;
       stats.rondoClub.errors = rondoClubResult.errors;
+      tracker.endStep(rondoClubStepId, {
+        outcome: 'success',
+        updated: stats.rondoClub.updated,
+        skipped: stats.rondoClub.skipped,
+        failed: typeof stats.rondoClub.errors === 'number' ? stats.rondoClub.errors : 0
+      });
+      tracker.recordErrors('rondo-club-sync', rondoClubStepId, stats.rondoClub.errors);
     } catch (err) {
       logger.error(`Rondo Club sync failed: ${err.message}`);
       stats.rondoClub.errors++;
+      tracker.endStep(rondoClubStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'rondo-club-sync',
+        stepId: rondoClubStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
     }
 
     // Complete
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
+    const success = stats.download.errors.length === 0 && stats.rondoClub.errors === 0;
+    tracker.endRun(success, stats);
+
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
     logger.close();
 
-    return {
-      success: stats.download.errors.length === 0 && stats.rondoClub.errors === 0,
-      stats
-    };
+    return { success, stats };
   } catch (err) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
+
+    tracker.endRun(false, stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

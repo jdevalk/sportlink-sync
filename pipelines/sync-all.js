@@ -3,6 +3,7 @@ require('varlock/auto-load');
 const { requireProductionServer } = require('../lib/server-check');
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp } = require('../lib/utils');
+const { RunTracker } = require('../lib/run-tracker');
 const { runDownload } = require('../steps/download-data-from-sportlink');
 const { runTeamDownload } = require('../steps/download-teams-from-sportlink');
 const { runPrepare } = require('../steps/prepare-laposta-members');
@@ -272,6 +273,9 @@ async function runSyncAll(options = {}) {
   const logger = createSyncLogger({ verbose });
   const startTime = Date.now();
 
+  const tracker = new RunTracker('all');
+  tracker.startRun();
+
   const stats = {
     completedAt: '',
     duration: '',
@@ -385,6 +389,7 @@ async function runSyncAll(options = {}) {
     if (!downloadResult.success) {
       const errorMsg = downloadResult.error || 'Download failed';
       logger.error(`Download failed: ${errorMsg}`);
+      tracker.endRun(false, stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -402,6 +407,7 @@ async function runSyncAll(options = {}) {
     if (!prepareResult.success) {
       const errorMsg = prepareResult.error || 'Prepare failed';
       logger.error(`Prepare failed: ${errorMsg}`);
+      tracker.endRun(false, stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -774,6 +780,21 @@ async function runSyncAll(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(endTime - startTime);
 
+    const success = stats.errors.length === 0 &&
+                    stats.rondoClub.errors.length === 0 &&
+                    stats.teams.errors.length === 0 &&
+                    stats.workHistory.errors.length === 0 &&
+                    stats.functions.errors.length === 0 &&
+                    stats.commissies.errors.length === 0 &&
+                    stats.commissieWorkHistory.errors.length === 0 &&
+                    stats.photos.download.errors.length === 0 &&
+                    stats.photos.upload.errors.length === 0 &&
+                    stats.photos.delete.errors.length === 0 &&
+                    stats.freescout.errors.length === 0 &&
+                    stats.discipline.errors.length === 0;
+
+    tracker.endRun(success, stats);
+
     // Print summary
     printSummary(logger, stats);
 
@@ -782,24 +803,12 @@ async function runSyncAll(options = {}) {
 
     logger.close();
 
-    return {
-      success: stats.errors.length === 0 &&
-               stats.rondoClub.errors.length === 0 &&
-               stats.teams.errors.length === 0 &&
-               stats.workHistory.errors.length === 0 &&
-               stats.functions.errors.length === 0 &&
-               stats.commissies.errors.length === 0 &&
-               stats.commissieWorkHistory.errors.length === 0 &&
-               stats.photos.download.errors.length === 0 &&
-               stats.photos.upload.errors.length === 0 &&
-               stats.photos.delete.errors.length === 0 &&
-               stats.freescout.errors.length === 0 &&
-               stats.discipline.errors.length === 0,
-      stats
-    };
+    return { success, stats };
   } catch (err) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
+
+    tracker.endRun(false, stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp } = require('../lib/utils');
+const { RunTracker } = require('../lib/run-tracker');
 const { runTeamDownload } = require('../steps/download-teams-from-sportlink');
 const { runSync: runTeamSync } = require('../steps/submit-rondo-club-teams');
 const { runSync: runWorkHistorySync } = require('../steps/submit-rondo-club-work-history');
@@ -97,6 +98,9 @@ async function runTeamsSync(options = {}) {
   const logger = createSyncLogger({ verbose, prefix: 'teams' });
   const startTime = Date.now();
 
+  const tracker = new RunTracker('teams');
+  tracker.startRun();
+
   const stats = {
     completedAt: '',
     duration: '',
@@ -126,6 +130,7 @@ async function runTeamsSync(options = {}) {
   try {
     // Step 1: Download teams from Sportlink
     logger.verbose('Downloading teams from Sportlink...');
+    const downloadStepId = tracker.startStep('team-download');
     try {
       const teamDownloadResult = await runTeamDownload({ logger, verbose });
       stats.download.teamCount = teamDownloadResult.teamCount || 0;
@@ -136,16 +141,30 @@ async function runTeamsSync(options = {}) {
           system: 'team-download'
         });
       }
+      tracker.endStep(downloadStepId, {
+        outcome: teamDownloadResult.success ? 'success' : 'failure',
+        created: stats.download.teamCount,
+        failed: stats.download.errors.length
+      });
+      tracker.recordErrors('team-download', downloadStepId, stats.download.errors);
     } catch (err) {
       logger.error(`Team download failed: ${err.message}`);
       stats.download.errors.push({
         message: `Team download failed: ${err.message}`,
         system: 'team-download'
       });
+      tracker.endStep(downloadStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'team-download',
+        stepId: downloadStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
     }
 
     // Step 2: Sync teams to Rondo Club
     logger.verbose('Syncing teams to Rondo Club...');
+    const teamSyncStepId = tracker.startStep('team-sync');
     try {
       // Get sportlink IDs for orphan detection (teams we just downloaded)
       const { openDb, getAllTeamsForSync } = require('../lib/rondo-club-db');
@@ -168,16 +187,32 @@ async function runTeamsSync(options = {}) {
           system: 'team-sync'
         }));
       }
+      tracker.endStep(teamSyncStepId, {
+        outcome: 'success',
+        created: stats.teams.created,
+        updated: stats.teams.updated,
+        skipped: stats.teams.skipped,
+        failed: stats.teams.errors.length
+      });
+      tracker.recordErrors('team-sync', teamSyncStepId, stats.teams.errors);
     } catch (err) {
       logger.error(`Team sync failed: ${err.message}`);
       stats.teams.errors.push({
         message: `Team sync failed: ${err.message}`,
         system: 'team-sync'
       });
+      tracker.endStep(teamSyncStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'team-sync',
+        stepId: teamSyncStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
     }
 
     // Step 3: Sync work history
     logger.verbose('Syncing work history to Rondo Club...');
+    const workHistoryStepId = tracker.startStep('work-history-sync');
     try {
       const workHistoryResult = await runWorkHistorySync({ logger, verbose, force });
       stats.workHistory.total = workHistoryResult.total;
@@ -192,11 +227,26 @@ async function runTeamsSync(options = {}) {
           system: 'work-history-sync'
         }));
       }
+      tracker.endStep(workHistoryStepId, {
+        outcome: 'success',
+        created: stats.workHistory.created,
+        updated: stats.workHistory.ended,
+        skipped: stats.workHistory.skipped,
+        failed: stats.workHistory.errors.length
+      });
+      tracker.recordErrors('work-history-sync', workHistoryStepId, stats.workHistory.errors);
     } catch (err) {
       logger.error(`Work history sync failed: ${err.message}`);
       stats.workHistory.errors.push({
         message: `Work history sync failed: ${err.message}`,
         system: 'work-history-sync'
+      });
+      tracker.endStep(workHistoryStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'work-history-sync',
+        stepId: workHistoryStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
       });
     }
 
@@ -204,19 +254,22 @@ async function runTeamsSync(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
+    const success = stats.download.errors.length === 0 &&
+                    stats.teams.errors.length === 0 &&
+                    stats.workHistory.errors.length === 0;
+
+    tracker.endRun(success, stats);
+
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
     logger.close();
 
-    return {
-      success: stats.download.errors.length === 0 &&
-               stats.teams.errors.length === 0 &&
-               stats.workHistory.errors.length === 0,
-      stats
-    };
+    return { success, stats };
   } catch (err) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
+
+    tracker.endRun(false, stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

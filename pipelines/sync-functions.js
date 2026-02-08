@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp } = require('../lib/utils');
+const { RunTracker } = require('../lib/run-tracker');
 const { runFunctionsDownload } = require('../steps/download-functions-from-sportlink');
 const { runSync: runCommissiesSync } = require('../steps/submit-rondo-club-commissies');
 const { runSync: runCommissieWorkHistorySync } = require('../steps/submit-rondo-club-commissie-work-history');
@@ -102,6 +103,9 @@ async function runFunctionsSync(options = {}) {
   const logger = createSyncLogger({ verbose, prefix: 'functions' });
   const startTime = Date.now();
 
+  const tracker = new RunTracker('functions');
+  tracker.startRun();
+
   const stats = {
     completedAt: '',
     duration: '',
@@ -134,6 +138,7 @@ async function runFunctionsSync(options = {}) {
     // Step 1: Download functions from Sportlink
     const syncMode = all ? 'full sync' : 'recent updates';
     logger.verbose(`Downloading functions from Sportlink (${syncMode})...`);
+    const downloadStepId = tracker.startStep('functions-download');
     try {
       const downloadResult = await runFunctionsDownload({ logger, verbose, withInvoice, recentOnly: !all, days });
       stats.download.total = downloadResult.total || 0;
@@ -152,16 +157,30 @@ async function runFunctionsSync(options = {}) {
           system: 'functions-download'
         })));
       }
+      tracker.endStep(downloadStepId, {
+        outcome: downloadResult.success ? 'success' : 'failure',
+        created: stats.download.total,
+        failed: stats.download.errors.length
+      });
+      tracker.recordErrors('functions-download', downloadStepId, stats.download.errors);
     } catch (err) {
       logger.error(`Functions download failed: ${err.message}`);
       stats.download.errors.push({
         message: `Functions download failed: ${err.message}`,
         system: 'functions-download'
       });
+      tracker.endStep(downloadStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'functions-download',
+        stepId: downloadStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
     }
 
     // Step 2: Sync commissies to Rondo Club
     logger.verbose('Syncing commissies to Rondo Club...');
+    const commissieStepId = tracker.startStep('commissie-sync');
     try {
       // Get current commissie names for orphan detection
       const { openDb, getAllCommissies } = require('../lib/rondo-club-db');
@@ -184,16 +203,32 @@ async function runFunctionsSync(options = {}) {
           system: 'commissie-sync'
         }));
       }
+      tracker.endStep(commissieStepId, {
+        outcome: 'success',
+        created: stats.commissies.created,
+        updated: stats.commissies.updated,
+        skipped: stats.commissies.skipped,
+        failed: stats.commissies.errors.length
+      });
+      tracker.recordErrors('commissie-sync', commissieStepId, stats.commissies.errors);
     } catch (err) {
       logger.error(`Commissie sync failed: ${err.message}`);
       stats.commissies.errors.push({
         message: `Commissie sync failed: ${err.message}`,
         system: 'commissie-sync'
       });
+      tracker.endStep(commissieStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'commissie-sync',
+        stepId: commissieStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
     }
 
     // Step 3: Sync commissie work history
     logger.verbose('Syncing commissie work history to Rondo Club...');
+    const workHistoryStepId = tracker.startStep('commissie-work-history-sync');
     try {
       const workHistoryResult = await runCommissieWorkHistorySync({ logger, verbose, force });
       stats.workHistory.total = workHistoryResult.total;
@@ -208,11 +243,26 @@ async function runFunctionsSync(options = {}) {
           system: 'commissie-work-history-sync'
         }));
       }
+      tracker.endStep(workHistoryStepId, {
+        outcome: 'success',
+        created: stats.workHistory.created,
+        updated: stats.workHistory.ended,
+        skipped: stats.workHistory.skipped,
+        failed: stats.workHistory.errors.length
+      });
+      tracker.recordErrors('commissie-work-history-sync', workHistoryStepId, stats.workHistory.errors);
     } catch (err) {
       logger.error(`Commissie work history sync failed: ${err.message}`);
       stats.workHistory.errors.push({
         message: `Commissie work history sync failed: ${err.message}`,
         system: 'commissie-work-history-sync'
+      });
+      tracker.endStep(workHistoryStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'commissie-work-history-sync',
+        stepId: workHistoryStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
       });
     }
 
@@ -220,19 +270,22 @@ async function runFunctionsSync(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
+    const success = stats.download.errors.length === 0 &&
+                    stats.commissies.errors.length === 0 &&
+                    stats.workHistory.errors.length === 0;
+
+    tracker.endRun(success, stats);
+
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
     logger.close();
 
-    return {
-      success: stats.download.errors.length === 0 &&
-               stats.commissies.errors.length === 0 &&
-               stats.workHistory.errors.length === 0,
-      stats
-    };
+    return { success, stats };
   } catch (err) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
+
+    tracker.endRun(false, stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

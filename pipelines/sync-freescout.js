@@ -2,6 +2,7 @@ require('varlock/auto-load');
 
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp } = require('../lib/utils');
+const { RunTracker } = require('../lib/run-tracker');
 const { runSubmit: runFreescoutSubmit } = require('../steps/submit-freescout-sync');
 const { checkCredentials: checkFreescoutCredentials } = require('../lib/freescout-client');
 
@@ -55,6 +56,9 @@ async function runFreescoutSync(options = {}) {
   const logger = createSyncLogger({ verbose, prefix: 'freescout' });
   const startTime = Date.now();
 
+  const tracker = new RunTracker('freescout');
+  tracker.startRun();
+
   const stats = {
     completedAt: '',
     duration: '',
@@ -73,6 +77,7 @@ async function runFreescoutSync(options = {}) {
     if (!creds.configured) {
       logger.error('FreeScout credentials not configured');
       logger.error('Required: FREESCOUT_API_KEY and FREESCOUT_URL in .env');
+      tracker.endRun(false, stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -82,6 +87,7 @@ async function runFreescoutSync(options = {}) {
 
     // Run FreeScout sync
     logger.log('Starting FreeScout customer sync');
+    const freescoutStepId = tracker.startStep('freescout-sync');
     try {
       const result = await runFreescoutSubmit({ logger, verbose, force });
       stats.total = result.total || 0;
@@ -95,11 +101,26 @@ async function runFreescoutSync(options = {}) {
         message: e.error,
         system: 'freescout'
       }));
+      tracker.endStep(freescoutStepId, {
+        outcome: 'success',
+        created: stats.created,
+        updated: stats.updated,
+        skipped: stats.skipped,
+        failed: stats.errors.length
+      });
+      tracker.recordErrors('freescout-sync', freescoutStepId, stats.errors);
     } catch (err) {
       logger.error(`FreeScout sync failed: ${err.message}`);
       stats.errors.push({
         message: `FreeScout sync failed: ${err.message}`,
         system: 'freescout'
+      });
+      tracker.endStep(freescoutStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'freescout-sync',
+        stepId: freescoutStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
       });
     }
 
@@ -107,17 +128,20 @@ async function runFreescoutSync(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
+    const success = stats.errors.length === 0;
+
+    tracker.endRun(success, stats);
+
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
     logger.close();
 
-    return {
-      success: stats.errors.length === 0,
-      stats
-    };
+    return { success, stats };
   } catch (err) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
+
+    tracker.endRun(false, stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
