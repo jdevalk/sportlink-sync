@@ -46,10 +46,10 @@ Plans:
   3. Individual sync errors are stored in `run_errors` with member identifier, step name, error message, and timestamp
   4. All 6 pipelines (people, nikki, teams, functions, discipline, freescout) write run data without modifying their core sync logic
   5. Run tracking code is a thin wrapper (`lib/run-tracker.js`), not a restructuring of pipeline internals
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 35-01: Run tracker library and pipeline instrumentation
+- [ ] 35-01-PLAN.md -- Run tracker library and pipeline instrumentation
 
 ### Phase 36: Web Server and Authentication
 **Goal**: An authenticated web server is running on the production server, accessible via HTTPS, managed by systemd
