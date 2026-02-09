@@ -226,6 +226,10 @@ body > form button:active {
   background: #dc3545;
 }
 
+.status-partial {
+  background: #ffc107;
+}
+
 .status-running {
   background: transparent;
   border: 2px solid #e0e0e0;
@@ -378,6 +382,11 @@ body > form button:active {
   color: #ffc107;
 }
 
+.outcome-partial {
+  color: #e0a800;
+  font-weight: 600;
+}
+
 .outcome-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 4px;
@@ -397,6 +406,11 @@ body > form button:active {
 }
 
 .outcome-badge.outcome-running {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.outcome-badge.outcome-partial {
   background: #fff3cd;
   color: #856404;
 }
