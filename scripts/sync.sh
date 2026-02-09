@@ -175,10 +175,12 @@ echo "Starting $SYNC_TYPE sync at $(date)" | tee -a "$LOG_FILE"
 node "$PROJECT_DIR/pipelines/$SYNC_SCRIPT" $SYNC_FLAGS 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
-# Send email report if configured
-if [ -n "$POSTMARK_API_KEY" ] && [ -n "$POSTMARK_FROM_EMAIL" ] && [ -n "$OPERATOR_EMAIL" ]; then
-    node "$PROJECT_DIR/scripts/send-email.js" "$LOG_FILE" "$SYNC_TYPE" || \
-        echo "Warning: Failed to send email notification" >&2
+# Send failure alert if pipeline failed
+if [ $EXIT_CODE -ne 0 ]; then
+    if [ -n "$POSTMARK_API_KEY" ] && [ -n "$POSTMARK_FROM_EMAIL" ] && [ -n "$OPERATOR_EMAIL" ]; then
+        node "$PROJECT_DIR/lib/alert-email.js" send-failure-alert --pipeline "$SYNC_TYPE" || \
+            echo "Warning: Failed to send failure alert" >&2
+    fi
 fi
 
 exit $EXIT_CODE
