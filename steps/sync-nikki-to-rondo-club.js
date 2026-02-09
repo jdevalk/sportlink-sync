@@ -1,6 +1,6 @@
 require('varlock/auto-load');
 
-const { stadionRequestWithRetry } = require('../lib/rondo-club-client');
+const { rondoClubRequestWithRetry } = require('../lib/rondo-club-client');
 const { openDb: openNikkiDb, getContributionsGroupedByMember } = require('../lib/nikki-db');
 const { openDb: openRondoClubDb, getAllTrackedMembers } = require('../lib/rondo-club-db');
 const { createSyncLogger } = require('../lib/logger');
@@ -90,7 +90,7 @@ async function runNikkiRondoClubSync(options = {}) {
       let skipUpdate = false;
 
       try {
-        const response = await stadionRequestWithRetry(
+        const response = await rondoClubRequestWithRetry(
           `wp/v2/people/${rondoClubId}?_fields=acf`,
           'GET',
           null,
@@ -138,7 +138,7 @@ async function runNikkiRondoClubSync(options = {}) {
       try {
         logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: Updating Rondo Club ID ${rondoClubId}`);
 
-        await stadionRequestWithRetry(
+        await rondoClubRequestWithRetry(
           `wp/v2/people/${rondoClubId}`,
           'PUT',
           {
