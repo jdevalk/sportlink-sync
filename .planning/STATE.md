@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 40 of 40 (Former Member Import Tool)
-Plan: 1 of 2
-Status: In progress
-Last activity: 2026-02-09 — Completed 40-01-PLAN.md
+Plan: 2 of 2
+Status: Complete
+Last activity: 2026-02-09 — Completed 40-02-PLAN.md
 
-Progress: [████████████████████████████░░] 95% (39/41 plans complete across all milestones)
+Progress: [██████████████████████████████] 100% (41/41 plans complete across all milestones)
 
 ## Performance Metrics
 
 **Velocity (v3.1):**
-- Total plans completed: 8
-- Average duration: 13.4 min
-- Total execution time: 107 min
+- Total plans completed: 9
+- Average duration: 12.0 min
+- Total execution time: 109 min
 
 **By Phase:**
 
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 | 36-web-server-and-authentication | 2 | 15 min | 7.5 min |
 | 37-dashboard-ui | 2 | 11 min | 5.5 min |
 | 38-email-migration | 1 | 2 min | 2 min |
-| 40-former-member-import-tool | 1 | 2 min | 2 min |
+| 40-former-member-import-tool | 2 | 4 min | 2 min |
 
 ## Accumulated Context
 
@@ -49,6 +49,9 @@ Full decision log in PROJECT.md Key Decisions table.
 - [Phase 40-former-member-import-tool]: Status filter toggle uses three fallback strategies for resilience to Sportlink UI changes
 - [Phase 40-former-member-import-tool]: Former members cached to data/former-members.json for resume support after partial failure
 - [Phase 40-former-member-import-tool]: Dry-run is default behavior (--import required to execute) following safe-by-default pattern
+- [Phase 40-former-member-import-tool]: Photo steps integrated into import tool rather than separate script for atomic operation
+- [Phase 40-former-member-import-tool]: --skip-photos flag allows member-only import for testing
+- [Phase 40-former-member-import-tool]: Photo failures don't prevent member sync completion (non-critical steps)
 
 ### Pending Todos
 
@@ -83,5 +86,5 @@ Full decision log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 40-01-PLAN.md
+Stopped at: Completed 40-02-PLAN.md
 Resume file: None
