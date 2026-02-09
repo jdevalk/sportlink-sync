@@ -254,11 +254,11 @@ async function runTeamsSync(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
-    const success = stats.download.errors.length === 0 &&
-                    stats.teams.errors.length === 0 &&
-                    stats.workHistory.errors.length === 0;
+    const totalErrors = stats.download.errors.length + stats.teams.errors.length + stats.workHistory.errors.length;
+    const success = totalErrors === 0;
+    const outcome = totalErrors === 0 ? 'success' : 'partial';
 
-    tracker.endRun(success, stats);
+    tracker.endRun(outcome, stats);
 
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
@@ -269,7 +269,7 @@ async function runTeamsSync(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    tracker.endRun(false, stats);
+    tracker.endRun('failure', stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

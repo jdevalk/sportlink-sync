@@ -389,7 +389,7 @@ async function runSyncAll(options = {}) {
     if (!downloadResult.success) {
       const errorMsg = downloadResult.error || 'Download failed';
       logger.error(`Download failed: ${errorMsg}`);
-      tracker.endRun(false, stats);
+      tracker.endRun('failure', stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -407,7 +407,7 @@ async function runSyncAll(options = {}) {
     if (!prepareResult.success) {
       const errorMsg = prepareResult.error || 'Prepare failed';
       logger.error(`Prepare failed: ${errorMsg}`);
-      tracker.endRun(false, stats);
+      tracker.endRun('failure', stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -780,20 +780,25 @@ async function runSyncAll(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(endTime - startTime);
 
-    const success = stats.errors.length === 0 &&
-                    stats.rondoClub.errors.length === 0 &&
-                    stats.teams.errors.length === 0 &&
-                    stats.workHistory.errors.length === 0 &&
-                    stats.functions.errors.length === 0 &&
-                    stats.commissies.errors.length === 0 &&
-                    stats.commissieWorkHistory.errors.length === 0 &&
-                    stats.photos.download.errors.length === 0 &&
-                    stats.photos.upload.errors.length === 0 &&
-                    stats.photos.delete.errors.length === 0 &&
-                    stats.freescout.errors.length === 0 &&
-                    stats.discipline.errors.length === 0;
+    const allErrorArrays = [
+      stats.errors,
+      stats.rondoClub.errors,
+      stats.teams.errors,
+      stats.workHistory.errors,
+      stats.functions.errors,
+      stats.commissies.errors,
+      stats.commissieWorkHistory.errors,
+      stats.photos.download.errors,
+      stats.photos.upload.errors,
+      stats.photos.delete.errors,
+      stats.freescout.errors,
+      stats.discipline.errors
+    ];
+    const totalErrors = allErrorArrays.reduce((sum, arr) => sum + arr.length, 0);
+    const success = totalErrors === 0;
+    const outcome = totalErrors === 0 ? 'success' : 'partial';
 
-    tracker.endRun(success, stats);
+    tracker.endRun(outcome, stats);
 
     // Print summary
     printSummary(logger, stats);
@@ -808,7 +813,7 @@ async function runSyncAll(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    tracker.endRun(false, stats);
+    tracker.endRun('failure', stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

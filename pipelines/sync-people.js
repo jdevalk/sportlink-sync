@@ -145,7 +145,7 @@ async function runPeopleSync(options = {}) {
         stepId: downloadStepId,
         errorMessage: errorMsg
       });
-      tracker.endRun(false, stats);
+      tracker.endRun('failure', stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -171,7 +171,7 @@ async function runPeopleSync(options = {}) {
         stepId: prepareStepId,
         errorMessage: errorMsg
       });
-      tracker.endRun(false, stats);
+      tracker.endRun('failure', stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -369,11 +369,11 @@ async function runPeopleSync(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
-    const success = stats.errors.length === 0 &&
-                    stats.rondoClub.errors.length === 0 &&
-                    stats.photos.errors.length === 0;
+    const totalErrors = stats.errors.length + stats.rondoClub.errors.length + stats.photos.errors.length;
+    const success = totalErrors === 0;
+    const outcome = totalErrors === 0 ? 'success' : 'partial';
 
-    tracker.endRun(success, stats);
+    tracker.endRun(outcome, stats);
 
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
@@ -384,7 +384,7 @@ async function runPeopleSync(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    tracker.endRun(false, stats);
+    tracker.endRun('failure', stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

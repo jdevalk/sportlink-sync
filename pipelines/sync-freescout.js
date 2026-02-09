@@ -77,7 +77,7 @@ async function runFreescoutSync(options = {}) {
     if (!creds.configured) {
       logger.error('FreeScout credentials not configured');
       logger.error('Required: FREESCOUT_API_KEY and FREESCOUT_URL in .env');
-      tracker.endRun(false, stats);
+      tracker.endRun('failure', stats);
       stats.completedAt = formatTimestamp();
       stats.duration = formatDuration(Date.now() - startTime);
       printSummary(logger, stats);
@@ -129,8 +129,9 @@ async function runFreescoutSync(options = {}) {
     stats.duration = formatDuration(Date.now() - startTime);
 
     const success = stats.errors.length === 0;
+    const outcome = stats.errors.length === 0 ? 'success' : 'partial';
 
-    tracker.endRun(success, stats);
+    tracker.endRun(outcome, stats);
 
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
@@ -141,7 +142,7 @@ async function runFreescoutSync(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    tracker.endRun(false, stats);
+    tracker.endRun('failure', stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);

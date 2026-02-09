@@ -135,8 +135,11 @@ async function runNikkiSync(options = {}) {
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
-    const success = stats.download.errors.length === 0 && stats.rondoClub.errors === 0;
-    tracker.endRun(success, stats);
+    const totalErrors = stats.download.errors.length + (typeof stats.rondoClub.errors === 'number' ? stats.rondoClub.errors : 0);
+    const success = totalErrors === 0;
+    const outcome = totalErrors === 0 ? 'success' : 'partial';
+
+    tracker.endRun(outcome, stats);
 
     printSummary(logger, stats);
     logger.log(`Log file: ${logger.getLogPath()}`);
@@ -147,7 +150,7 @@ async function runNikkiSync(options = {}) {
     const errorMsg = err.message || String(err);
     logger.error(`Fatal error: ${errorMsg}`);
 
-    tracker.endRun(false, stats);
+    tracker.endRun('failure', stats);
 
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
