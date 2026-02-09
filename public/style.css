@@ -133,7 +133,150 @@ body > form button:active {
   padding: 2rem;
 }
 
+/* Navigation */
+.dashboard nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.dashboard nav a {
+  color: #666;
+  text-decoration: none;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.dashboard nav a:hover {
+  color: #333;
+}
+
+.dashboard nav a.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+}
+
+.dashboard header h1 a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.btn-logout {
+  padding: 0.5rem 1rem;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-logout:hover {
+  background: #5a6268;
+}
+
+/* Pipeline grid */
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.pipeline-card {
+  display: block;
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s;
+}
+
+.pipeline-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pipeline-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pipeline-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  flex: 1;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-success {
+  background: #28a745;
+}
+
+.status-failure {
+  background: #dc3545;
+}
+
+.status-running {
+  background: #ffc107;
+}
+
+.status-unknown {
+  background: #6c757d;
+}
+
+.badge-overdue {
+  background: #fd7e14;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pipeline-card .last-run {
+  font-size: 0.9rem;
+  color: #999;
+  margin-bottom: 0.5rem;
+}
+
+.pipeline-card .counts {
+  font-size: 0.85rem;
+  color: #666;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.pipeline-card .counts .count-failed {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.pipeline-card .duration {
+  font-size: 0.85rem;
+  color: #999;
+}
+
 /* Responsive layout */
+@media (max-width: 1024px) {
+  .pipeline-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .dashboard header {
     flex-direction: column;
@@ -144,5 +287,9 @@ body > form button:active {
   .dashboard .user-info {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .pipeline-grid {
+    grid-template-columns: 1fr;
   }
 }

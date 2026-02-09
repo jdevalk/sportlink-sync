@@ -1,0 +1,43 @@
+<%- include('partials/head', { title, page, user }) %>
+
+<div class="pipeline-grid">
+  <% pipelines.forEach(pipeline => { %>
+    <a href="/pipeline/<%= pipeline.name %>" class="pipeline-card">
+      <div class="pipeline-header">
+        <span class="status-indicator status-<%= pipeline.status %>"></span>
+        <h3><%= pipeline.displayName %></h3>
+        <% if (pipeline.isOverdue) { %>
+          <span class="badge-overdue">OVERDUE</span>
+        <% } %>
+      </div>
+
+      <% if (pipeline.lastRun) { %>
+        <div class="last-run">
+          Last run: <%= formatRelativeTime(pipeline.lastRun.started_at) %>
+        </div>
+
+        <div class="counts">
+          <% if (pipeline.lastRun.total_created > 0) { %>
+            <span>Created: <%= pipeline.lastRun.total_created %></span>
+          <% } %>
+          <% if (pipeline.lastRun.total_updated > 0) { %>
+            <span>Updated: <%= pipeline.lastRun.total_updated %></span>
+          <% } %>
+          <% if (pipeline.lastRun.total_failed > 0) { %>
+            <span class="count-failed">Failed: <%= pipeline.lastRun.total_failed %></span>
+          <% } %>
+        </div>
+
+        <div class="duration">
+          Duration: <%= formatDuration(pipeline.lastRun.duration_ms) %>
+        </div>
+      <% } else { %>
+        <div class="last-run">
+          Never run
+        </div>
+      <% } %>
+    </a>
+  <% }) %>
+</div>
+
+<%- include('partials/foot') %>

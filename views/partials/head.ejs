@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> - Rondo Sync</title>
+  <link rel="stylesheet" href="/public/style.css">
+</head>
+<body>
+  <div class="dashboard">
+    <header>
+      <h1><a href="/">Rondo Sync</a></h1>
+      <nav>
+        <a href="/" class="<%= page === 'overview' ? 'active' : '' %>">Overview</a>
+        <a href="/errors" class="<%= page === 'errors' ? 'active' : '' %>">Errors</a>
+      </nav>
+      <div class="user-info">
+        <span><%= user.displayName %></span>
+        <form method="POST" action="/logout" style="display:inline">
+          <button type="submit" class="btn-logout">Logout</button>
+        </form>
+      </div>
+    </header>
+    <main>
