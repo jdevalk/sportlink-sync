@@ -1,0 +1,78 @@
+<%- include('partials/head', { title, page, user }) %>
+
+<div class="breadcrumb">
+  <a href="/">Overview</a> &gt; <%= pipelineDisplayName %>
+</div>
+
+<h2><%= pipelineDisplayName %> - Run History</h2>
+
+<% if (runs.length === 0) { %>
+  <p style="color: #666; padding: 2rem; text-align: center;">No runs recorded yet</p>
+<% } else { %>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Started</th>
+          <th>Duration</th>
+          <th>Outcome</th>
+          <th>Created</th>
+          <th>Updated</th>
+          <th>Skipped</th>
+          <th>Failed</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% runs.forEach(run => { %>
+          <tr>
+            <td>
+              <a href="/run/<%= run.id %>">
+                <%= new Date(run.started_at).toLocaleString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) %>
+              </a>
+            </td>
+            <td><%= formatDuration(run.duration_ms) %></td>
+            <td>
+              <span class="outcome-<%= run.outcome %>">
+                <%= run.outcome %>
+              </span>
+            </td>
+            <td><%= run.total_created %></td>
+            <td><%= run.total_updated %></td>
+            <td><%= run.total_skipped %></td>
+            <td>
+              <% if (run.total_failed > 0) { %>
+                <span class="outcome-failure"><%= run.total_failed %></span>
+              <% } else { %>
+                <%= run.total_failed %>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <% if (pagination.totalPages > 1) { %>
+    <div class="pagination">
+      <% if (pagination.current > 1) { %>
+        <a href="/pipeline/<%= pipelineName %>?page=<%= pagination.current - 1 %>">Previous</a>
+      <% } %>
+
+      <span class="pagination-info">
+        Page <%= pagination.current %> of <%= pagination.totalPages %>
+      </span>
+
+      <% if (pagination.current < pagination.totalPages) { %>
+        <a href="/pipeline/<%= pipelineName %>?page=<%= pagination.current + 1 %>">Next</a>
+      <% } %>
+    </div>
+  <% } %>
+<% } %>
+
+<%- include('partials/foot') %>
