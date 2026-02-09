@@ -78,7 +78,12 @@ Full bidirectional sync pipeline operational with simplified birthday handling:
 
 ### Active
 
-(None — define in next milestone via `/gsd:new-milestone`)
+**Current Milestone: v3.1 Fetch Former Members**
+
+- [ ] Search Sportlink for INACTIVE members via browser automation
+- [ ] Download former member data (name, contact, address, photo, KNVB ID)
+- [ ] Sync former members to Rondo Club with `acf.former_member = true`
+- [ ] One-time onboarding tool (not a scheduled pipeline)
 
 ### Out of Scope
 
@@ -145,4 +150,4 @@ Full bidirectional sync pipeline operational with simplified birthday handling:
 | Systemd service runs as root | No sportlink user on server; accepted for now | ⚠️ Revisit |
 
 ---
-*Last updated: 2026-02-09 after v3.0 milestone*
+*Last updated: 2026-02-09 after v3.1 milestone start*

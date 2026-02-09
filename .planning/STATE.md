@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v3.0 Web Dashboard milestone complete. Planning next milestone.
+**Current focus:** v3.1 Fetch Former Members — one-time onboarding tool for inactive Sportlink members
 
 ## Current Position
 
-Phase: All v3.0 phases complete (34-38)
-Status: Milestone shipped
-Last activity: 2026-02-09 - Completed quick task 21: Add crash-resilient run tracking
+Phase: Not started (defining requirements)
+Status: Defining requirements
+Last activity: 2026-02-09 — Milestone v3.1 started
 
-Progress: [██████████] 100% (v3.0)
+Progress: [░░░░░░░░░░] 0% (v3.1)
 
 ## Performance Metrics
 
