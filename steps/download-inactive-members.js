@@ -43,92 +43,13 @@ async function runDownloadInactive(options = {}) {
       logDebug(`Waiting ${waitSeconds} seconds before clicking search button...`);
       await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000));
 
-      logDebug('Clicking show more button: #btnShowMore');
-      await page.waitForSelector('#btnShowMore', { timeout: 20000 });
-      await page.click('#btnShowMore');
-
-      logDebug('Checking union teams checkbox: #scFetchUnionTeams_input');
-      await page.waitForSelector('#scFetchUnionTeams_input', { timeout: 20000 });
-      await page.check('#scFetchUnionTeams_input');
-
-      // Toggle status filter to show INACTIVE members
       logVerbose('Toggling status filter to INACTIVE members...');
-      let statusToggleSuccess = false;
 
-      // Strategy 1: Try ID-based selectors for status checkboxes
-      try {
-        logDebug('Strategy 1: Looking for status checkboxes by ID pattern [id*="scStatus"]');
-        const statusCheckboxes = await page.$$('[id*="scStatus"]');
-        logDebug(`Found ${statusCheckboxes.length} status checkboxes`);
-
-        if (statusCheckboxes.length > 0) {
-          // Get the labels/text for each checkbox to identify active/inactive
-          for (const checkbox of statusCheckboxes) {
-            const checkboxId = await checkbox.getAttribute('id');
-            const isChecked = await checkbox.isChecked();
-            logDebug(`  Checkbox ${checkboxId}: ${isChecked ? 'checked' : 'unchecked'}`);
-
-            // Try to find associated label
-            const label = await page.$(`label[for="${checkboxId}"]`);
-            if (label) {
-              const labelText = await label.textContent();
-              logDebug(`    Label: ${labelText}`);
-
-              // Uncheck "Actief" (Active) and check "Niet-actief" or "Inactief" (Inactive)
-              if (labelText && labelText.match(/actief/i) && !labelText.match(/niet|in/i)) {
-                if (isChecked) {
-                  logVerbose(`  Unchecking active status: ${labelText}`);
-                  await checkbox.uncheck();
-                }
-              } else if (labelText && labelText.match(/niet.?actief|inactief/i)) {
-                if (!isChecked) {
-                  logVerbose(`  Checking inactive status: ${labelText}`);
-                  await checkbox.check();
-                  statusToggleSuccess = true;
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        logDebug(`Strategy 1 failed: ${e.message}`);
-      }
-
-      // Strategy 2: Try text-based selector for inactive status
-      if (!statusToggleSuccess) {
-        try {
-          logDebug('Strategy 2: Looking for inactive status by text');
-          const inactiveCheckbox = await page.getByText(/niet.?actief|inactief/i).first();
-          if (inactiveCheckbox) {
-            logVerbose('  Found inactive status checkbox via text search');
-            await inactiveCheckbox.check();
-            statusToggleSuccess = true;
-          }
-        } catch (e) {
-          logDebug(`Strategy 2 failed: ${e.message}`);
-        }
-      }
-
-      // Strategy 3: Try role-based selector
-      if (!statusToggleSuccess) {
-        try {
-          logDebug('Strategy 3: Looking for inactive status by role');
-          const inactiveCheckbox = await page.getByRole('checkbox', { name: /niet.?actief|inactief/i });
-          if (inactiveCheckbox) {
-            logVerbose('  Found inactive status checkbox via role search');
-            await inactiveCheckbox.check();
-            statusToggleSuccess = true;
-          }
-        } catch (e) {
-          logDebug(`Strategy 3 failed: ${e.message}`);
-        }
-      }
-
-      if (!statusToggleSuccess) {
-        const errorMsg = 'Could not find inactive status filter on Sportlink search page. UI may have changed.';
-        logError(errorMsg);
-        return { success: false, members: [], memberCount: 0, error: errorMsg };
-      }
+      await page.click('#btnShowMore');
+      await page.waitForSelector('#chipStatusACTIVE', { timeout: 20000 });
+      await page.click('#chipStatusACTIVE');
+      await page.click('#chipStatusELIGABLE_FOR_REMOVE');
+      await page.click('#chipStatusINACTIVE');
 
       logVerbose('Status filter toggled successfully to INACTIVE');
 
