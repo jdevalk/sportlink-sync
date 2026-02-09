@@ -58,6 +58,7 @@ Progress: [██████████] 100% (v3.0)
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 23 | Disable Start button while pipeline is running: UI disabled state + 409 server guard | 2026-02-09 | d746305 | [23-disable-pipeline-start-button-while-pipe](./quick/23-disable-pipeline-start-button-while-pipe/) |
 | 22 | Handle 404 photo downloads as permanent errors: 'error' state for unavailable photos, auto-retry on PersonImageDate change | 2026-02-09 | ee9a191 | [22-handle-404-photo-downloads-as-permanent-](./quick/22-handle-404-photo-downloads-as-permanent-/) |
 | 21 | Add crash-resilient run tracking: Process-level handlers mark runs as failed on uncaught exceptions | 2026-02-09 | 959ccfb | [21-add-crash-resilient-run-tracking-that-ma](./quick/21-add-crash-resilient-run-tracking-that-ma/) |
 | 20 | Auto-refresh the dashboard every minute: Meta refresh tag for automatic updates | 2026-02-09 | 759ebad | [20-auto-refresh-the-dashboard-every-minute](./quick/20-auto-refresh-the-dashboard-every-minute/) |
@@ -72,6 +73,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed quick task 22: Handle 404 photo downloads as permanent errors
+Stopped at: Completed quick task 23: Disable Start button while pipeline is running
 Resume file: None
 Next steps: Ready for next quick task or milestone
