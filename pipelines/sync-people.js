@@ -49,10 +49,13 @@ function printSummary(logger, stats) {
 
   logger.log('PHOTO SYNC');
   logger.log(minorDivider);
-  if (stats.photos.uploaded > 0 || stats.photos.deleted > 0 || stats.photos.pending > 0) {
+  if (stats.photos.downloaded > 0 || stats.photos.uploaded > 0 || stats.photos.deleted > 0 || stats.photos.pending > 0) {
+    if (stats.photos.downloaded > 0) {
+      logger.log(`Downloaded: ${stats.photos.downloaded}`);
+    }
     logger.log(`Uploaded: ${stats.photos.uploaded}, Deleted: ${stats.photos.deleted}`);
     if (stats.photos.pending > 0) {
-      logger.log(`Pending download: ${stats.photos.pending} (will be handled by next functions sync)`);
+      logger.log(`Pending download: ${stats.photos.pending}`);
     }
     if (stats.photos.skipped > 0) {
       logger.log(`Skipped: ${stats.photos.skipped} (no local file)`);
@@ -301,22 +304,33 @@ async function runPeopleSync(options = {}) {
       });
     }
 
-    // Step 5: Photo Download Status (photos are downloaded inline by functions pipeline)
-    logger.verbose('Checking photo download status...');
+    // Step 5: Photo Download (Playwright-based, downloads pending photos from Sportlink)
+    logger.verbose('Downloading photos from Sportlink...');
     const photoDownloadStepId = tracker.startStep('photo-download');
     try {
       const photoDownloadResult = await runPhotoDownload({ logger, verbose });
 
-      stats.photos.pending = photoDownloadResult.total;
+      stats.photos.downloaded = photoDownloadResult.downloaded;
+      stats.photos.pending = photoDownloadResult.total - photoDownloadResult.downloaded;
 
       tracker.endStep(photoDownloadStepId, {
         outcome: 'success',
-        created: 0
+        created: photoDownloadResult.downloaded,
+        failed: photoDownloadResult.failed
       });
+
+      if (photoDownloadResult.errors?.length > 0) {
+        stats.photos.errors.push(...photoDownloadResult.errors.map(e => ({
+          knvb_id: e.knvb_id,
+          message: e.message,
+          system: 'photo-download'
+        })));
+        tracker.recordErrors('photo-download', photoDownloadStepId, photoDownloadResult.errors);
+      }
     } catch (err) {
-      logger.error(`Photo download check failed: ${err.message}`);
+      logger.error(`Photo download failed: ${err.message}`);
       stats.photos.errors.push({
-        message: `Photo download check failed: ${err.message}`,
+        message: `Photo download failed: ${err.message}`,
         system: 'photo-download'
       });
       tracker.endStep(photoDownloadStepId, { outcome: 'failure' });
