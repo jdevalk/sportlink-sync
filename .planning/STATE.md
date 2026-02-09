@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 Phase: All v3.0 phases complete (34-38)
 Status: Milestone shipped
-Last activity: 2026-02-09 - Completed quick task 17: Improve running pipeline UI
+Last activity: 2026-02-09 - Completed quick task 18: Distinguish partial errors from pipeline failures
 
 Progress: [██████████] 100% (v3.0)
 
@@ -57,6 +57,7 @@ Progress: [██████████] 100% (v3.0)
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 18 | Distinguish partial errors from pipeline failures: 3-way outcome (success/partial/failure) | 2026-02-09 | a0d66db | [18-distinguish-partial-errors-from-pipeline](./quick/18-distinguish-partial-errors-from-pipeline/) |
 | 17 | Improve running pipeline UI: spinning icon, previous run duration, current run elapsed time | 2026-02-09 | 11d030c | [17-improve-running-pipeline-ui-spinning-ico](./quick/17-improve-running-pipeline-ui-spinning-ico/) |
 
 ### Blockers/Concerns
@@ -66,6 +67,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: v3.0 Web Dashboard milestone archived
+Stopped at: Completed quick task 18
 Resume file: None
-Next steps: `/gsd:new-milestone` to start next milestone cycle
+Next steps: Ready for next quick task or milestone
