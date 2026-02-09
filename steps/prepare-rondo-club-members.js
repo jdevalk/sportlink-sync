@@ -332,7 +332,7 @@ async function runPrepare(options = {}) {
   }
 }
 
-module.exports = { runPrepare, preparePerson };
+module.exports = { runPrepare, preparePerson, isValidMember };
 
 // CLI entry point
 if (require.main === module) {
