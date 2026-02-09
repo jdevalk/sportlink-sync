@@ -72,18 +72,18 @@ Plans:
 **Goal**: Operators can monitor all pipeline activity and investigate errors from their browser instead of SSH
 **Depends on**: Phase 36
 **Requirements**: DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, DASH-06, DASH-07, DASH-08, DASH-09
-**Research**: Skip (standard Fastify + EJS + htmx patterns)
+**Research**: Skip (standard Fastify + EJS patterns)
 **Success Criteria** (what must be TRUE):
   1. The pipeline overview page shows traffic-light status (green/yellow/red) for all 6 pipelines with last run time and key counts
   2. Overdue pipelines (missed their expected cron schedule) are visually flagged
   3. A user can click into a pipeline to see paginated run history, then click a run to see per-step breakdown with counts
   4. The error browser lists all errors with filtering by pipeline and date range, and drill-down shows individual member failures with error details
   5. All pages are usable on a phone screen (responsive layout)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 37-01: Pipeline overview and run history pages
-- [ ] 37-02: Error browser and responsive polish
+- [ ] 37-01-PLAN.md -- Dashboard queries, pipeline overview, run history, and run detail pages
+- [ ] 37-02-PLAN.md -- Error browser, error detail, and responsive verification
 
 ### Phase 38: Email Migration
 **Goal**: Email reports only fire on errors and link directly to the dashboard for details
