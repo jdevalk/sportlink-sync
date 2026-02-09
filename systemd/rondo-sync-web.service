@@ -1,0 +1,27 @@
+[Unit]
+Description=Rondo Sync Dashboard Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=sportlink
+Group=sportlink
+WorkingDirectory=/home/sportlink
+ExecStart=/usr/bin/node /home/sportlink/lib/web-server.js
+Restart=on-failure
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=300
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rondo-sync-web
+
+# Security hardening (INFRA-04: non-root, minimal permissions)
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Environment
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
