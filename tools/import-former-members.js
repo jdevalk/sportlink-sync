@@ -105,6 +105,7 @@ async function runImport(options = {}) {
   });
 
   const toSync = [];
+  const seenKnvbIds = new Set();
   let invalidCount = 0;
 
   for (const member of inactiveMembers) {
@@ -119,6 +120,14 @@ async function runImport(options = {}) {
     }
 
     const knvbId = member.PublicPersonId;
+
+    // Skip duplicates within the same download batch
+    if (seenKnvbIds.has(knvbId)) {
+      if (verbose) console.log(`  Skipping ${knvbId}: duplicate in download data`);
+      continue;
+    }
+    seenKnvbIds.add(knvbId);
+
     const tracked = trackedByKnvbId.get(knvbId);
 
     // Skip if member already exists in database with a stadion_id and has been synced
