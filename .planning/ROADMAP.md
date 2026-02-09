@@ -15,7 +15,7 @@ Transform Rondo Sync from a CLI-only cron tool into a web-monitored system with 
 - [x] **Phase 35: Run Tracking** - Persist pipeline stats to dashboard database, instrument all 6 pipelines
 - [x] **Phase 36: Web Server and Authentication** - Fastify server with nginx/TLS, systemd service, per-user login
 - [x] **Phase 37: Dashboard UI** - Pipeline overview, run history, run detail, and error browser views
-- [ ] **Phase 38: Email Migration** - Switch email reports to error-only alerts with dashboard links
+- [x] **Phase 38: Email Migration** - Switch email reports to error-only alerts with dashboard links
 - [ ] **Phase 39: Multi-Club Readiness** - Database-per-club layout and config registry (deferred until second club)
 
 ## Phase Details
@@ -96,7 +96,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 38-01-PLAN.md -- Alert email module, sync.sh failure-only alerts, overdue checks in web server
+- [x] 38-01-PLAN.md -- Alert email module, sync.sh failure-only alerts, overdue checks in web server
 
 ### Phase 39: Multi-Club Readiness
 **Goal**: The system supports adding a second club without restructuring code or databases
@@ -124,7 +124,7 @@ Phase 39 is deferred (not in active execution order).
 | 35. Run Tracking | 1/1 | Complete | 2026-02-08 |
 | 36. Web Server and Authentication | 2/2 | Complete | 2026-02-09 |
 | 37. Dashboard UI | 2/2 | Complete | 2026-02-09 |
-| 38. Email Migration | 0/1 | Not started | - |
+| 38. Email Migration | 1/1 | Complete | 2026-02-09 |
 | 39. Multi-Club Readiness | 0/1 | Deferred | - |
 
 ---
