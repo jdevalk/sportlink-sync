@@ -213,9 +213,9 @@ async function runImport(options = {}) {
           console.log(`Progress: ${i + 1}/${toSync.length} (${stats.synced} synced, ${stats.failed} failed)`);
         }
 
-        // Rate limit: 2 second delay between requests
+        // Rate limit: 0.5 second delay between requests
         if (i < toSync.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (err) {
         stats.failed++;
