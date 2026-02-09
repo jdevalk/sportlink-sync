@@ -49,8 +49,11 @@ function printSummary(logger, stats) {
 
   logger.log('PHOTO SYNC');
   logger.log(minorDivider);
-  if (stats.photos.downloaded > 0 || stats.photos.uploaded > 0 || stats.photos.deleted > 0) {
+  if (stats.photos.downloaded > 0 || stats.photos.uploaded > 0 || stats.photos.deleted > 0 || stats.photos.expired > 0) {
     logger.log(`Downloaded: ${stats.photos.downloaded}, Uploaded: ${stats.photos.uploaded}, Deleted: ${stats.photos.deleted}`);
+    if (stats.photos.expired > 0) {
+      logger.log(`Expired URLs: ${stats.photos.expired} (awaiting refresh from next functions sync)`);
+    }
     if (stats.photos.skipped > 0) {
       logger.log(`Skipped: ${stats.photos.skipped} (no local file)`);
     }
@@ -140,6 +143,7 @@ async function runPeopleSync(options = {}) {
       uploaded: 0,
       deleted: 0,
       skipped: 0,
+      expired: 0,
       errors: []
     },
     reverseSync: {
@@ -304,6 +308,7 @@ async function runPeopleSync(options = {}) {
       const photoDownloadResult = await runPhotoDownload({ logger, verbose, force });
 
       stats.photos.downloaded = photoDownloadResult.downloaded;
+      stats.photos.expired = photoDownloadResult.expired || 0;
       if (photoDownloadResult.errors?.length > 0) {
         stats.photos.errors.push(...photoDownloadResult.errors.map(e => ({
           knvb_id: e.knvb_id,

@@ -2,7 +2,7 @@ require('varlock/auto-load');
 
 const fs = require('fs/promises');
 const path = require('path');
-const { openDb, getMembersNeedingPhotoDownload, updatePhotoState } = require('../lib/rondo-club-db');
+const { openDb, getMembersNeedingPhotoDownload, updatePhotoState, clearExpiredPhotoUrl } = require('../lib/rondo-club-db');
 const { createSyncLogger } = require('../lib/logger');
 
 /**
@@ -25,6 +25,25 @@ function mimeToExtension(contentType) {
 }
 
 /**
+ * Check if a signed URL has expired by parsing the expires= query parameter.
+ * Sportlink CDN URLs contain expires=<unix_timestamp> which indicates when
+ * the signed URL becomes invalid (~4 hours after generation).
+ * @param {string} url - The signed URL to check
+ * @returns {boolean} True if the URL has expired or has no expires parameter
+ */
+function isUrlExpired(url) {
+  try {
+    const match = url.match(/[?&]expires=(\d+)/);
+    if (!match) return false; // No expires parameter - assume valid
+    const expiresAt = parseInt(match[1], 10);
+    const now = Math.floor(Date.now() / 1000);
+    return now >= expiresAt;
+  } catch {
+    return false; // On parse error, assume valid and let download attempt
+  }
+}
+
+/**
  * Download photo from URL with retry logic
  * @param {string} photoUrl - URL to download from
  * @param {string} knvbId - Member KNVB ID for filename
@@ -41,7 +60,12 @@ async function downloadPhotoFromUrl(photoUrl, knvbId, photosDir, logger, retries
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const error = new Error(`HTTP ${response.status}`);
+        // Don't retry on 401 (expired signed URL) or 403 (forbidden) - retries won't help
+        if (response.status === 401 || response.status === 403) {
+          throw error;
+        }
+        throw error;
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
@@ -59,6 +83,10 @@ async function downloadPhotoFromUrl(photoUrl, knvbId, photosDir, logger, retries
 
       return { success: true, path: filepath, bytes: buffer.length };
     } catch (error) {
+      // Don't retry on auth errors (expired signed URL) - retries won't help
+      if (error.message === 'HTTP 401' || error.message === 'HTTP 403') {
+        throw error;
+      }
       logger.verbose(`  Attempt ${attempt}/${retries} failed: ${error.message}`);
       if (attempt === retries) {
         throw error;
@@ -82,6 +110,7 @@ async function runPhotoDownload(options = {}) {
     total: 0,
     downloaded: 0,
     skipped: 0,  // Members with no photo_url
+    expired: 0,  // Members with expired signed URLs (will retry after next functions sync)
     failed: 0,
     errors: []
   };
@@ -105,6 +134,16 @@ async function runPhotoDownload(options = {}) {
       const member = members[i];
       logger.verbose(`Downloading photo ${i + 1}/${members.length}: ${member.knvb_id}`);
 
+      // Check if the signed URL has expired before attempting download.
+      // Sportlink CDN URLs expire ~4 hours after generation. If expired,
+      // clear the URL so the next functions sync can provide a fresh one.
+      if (isUrlExpired(member.photo_url)) {
+        clearExpiredPhotoUrl(db, member.knvb_id);
+        result.expired++;
+        logger.verbose(`  Skipped: signed URL expired, cleared for refresh`);
+        continue;
+      }
+
       try {
         const downloadResult = await downloadPhotoFromUrl(
           member.photo_url,
@@ -121,6 +160,11 @@ async function runPhotoDownload(options = {}) {
         if (error.message === 'HTTP 404') {
           updatePhotoState(db, member.knvb_id, 'no_photo');
           logger.verbose(`  Photo no longer exists (404), cleared photo state`);
+        // On 401/403, the signed URL has expired - clear URL for refresh on next functions sync
+        } else if (error.message === 'HTTP 401' || error.message === 'HTTP 403') {
+          clearExpiredPhotoUrl(db, member.knvb_id);
+          result.expired++;
+          logger.verbose(`  Signed URL expired (${error.message}), cleared for refresh`);
         } else {
           result.failed++;
           result.errors.push({ knvb_id: member.knvb_id, message: error.message });
@@ -135,6 +179,9 @@ async function runPhotoDownload(options = {}) {
     }
 
     logger.log(`Downloaded ${result.downloaded}/${result.total} photos`);
+    if (result.expired > 0) {
+      logger.log(`Expired URLs: ${result.expired} (will refresh on next functions sync)`);
+    }
     if (result.failed > 0) {
       logger.log(`Failed: ${result.failed}`);
     }
