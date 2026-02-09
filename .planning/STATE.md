@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 Phase: All v3.0 phases complete (34-38)
 Status: Milestone shipped
-Last activity: 2026-02-09 — v3.0 Web Dashboard milestone archived
+Last activity: 2026-02-09 - Completed quick task 17: Improve running pipeline UI
 
 Progress: [██████████] 100% (v3.0)
 
@@ -52,6 +52,12 @@ Progress: [██████████] 100% (v3.0)
 
 1 active:
 - download-functions-no-api-response.md
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 17 | Improve running pipeline UI: spinning icon, previous run duration, current run elapsed time | 2026-02-09 | 11d030c | [17-improve-running-pipeline-ui-spinning-ico](./quick/17-improve-running-pipeline-ui-spinning-ico/) |
 
 ### Blockers/Concerns
 
