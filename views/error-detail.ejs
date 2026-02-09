@@ -1,0 +1,85 @@
+<%- include('partials/head', { title: `Errors for Run #${run.id}`, page: 'errors', user }) %>
+
+<div class="breadcrumb">
+  <a href="/">Overview</a> &gt;
+  <a href="/pipeline/<%= run.pipeline %>"><%= pipelineDisplayName %></a> &gt;
+  <a href="/run/<%= run.id %>">Run #<%= run.id %></a> &gt;
+  Errors
+</div>
+
+<h2>Errors for Run #<%= run.id %></h2>
+
+<!-- Run context -->
+<div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+  <div style="display: flex; gap: 2rem; flex-wrap: wrap; font-size: 0.9rem; color: #666;">
+    <div>
+      <strong>Pipeline:</strong>
+      <span class="pipeline-badge pipeline-<%= run.pipeline %>">
+        <%= pipelineDisplayName %>
+      </span>
+    </div>
+    <div>
+      <strong>Started:</strong>
+      <%= new Date(run.started_at).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }) %>
+    </div>
+    <div>
+      <strong>Outcome:</strong>
+      <span class="outcome-badge outcome-<%= run.outcome %>">
+        <%= run.outcome %>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Error list -->
+<% if (errors.length === 0) { %>
+  <p style="color: #666; padding: 2rem; text-align: center;">No errors recorded for this run</p>
+<% } else { %>
+  <% errors.forEach(error => { %>
+    <div class="error-card">
+      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+        <div>
+          <span class="step-badge"><%= error.step_name %></span>
+          <% if (error.member_identifier) { %>
+            <span class="member-id" style="margin-left: 0.5rem;">
+              <%= error.member_identifier %>
+            </span>
+          <% } else { %>
+            <span style="margin-left: 0.5rem; color: #999; font-style: italic;">
+              General error
+            </span>
+          <% } %>
+        </div>
+        <div style="font-size: 0.85rem; color: #999; white-space: nowrap;">
+          <%= new Date(error.created_at).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }) %>
+        </div>
+      </div>
+
+      <div class="error-message">
+        <%= error.error_message %>
+      </div>
+
+      <% if (error.error_stack) { %>
+        <details style="margin-top: 0.75rem;">
+          <summary>Stack trace</summary>
+          <pre><%= error.error_stack %></pre>
+        </details>
+      <% } %>
+    </div>
+  <% }) %>
+<% } %>
+
+<%- include('partials/foot') %>

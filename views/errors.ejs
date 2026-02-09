@@ -1,0 +1,109 @@
+<%- include('partials/head', { title: 'Error Browser', page: 'errors', user }) %>
+
+<h2>Error Browser</h2>
+
+<!-- Filter form -->
+<form class="filter-bar" method="GET" action="/errors">
+  <select name="pipeline">
+    <option value="">All Pipelines</option>
+    <option value="people" <%= filters.pipeline === 'people' ? 'selected' : '' %>>People</option>
+    <option value="nikki" <%= filters.pipeline === 'nikki' ? 'selected' : '' %>>Nikki</option>
+    <option value="freescout" <%= filters.pipeline === 'freescout' ? 'selected' : '' %>>FreeScout</option>
+    <option value="teams" <%= filters.pipeline === 'teams' ? 'selected' : '' %>>Teams</option>
+    <option value="functions" <%= filters.pipeline === 'functions' ? 'selected' : '' %>>Functions</option>
+    <option value="discipline" <%= filters.pipeline === 'discipline' ? 'selected' : '' %>>Discipline</option>
+  </select>
+
+  <input type="date" name="date_from" value="<%= filters.dateFrom || '' %>" placeholder="From date">
+  <input type="date" name="date_to" value="<%= filters.dateTo || '' %>" placeholder="To date">
+
+  <button type="submit">Filter</button>
+  <a href="/errors" class="btn-clear">Clear</a>
+</form>
+
+<!-- Banner if filtered by run_id -->
+<% if (filters.runId) { %>
+  <div class="banner">
+    <span>Showing errors for Run #<%= filters.runId %></span>
+    <a href="/errors">Clear filter</a>
+  </div>
+<% } %>
+
+<!-- Result count -->
+<p style="margin-bottom: 1rem; color: #666;">
+  <% if (totalErrors === 0) { %>
+    No errors found
+  <% } else if (totalErrors === 1) { %>
+    Showing 1 error
+  <% } else { %>
+    Showing <%= totalErrors %> errors
+  <% } %>
+</p>
+
+<!-- Error list -->
+<% if (errors.length > 0) { %>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Pipeline</th>
+          <th>Step</th>
+          <th>Member</th>
+          <th>Error Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% errors.forEach(error => { %>
+          <tr>
+            <td style="white-space: nowrap;">
+              <%= new Date(error.created_at).toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) %>
+            </td>
+            <td>
+              <span class="pipeline-badge pipeline-<%= error.pipeline %>">
+                <%= error.pipeline %>
+              </span>
+            </td>
+            <td><%= error.step_name %></td>
+            <td><%= error.member_identifier || '-' %></td>
+            <td>
+              <span
+                title="<%= error.error_message %>"
+                style="display: block; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <%= error.error_message %>
+              </span>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <% if (totalPages > 1) { %>
+    <div class="pagination">
+      <% if (currentPage > 1) { %>
+        <a href="?<%= new URLSearchParams({ ...filters, page: currentPage - 1 }).toString() %>">
+          Previous
+        </a>
+      <% } %>
+
+      <span class="pagination-info">
+        Page <%= currentPage %> of <%= totalPages %>
+      </span>
+
+      <% if (currentPage < totalPages) { %>
+        <a href="?<%= new URLSearchParams({ ...filters, page: currentPage + 1 }).toString() %>">
+          Next
+        </a>
+      <% } %>
+    </div>
+  <% } %>
+<% } %>
+
+<%- include('partials/foot') %>
