@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 40 of 40 (Former Member Import Tool)
-Plan: Not yet planned
-Status: Ready to plan
-Last activity: 2026-02-09 — v3.1 roadmap created
+Plan: 1 of 2
+Status: In progress
+Last activity: 2026-02-09 — Completed 40-01-PLAN.md
 
-Progress: [████████████████████████████░░] 93% (38/41 plans complete across all milestones)
+Progress: [████████████████████████████░░] 95% (39/41 plans complete across all milestones)
 
 ## Performance Metrics
 
-**Velocity (v3.0):**
-- Total plans completed: 7
-- Average duration: 14.7 min
-- Total execution time: 103 min
+**Velocity (v3.1):**
+- Total plans completed: 8
+- Average duration: 13.4 min
+- Total execution time: 107 min
 
 **By Phase:**
 
@@ -33,6 +33,7 @@ Progress: [███████████████████████
 | 36-web-server-and-authentication | 2 | 15 min | 7.5 min |
 | 37-dashboard-ui | 2 | 11 min | 5.5 min |
 | 38-email-migration | 1 | 2 min | 2 min |
+| 40-former-member-import-tool | 1 | 2 min | 2 min |
 
 ## Accumulated Context
 
@@ -45,6 +46,9 @@ Recent decisions affecting v3.1 work:
 - v2.0: Per-field timestamp tracking for bidirectional sync with last-write-wins
 
 Full decision log in PROJECT.md Key Decisions table.
+- [Phase 40-former-member-import-tool]: Status filter toggle uses three fallback strategies for resilience to Sportlink UI changes
+- [Phase 40-former-member-import-tool]: Former members cached to data/former-members.json for resume support after partial failure
+- [Phase 40-former-member-import-tool]: Dry-run is default behavior (--import required to execute) following safe-by-default pattern
 
 ### Pending Todos
 
@@ -79,5 +83,5 @@ Full decision log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Created v3.1 roadmap with Phase 40
+Stopped at: Completed 40-01-PLAN.md
 Resume file: None
