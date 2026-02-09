@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "download-functions-no-api-response - The download-functions script navigates to member function pages but fails to capture the API response"
 created: 2026-01-28T10:00:00Z
 updated: 2026-01-28T10:20:00Z

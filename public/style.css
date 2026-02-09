@@ -245,6 +245,33 @@ body > form button:active {
   letter-spacing: 0.5px;
 }
 
+/* Start button */
+.btn-start {
+  padding: 0.25rem 0.75rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.btn-start:hover {
+  background: #218838;
+}
+
+.btn-start:active {
+  background: #1e7e34;
+}
+
+.btn-start:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
 .pipeline-card .last-run {
   font-size: 0.9rem;
   color: #999;

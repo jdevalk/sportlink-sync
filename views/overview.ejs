@@ -9,6 +9,7 @@
         <% if (pipeline.isOverdue) { %>
           <span class="badge-overdue">OVERDUE</span>
         <% } %>
+        <button class="btn-start" onclick="startPipeline('<%= pipeline.name %>', this); event.preventDefault(); event.stopPropagation();">Start</button>
       </div>
 
       <% if (pipeline.lastRun) { %>
@@ -39,5 +40,26 @@
     </a>
   <% }) %>
 </div>
+
+<script>
+async function startPipeline(name, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Starting\u2026';
+  try {
+    const res = await fetch('/api/pipeline/' + encodeURIComponent(name) + '/start', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      btn.textContent = 'Started';
+      setTimeout(() => { btn.textContent = 'Start'; btn.disabled = false; }, 3000);
+    } else {
+      btn.textContent = 'Error';
+      setTimeout(() => { btn.textContent = 'Start'; btn.disabled = false; }, 3000);
+    }
+  } catch (e) {
+    btn.textContent = 'Error';
+    setTimeout(() => { btn.textContent = 'Start'; btn.disabled = false; }, 3000);
+  }
+}
+</script>
 
 <%- include('partials/foot') %>

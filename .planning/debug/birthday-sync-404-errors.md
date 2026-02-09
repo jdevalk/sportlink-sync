@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "birthday-sync-404-errors"
 created: 2026-01-28T10:00:00Z
 updated: 2026-01-28T08:30:00Z
