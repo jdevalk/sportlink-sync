@@ -48,7 +48,7 @@ Full decision log in PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-7 pending:
+8 pending:
 - [fetch-invoice-addresses-from-sportlink](./todos/pending/2026-02-04-fetch-invoice-addresses-from-sportlink.md) - Fetch invoice addresses and email from Sportlink financial tab
 - [review-deleted-member-handling](./todos/pending/2026-02-06-review-deleted-member-handling.md) - Review how deleted members are handled across all downstream systems
 - [adapt-birthday-sync-to-acf-field](./todos/pending/2026-02-06-adapt-birthday-sync-to-acf-field.md) - Adapt birthday sync to new Stadion ACF field model (completed in v2.3)
@@ -56,6 +56,7 @@ Full decision log in PROJECT.md Key Decisions table.
 - [document-and-simplify-adding-sync-targets](./todos/pending/2026-02-06-document-and-simplify-adding-sync-targets.md) - Document and simplify adding custom sync targets
 - [detect-stale-parent-email-addresses](./todos/pending/2026-02-06-detect-stale-parent-email-addresses.md) - Detect and flag stale parent email addresses
 - [rename-stadion-references-to-rondo-in-database-structure](./todos/pending/2026-02-09-rename-stadion-references-to-rondo-in-database-structure.md) - Rename stadion references to rondo in database structure
+- [improve-freescout-integration-with-rondo-club](./todos/pending/2026-02-09-improve-freescout-integration-with-rondo-club.md) - Improve FreeScout integration: emails as activities in Rondo Club + photos from Rondo Club
 
 ### Active Debug Sessions
 
