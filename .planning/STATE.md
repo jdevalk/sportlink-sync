@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v3.0 Web Dashboard -- Phase 35: Run Tracking
+**Current focus:** v3.0 Web Dashboard -- Phase 36: Web Server and Authentication
 
 ## Current Position
 
-Phase: 35 of 38 (Run Tracking) -- second of 5 active phases
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-02-08 -- Completed 35-01-PLAN.md
+Phase: 36 of 38 (Web Server and Authentication) -- third of 5 active phases
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-09 -- Completed 36-01-PLAN.md
 
-Progress: [████░░░░░░] 28%
+Progress: [████░░░░░░] 37%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 37.5 min
-- Total execution time: 75 min
+- Total plans completed: 3
+- Average duration: 28.3 min
+- Total execution time: 85 min
 
 **By Phase:**
 
@@ -29,6 +29,7 @@ Progress: [████░░░░░░] 28%
 |-------|-------|-------|----------|
 | 34-infrastructure-foundation | 1 | 8 min | 8 min |
 | 35-run-tracking | 1 | 67 min | 67 min |
+| 36-web-server-and-authentication | 1 | 10 min | 10 min |
 
 *Updated after each plan completion*
 
@@ -42,6 +43,11 @@ Progress: [████░░░░░░] 28%
 | 35 | RunTracker methods wrapped in _safe() | Tracking failures never crash pipelines |
 | 35 | Per-run database connection | Each pipeline run gets its own connection, closed after endRun |
 | 35 | sync-all delegates step tracking | 'all' pipeline tracks run-level, delegated pipelines track their own step details |
+| 36 | SQLite session store for persistence | Sessions survive server restarts, no memory leak from default in-memory store |
+| 36 | Argon2id for password hashing | OWASP recommended, memory-hard, resistant to GPU attacks |
+| 36 | Pre-hashed passwords in users.json | Passwords never in plain text, even during setup |
+| 36 | Rate limit login: 5/min per IP | Balance security (prevent brute force) and usability (allow typos) |
+| 36 | Non-root systemd service | INFRA-04 requirement - web server runs as sportlink user |
 
 ### Pending Todos
 
@@ -64,7 +70,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-08
-Stopped at: Completed Phase 35 (Run Tracking)
+Last session: 2026-02-09
+Stopped at: Completed 36-01 (Fastify web server with authentication)
 Resume file: None
-Next steps: `/gsd:plan-phase 36` to plan Web Server
+Next steps: Execute 36-02 (Server deployment) or plan Phase 37 (Dashboard UI)
