@@ -50,7 +50,7 @@ async function startPipeline(name, btn) {
     const data = await res.json();
     if (data.ok) {
       btn.textContent = 'Started';
-      setTimeout(() => { btn.textContent = 'Start'; btn.disabled = false; }, 3000);
+      setTimeout(() => { window.location.reload(); }, 1000);
     } else {
       btn.textContent = 'Error';
       setTimeout(() => { btn.textContent = 'Start'; btn.disabled = false; }, 3000);
