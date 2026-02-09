@@ -8,11 +8,11 @@ A sync system with web dashboard that synchronizes member data bidirectionally b
 
 Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention — now bidirectionally, with web-based monitoring.
 
-## Current State (v3.0 Shipped)
+## Current State (v3.1 Shipped)
 
 **Shipped:** 2026-02-09
 
-Everything from v2.3 plus a full web monitoring dashboard:
+Everything from v3.0 plus a one-time former member import tool:
 - All SQLite databases use WAL mode with busy_timeout for concurrent cron + web server access
 - Dashboard database (dashboard.sqlite) stores structured run data: timing, per-step counts, individual errors
 - RunTracker class instruments all 7 pipelines with safety-wrapped methods (tracking failures never crash pipelines)
@@ -22,15 +22,16 @@ Everything from v2.3 plus a full web monitoring dashboard:
 - Error browser with filtering by pipeline/date and drill-down to individual member failures with stack traces
 - Error-only email alerts replace always-send reports; periodic overdue checks with 4-hour cooldown
 - Server-rendered HTML (EJS templates), responsive layout, no build step
+- One-time import tool fetches inactive members from Sportlink and syncs to Rondo Club as former members with photos
 
 <details>
-<summary>Previous: v2.3 Birthday Field Migration (2026-02-06)</summary>
+<summary>Previous: v3.0 Web Dashboard (2026-02-09)</summary>
 
-Full bidirectional sync pipeline operational with simplified birthday handling:
+Full bidirectional sync pipeline operational with web monitoring dashboard:
 - Member data downloads from Sportlink via browser automation
 - Members sync to Laposta email lists with hash-based change detection
 - Members and parents sync to Rondo Club WordPress with relationship linking
-- Birthdate syncs as `acf.birthdate` field on person records (simplified from separate important_date posts)
+- Birthdate syncs as `acf.birthdate` field on person records
 - Financial block status syncs bidirectionally with activity audit trail
 - Photos download via HTTP (from MemberHeader API URLs) and upload to Rondo Club hourly
 - Teams extract from Sportlink and sync to Rondo Club with work history
@@ -39,6 +40,7 @@ Full bidirectional sync pipeline operational with simplified birthday handling:
 - Nikki contributions sync with CSV download, per-year ACF fields, and 4-year retention
 - Discipline cases download from Sportlink and sync to Rondo Club with season-based organization
 - Six automated pipelines (people 4x daily, nikki daily, teams/functions weekly, reverse sync every 15 minutes, discipline weekly Monday 11:30 PM)
+- Dashboard with pipeline overview, run history, error browser at https://sync.rondo.club
 
 </details>
 
@@ -75,15 +77,14 @@ Full bidirectional sync pipeline operational with simplified birthday handling:
 - ✓ Overdue pipeline detection with configurable thresholds — v3.0
 - ✓ Error-only email alerts with dashboard links replace always-send reports — v3.0
 - ✓ Responsive server-rendered HTML dashboard (EJS, no build step) — v3.0
+- ✓ Search Sportlink for INACTIVE members via browser automation — v3.1
+- ✓ Download former member data (name, contact, address, photo, KNVB ID) — v3.1
+- ✓ Sync former members to Rondo Club with `acf.former_member = true` — v3.1
+- ✓ One-time onboarding tool (not a scheduled pipeline) — v3.1
 
 ### Active
 
-**Current Milestone: v3.1 Fetch Former Members**
-
-- [ ] Search Sportlink for INACTIVE members via browser automation
-- [ ] Download former member data (name, contact, address, photo, KNVB ID)
-- [ ] Sync former members to Rondo Club with `acf.former_member = true`
-- [ ] One-time onboarding tool (not a scheduled pipeline)
+(None — define with `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -148,6 +149,10 @@ Full bidirectional sync pipeline operational with simplified birthday handling:
 | Error-only email alerts | Dashboard is source of truth, emails only for action needed | ✓ Good |
 | Periodic overdue checks in web server | 30-min interval with 4-hour cooldown prevents spam | ✓ Good |
 | Systemd service runs as root | No sportlink user on server; accepted for now | ⚠️ Revisit |
+| 3-strategy status filter toggle | Resilient to Sportlink UI changes (ID → text → role fallback) | ✓ Good |
+| Dry-run-by-default import tool | Safe-by-default; --import flag required to execute | ✓ Good |
+| Cached download results | Resume-after-failure without re-downloading from Sportlink | ✓ Good |
+| Photo steps in import tool | Atomic operation; photo failures don't block member sync | ✓ Good |
 
 ---
-*Last updated: 2026-02-09 after v3.1 milestone start*
+*Last updated: 2026-02-09 after v3.1 milestone*

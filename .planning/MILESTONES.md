@@ -1,5 +1,32 @@
 # Project Milestones: Rondo Sync
 
+## v3.1 Fetch Former Members (Shipped: 2026-02-09)
+
+**Delivered:** One-time import tool that fetches inactive members from Sportlink via browser automation and syncs them to Rondo Club as former member records with photos.
+
+**Phases completed:** 40 (2 plans total, 3 tasks)
+
+**Key accomplishments:**
+
+- Playwright-based inactive member download from Sportlink with 3-strategy fallback status filter toggle
+- One-time import tool with dry-run-by-default safety pattern and --import flag to execute
+- Former members synced to Rondo Club with `acf.former_member = true` and duplicate detection
+- Photo download via MemberHeader API and multipart upload to WordPress
+- Cached download results enable resume-after-failure workflow
+
+**Stats:**
+
+- 8 files modified (1,141 insertions)
+- 1 phase, 2 plans, 3 tasks
+- Same day development (2026-02-09, ~33 min)
+- Total execution time: 4 min
+
+**Git range:** `824b05e` → `9adbfa2`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v3.0 Web Dashboard (Shipped: 2026-02-09)
 
 **Delivered:** Web-based monitoring dashboard for sync pipelines with per-user authentication, run tracking, error browser, and error-only email alerts — replacing SSH-based monitoring and always-send email reports.
@@ -334,3 +361,4 @@
 **What's next:** To be determined in next milestone planning.
 
 ---
+
