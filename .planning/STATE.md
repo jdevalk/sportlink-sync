@@ -40,7 +40,7 @@ Progress: [██████████] 100% (v3.0)
 
 ### Pending Todos
 
-7 pending:
+8 pending:
 - [fetch-invoice-addresses-from-sportlink](./todos/pending/2026-02-04-fetch-invoice-addresses-from-sportlink.md) - Fetch invoice addresses and email from Sportlink financial tab
 - [review-deleted-member-handling](./todos/pending/2026-02-06-review-deleted-member-handling.md) - Review how deleted members are handled across all downstream systems
 - [adapt-birthday-sync-to-acf-field](./todos/pending/2026-02-06-adapt-birthday-sync-to-acf-field.md) - Adapt birthday sync to new Stadion ACF field model (**completed in v2.3**)
@@ -48,6 +48,7 @@ Progress: [██████████] 100% (v3.0)
 - [document-and-simplify-adding-sync-targets](./todos/pending/2026-02-06-document-and-simplify-adding-sync-targets.md) - Document and simplify adding custom sync targets
 - [detect-stale-parent-email-addresses](./todos/pending/2026-02-06-detect-stale-parent-email-addresses.md) - Detect and flag stale parent email addresses
 - [create-dedicated-service-user-for-web-server](./todos/pending/2026-02-09-create-dedicated-service-user-for-web-server.md) - Create dedicated service user for web server (security hardening)
+- [add-pipeline-start-buttons-to-web-interface](./todos/pending/2026-02-09-add-pipeline-start-buttons-to-web-interface.md) - Add pipeline start buttons to web interface
 
 ### Active Debug Sessions
 
