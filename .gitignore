@@ -16,5 +16,8 @@ logs/
 # Databases
 *.sqlite
 
+# User config (contains password hashes)
+config/users.json
+
 # OS
 .DS_Store
