@@ -189,6 +189,10 @@ function preparePerson(sportlinkMember, freeFields = null, invoiceData = null) {
     }
   }
 
+  // Active members are explicitly marked as not former
+  // (Members no longer in Sportlink are marked as former in separate step)
+  acf.former_member = false;
+
   // Invoice data from Sportlink /financial tab
   // Only include if custom invoice address is set (not using member's default address)
   if (invoiceData) {

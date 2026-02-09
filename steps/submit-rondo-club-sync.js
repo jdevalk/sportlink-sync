@@ -641,50 +641,50 @@ async function syncParents(db, knvbIdToStadionId, options = {}) {
 }
 
 /**
- * Delete members that were removed from Sportlink
+ * Mark members that were removed from Sportlink as former members
  * @param {Object} db - SQLite database connection
  * @param {Array<string>} currentKnvbIds - Current KNVB IDs from Sportlink
  * @param {Object} options - Logger and verbose options
- * @returns {Promise<{deleted: Array, errors: Array}>}
+ * @returns {Promise<{marked: Array, errors: Array}>}
  */
-async function deleteRemovedMembers(db, currentKnvbIds, options) {
+async function markFormerMembers(db, currentKnvbIds, options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
-  const deleted = [];
+  const marked = [];
   const errors = [];
 
   // Find members in DB but not in current Sportlink data
-  const toDelete = getMembersNotInList(db, currentKnvbIds);
+  const toMark = getMembersNotInList(db, currentKnvbIds);
 
-  for (const member of toDelete) {
+  for (const member of toMark) {
     if (!member.stadion_id) {
       // Never synced to Rondo Club, just remove from tracking
       deleteMember(db, member.knvb_id);
       continue;
     }
 
-    logVerbose(`Deleting from Rondo Club: ${member.knvb_id}`);
+    logVerbose(`Marking as former member: ${member.knvb_id} (Rondo Club ID: ${member.stadion_id})`);
     try {
       await rondoClubRequest(
         `wp/v2/people/${member.stadion_id}`,
-        'DELETE',
-        null,
+        'PUT',
+        { acf: { former_member: true } },
         options
       );
-      deleteMember(db, member.knvb_id);
-      deleted.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
+      // Keep member in tracking DB (do NOT call deleteMember) so we can detect if they rejoin
+      marked.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
     } catch (error) {
-      // Ignore 404 errors - person already deleted from WordPress
+      // Handle 404 - person was deleted from WordPress, remove from tracking
       if (error.details?.data?.status === 404) {
-        logVerbose(`  Already deleted from WordPress (404)`);
+        logVerbose(`  Person no longer exists in WordPress (404) - removing from tracking`);
         deleteMember(db, member.knvb_id);
-        deleted.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
+        marked.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
       } else {
         errors.push({ knvb_id: member.knvb_id, message: error.message });
       }
     }
   }
 
-  return { deleted, errors };
+  return { marked, errors };
 }
 
 /**
@@ -766,11 +766,11 @@ async function runSync(options = {}) {
           }
         }
 
-        // Step 5: Delete members removed from Sportlink
+        // Step 5: Mark former members (removed from Sportlink)
         const currentKnvbIds = members.map(m => m.knvb_id);
-        const deleteResult = await deleteRemovedMembers(db, currentKnvbIds, options);
-        result.deleted = deleteResult.deleted.length;
-        result.errors.push(...deleteResult.errors);
+        const markResult = await markFormerMembers(db, currentKnvbIds, options);
+        result.deleted = markResult.marked.length;
+        result.errors.push(...markResult.errors);
 
         // Generate and log conflict summary for email report
         if (allConflicts.length > 0) {
@@ -849,7 +849,7 @@ if (require.main === module) {
         console.log(`  Created: ${result.created}`);
         console.log(`  Updated: ${result.updated}`);
         console.log(`  Skipped: ${result.skipped}`);
-        console.log(`  Deleted: ${result.deleted}`);
+        console.log(`  Marked as former: ${result.deleted}`);
       }
       if (result.parents) {
         console.log(`Parents: ${result.parents.synced}/${result.parents.total} synced`);
