@@ -93,10 +93,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A successful pipeline run sends no email
   2. A pipeline run with errors sends an email containing a clickable link to the run detail page in the dashboard
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 38-01: Error-only email reports with dashboard links
+- [ ] 38-01-PLAN.md -- Alert email module, sync.sh failure-only alerts, overdue checks in web server
 
 ### Phase 39: Multi-Club Readiness
 **Goal**: The system supports adding a second club without restructuring code or databases
