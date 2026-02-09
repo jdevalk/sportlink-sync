@@ -39,15 +39,15 @@ Requirements for the web dashboard milestone. Each maps to roadmap phases.
 
 ### Dashboard UI
 
-- [ ] **DASH-01**: Pipeline overview page shows traffic-light status (green/yellow/red) for all 6 pipelines
-- [ ] **DASH-02**: Each pipeline shows last run time, outcome, and key counts
-- [ ] **DASH-03**: Overdue pipelines are flagged (missed expected schedule)
-- [ ] **DASH-04**: Run history page per pipeline with paginated list of past runs
-- [ ] **DASH-05**: Run detail view shows per-step breakdown with counts
-- [ ] **DASH-06**: Error browser lists all errors with filtering by pipeline and date range
-- [ ] **DASH-07**: Error drill-down shows individual member failures with error details
-- [ ] **DASH-08**: Dashboard layout is responsive (usable on phone)
-- [ ] **DASH-09**: Dashboard uses server-rendered HTML (no SPA framework, no build step)
+- [x] **DASH-01**: Pipeline overview page shows traffic-light status (green/yellow/red) for all 6 pipelines
+- [x] **DASH-02**: Each pipeline shows last run time, outcome, and key counts
+- [x] **DASH-03**: Overdue pipelines are flagged (missed expected schedule)
+- [x] **DASH-04**: Run history page per pipeline with paginated list of past runs
+- [x] **DASH-05**: Run detail view shows per-step breakdown with counts
+- [x] **DASH-06**: Error browser lists all errors with filtering by pipeline and date range
+- [x] **DASH-07**: Error drill-down shows individual member failures with error details
+- [x] **DASH-08**: Dashboard layout is responsive (usable on phone)
+- [x] **DASH-09**: Dashboard uses server-rendered HTML (no SPA framework, no build step)
 
 ### Email Migration
 
@@ -118,15 +118,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WEB-02 | Phase 36 | Complete |
 | WEB-03 | Phase 36 | Complete |
 | WEB-04 | Phase 36 | Complete |
-| DASH-01 | Phase 37 | Pending |
-| DASH-02 | Phase 37 | Pending |
-| DASH-03 | Phase 37 | Pending |
-| DASH-04 | Phase 37 | Pending |
-| DASH-05 | Phase 37 | Pending |
-| DASH-06 | Phase 37 | Pending |
-| DASH-07 | Phase 37 | Pending |
-| DASH-08 | Phase 37 | Pending |
-| DASH-09 | Phase 37 | Pending |
+| DASH-01 | Phase 37 | Complete |
+| DASH-02 | Phase 37 | Complete |
+| DASH-03 | Phase 37 | Complete |
+| DASH-04 | Phase 37 | Complete |
+| DASH-05 | Phase 37 | Complete |
+| DASH-06 | Phase 37 | Complete |
+| DASH-07 | Phase 37 | Complete |
+| DASH-08 | Phase 37 | Complete |
+| DASH-09 | Phase 37 | Complete |
 | EMAIL-01 | Phase 38 | Pending |
 | EMAIL-02 | Phase 38 | Pending |
 | MULTI-01 | Phase 34 | Complete |
@@ -139,4 +139,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-09 after Phase 36 completion*
+*Last updated: 2026-02-09 after Phase 37 completion*

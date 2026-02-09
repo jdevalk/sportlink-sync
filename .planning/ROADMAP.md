@@ -14,7 +14,7 @@ Transform Rondo Sync from a CLI-only cron tool into a web-monitored system with 
 - [x] **Phase 34: Infrastructure Foundation** - Node.js 22 upgrade, WAL mode on all databases, dashboard database schema
 - [x] **Phase 35: Run Tracking** - Persist pipeline stats to dashboard database, instrument all 6 pipelines
 - [x] **Phase 36: Web Server and Authentication** - Fastify server with nginx/TLS, systemd service, per-user login
-- [ ] **Phase 37: Dashboard UI** - Pipeline overview, run history, run detail, and error browser views
+- [x] **Phase 37: Dashboard UI** - Pipeline overview, run history, run detail, and error browser views
 - [ ] **Phase 38: Email Migration** - Switch email reports to error-only alerts with dashboard links
 - [ ] **Phase 39: Multi-Club Readiness** - Database-per-club layout and config registry (deferred until second club)
 
@@ -83,7 +83,7 @@ Plans:
 
 Plans:
 - [x] 37-01-PLAN.md -- Dashboard queries, pipeline overview, run history, and run detail pages
-- [ ] 37-02-PLAN.md -- Error browser, error detail, and responsive verification
+- [x] 37-02-PLAN.md -- Error browser, error detail, and responsive verification
 
 ### Phase 38: Email Migration
 **Goal**: Email reports only fire on errors and link directly to the dashboard for details
@@ -123,7 +123,7 @@ Phase 39 is deferred (not in active execution order).
 | 34. Infrastructure Foundation | 1/1 | Complete | 2026-02-08 |
 | 35. Run Tracking | 1/1 | Complete | 2026-02-08 |
 | 36. Web Server and Authentication | 2/2 | Complete | 2026-02-09 |
-| 37. Dashboard UI | 1/2 | In progress | - |
+| 37. Dashboard UI | 2/2 | Complete | 2026-02-09 |
 | 38. Email Migration | 0/1 | Not started | - |
 | 39. Multi-Club Readiness | 0/1 | Deferred | - |
 
