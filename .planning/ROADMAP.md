@@ -82,7 +82,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 37-01-PLAN.md -- Dashboard queries, pipeline overview, run history, and run detail pages
+- [x] 37-01-PLAN.md -- Dashboard queries, pipeline overview, run history, and run detail pages
 - [ ] 37-02-PLAN.md -- Error browser, error detail, and responsive verification
 
 ### Phase 38: Email Migration
@@ -123,7 +123,7 @@ Phase 39 is deferred (not in active execution order).
 | 34. Infrastructure Foundation | 1/1 | Complete | 2026-02-08 |
 | 35. Run Tracking | 1/1 | Complete | 2026-02-08 |
 | 36. Web Server and Authentication | 2/2 | Complete | 2026-02-09 |
-| 37. Dashboard UI | 0/2 | Not started | - |
+| 37. Dashboard UI | 1/2 | In progress | - |
 | 38. Email Migration | 0/1 | Not started | - |
 | 39. Multi-Club Readiness | 0/1 | Deferred | - |
 

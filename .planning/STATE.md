@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v3.0 Web Dashboard -- Phase 36: Web Server and Authentication
+**Current focus:** v3.0 Web Dashboard -- Phase 37: Dashboard UI
 
 ## Current Position
 
-Phase: 36 of 38 (Web Server and Authentication) -- third of 5 active phases
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-09 -- Completed 36-02-PLAN.md
+Phase: 37 of 38 (Dashboard UI) -- fourth of 5 active phases
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-09 -- Completed 37-01-PLAN.md
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 56%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 22.5 min
-- Total execution time: 90 min
+- Total plans completed: 5
+- Average duration: 18.6 min
+- Total execution time: 93 min
 
 **By Phase:**
 
@@ -30,6 +30,7 @@ Progress: [█████░░░░░] 50%
 | 34-infrastructure-foundation | 1 | 8 min | 8 min |
 | 35-run-tracking | 1 | 67 min | 67 min |
 | 36-web-server-and-authentication | 2 | 15 min | 7.5 min |
+| 37-dashboard-ui | 1 | 3 min | 3 min |
 
 *Updated after each plan completion*
 
@@ -49,6 +50,10 @@ Progress: [█████░░░░░] 50%
 | 36 | Rate limit login: 5/min per IP | Balance security (prevent brute force) and usability (allow typos) |
 | 36 | Systemd service runs as root | No sportlink user on server; all existing services run as root |
 | 36 | Cloudflare DNS proxy | DNS resolves to Cloudflare IPs, proxied to origin server |
+| 37 | EJS partials pattern (include head/foot) | @fastify/view doesn't support layout inheritance natively |
+| 37 | Overdue detection based on cron schedule | Each pipeline has threshold (people/functions: 4h, nikki/freescout: 25h, teams/discipline: 192h) |
+| 37 | Lazy database connection in queries module | Open once, reuse, close on server shutdown via onClose hook |
+| 37 | Helper functions as EJS locals | formatRelativeTime and formatDuration passed to all views for consistent formatting |
 
 ### Pending Todos
 
@@ -73,6 +78,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed Phase 36 (Web Server and Authentication)
+Stopped at: Completed 37-01-PLAN.md (Dashboard Queries and Overview)
 Resume file: None
-Next steps: `/gsd:plan-phase 37` to plan Dashboard UI
+Next steps: Execute 37-02-PLAN.md (Error Browser)
