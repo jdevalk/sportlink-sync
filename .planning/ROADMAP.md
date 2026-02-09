@@ -55,10 +55,11 @@
 7. Tool provides dry-run mode showing what would be synced without making changes
 8. Tool outputs progress with counts (downloaded, synced, skipped, failed)
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 40-01: [To be planned]
+- [ ] 40-01-PLAN.md — Download inactive members from Sportlink and sync to Rondo Club with former_member flag
+- [ ] 40-02-PLAN.md — Download and upload photos for former members
 
 ## Progress
 
@@ -70,7 +71,7 @@ Plans:
 | 37. Dashboard UI | v3.0 | 2/2 | Complete | 2026-02-09 |
 | 38. Email Migration | v3.0 | 1/1 | Complete | 2026-02-09 |
 | 39. Multi-Club Readiness | — | 0/1 | Deferred | - |
-| 40. Former Member Import Tool | v3.1 | 0/1 | Not started | - |
+| 40. Former Member Import Tool | v3.1 | 0/2 | In progress | - |
 
 ---
 *Roadmap created: 2026-02-08*
