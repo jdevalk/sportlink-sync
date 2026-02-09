@@ -12,7 +12,16 @@
         <button class="btn-start" onclick="startPipeline('<%= pipeline.name %>', this); event.preventDefault(); event.stopPropagation();">Start</button>
       </div>
 
-      <% if (pipeline.lastRun) { %>
+      <% if (pipeline.status === 'running' && pipeline.lastRun) { %>
+        <div class="last-run running-info">
+          Running since <%= formatRelativeTime(pipeline.lastRun.started_at) %>
+        </div>
+        <% if (pipeline.previousRun) { %>
+          <div class="duration">
+            Previous run: <%= formatDuration(pipeline.previousRun.duration_ms) %>
+          </div>
+        <% } %>
+      <% } else if (pipeline.lastRun) { %>
         <div class="last-run">
           Last run: <%= formatRelativeTime(pipeline.lastRun.started_at) %>
         </div>

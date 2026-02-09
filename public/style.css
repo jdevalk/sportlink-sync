@@ -227,7 +227,14 @@ body > form button:active {
 }
 
 .status-running {
-  background: #ffc107;
+  background: transparent;
+  border: 2px solid #e0e0e0;
+  border-top-color: #007bff;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .status-unknown {
@@ -276,6 +283,10 @@ body > form button:active {
   font-size: 0.9rem;
   color: #999;
   margin-bottom: 0.5rem;
+}
+
+.pipeline-card .running-info {
+  color: #007bff;
 }
 
 .pipeline-card .counts {
