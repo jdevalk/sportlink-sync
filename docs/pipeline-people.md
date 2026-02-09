@@ -108,15 +108,20 @@ pipelines/sync-people.js
 ### Step 5: Photo Download
 
 **Script:** `steps/download-photos-from-api.js`
-**Function:** `runPhotoDownload({ logger, verbose, force })`
+**Function:** `runPhotoDownload({ logger, verbose })`
 
 1. Queries `stadion_members` for members with `photo_state = 'pending_download'`
-2. Downloads each photo via HTTP from the `photo_url` stored in `stadion_members`
-3. Saves to `photos/{knvb_id}.{ext}`
-4. Updates `photo_state` to `'downloaded'`
-5. Rate limited: 200ms between downloads, 1s exponential backoff on errors
+2. If none pending, returns early (no browser launched)
+3. Launches headless Chromium via Playwright
+4. Logs into Sportlink Club
+5. For each pending member: navigates to `/member/member-details/{knvbId}/other`, captures `MemberHeader` API response
+6. Extracts signed photo URL via `parseMemberHeaderResponse()` from `lib/photo-utils.js`
+7. Downloads photo from CDN URL via `downloadPhotoFromUrl()` from `lib/photo-utils.js`
+8. Saves to `photos/{knvb_id}.{ext}`
+9. Updates `photo_state` to `'downloaded'`
+10. Rate limited: 500ms-1.5s random jitter between members
 
-**Output:** `{ downloaded, errors }`
+**Output:** `{ success, total, downloaded, failed, errors }`
 
 ### Step 6: Photo Upload
 
@@ -212,8 +217,9 @@ See `config/field-mapping.json` for the complete mapping. Key fields:
 | `steps/submit-rondo-club-sync.js` | Rondo Club WordPress API sync (members + parents + birthdate) |
 | `steps/prepare-rondo-club-members.js` | Rondo Club member data preparation |
 | `steps/prepare-stadion-parents.js` | Parent extraction and dedup |
-| `steps/download-photos-from-api.js` | Photo download |
+| `steps/download-photos-from-api.js` | Photo download (Playwright) |
 | `steps/upload-photos-to-stadion.js` | Photo upload/delete |
+| `lib/photo-utils.js` | Shared photo helpers (MIME types, download, MemberHeader parsing) |
 | `config/field-mapping.json` | Laposta field mapping config |
 | `lib/laposta-db.js` | Laposta SQLite operations |
 | `lib/rondo-club-db.js` | Rondo Club SQLite operations |
