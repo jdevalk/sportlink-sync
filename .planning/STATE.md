@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 Phase: All v3.0 phases complete (34-38)
 Status: Milestone shipped
-Last activity: 2026-02-09 - Completed quick task 20: Auto-refresh the dashboard every minute
+Last activity: 2026-02-09 - Completed quick task 21: Add crash-resilient run tracking
 
 Progress: [██████████] 100% (v3.0)
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100% (v3.0)
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 21 | Add crash-resilient run tracking: Process-level handlers mark runs as failed on uncaught exceptions | 2026-02-09 | 959ccfb | [21-add-crash-resilient-run-tracking-that-ma](./quick/21-add-crash-resilient-run-tracking-that-ma/) |
 | 20 | Auto-refresh the dashboard every minute: Meta refresh tag for automatic updates | 2026-02-09 | 759ebad | [20-auto-refresh-the-dashboard-every-minute](./quick/20-auto-refresh-the-dashboard-every-minute/) |
 | 19 | Show next planned run time for each pipeline: Amsterdam timezone + schedule label | 2026-02-09 | d8a638d | [19-show-next-planned-run-time-for-each-pipe](./quick/19-show-next-planned-run-time-for-each-pipe/) |
 | 18 | Distinguish partial errors from pipeline failures: 3-way outcome (success/partial/failure) | 2026-02-09 | a0d66db | [18-distinguish-partial-errors-from-pipeline](./quick/18-distinguish-partial-errors-from-pipeline/) |
@@ -70,6 +71,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed quick task 20
+Stopped at: Completed quick task 21
 Resume file: None
 Next steps: Ready for next quick task or milestone
