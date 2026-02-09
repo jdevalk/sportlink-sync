@@ -139,7 +139,7 @@ async function runUnmerge(options = {}) {
       console.log('');
       console.log('Run with --fix to reset parent tracking.');
       console.log('After running, do a people sync to create the parent posts:');
-      console.log('  ssh root@46.202.155.16 "cd /home/sportlink && scripts/sync.sh people"');
+      console.log('  ssh root@46.202.155.16 "cd /home/rondo && scripts/sync.sh people"');
     } else {
       console.log(`Parent tracking reset:         ${reset}`);
       console.log(`Child self-refs cleaned:       ${cleaned}`);

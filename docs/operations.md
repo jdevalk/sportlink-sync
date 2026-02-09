@@ -6,7 +6,7 @@ Day-to-day server operations, monitoring, and maintenance.
 
 ```bash
 ssh root@46.202.155.16
-cd /home/sportlink
+cd /home/rondo
 ```
 
 ## Checking Sync Status
@@ -131,7 +131,7 @@ sqlite3 data/freescout-sync.sqlite "SELECT COUNT(*) FROM freescout_customers WHE
 git add . && git commit -m "description" && git push
 
 # On server: pull and install
-ssh root@46.202.155.16 "cd /home/sportlink && git pull && npm install"
+ssh root@46.202.155.16 "cd /home/rondo && git pull && npm install"
 ```
 
 Only run `npm install` if dependencies changed (check `package.json` diff).
@@ -223,7 +223,7 @@ Weekly checks:
 - [ ] Team sync ran on Sunday (check `logs/cron/sync-teams-*`)
 - [ ] Full functions sync ran on Sunday (check `logs/cron/sync-functions-*`)
 - [ ] Discipline sync ran on Monday (check `logs/cron/sync-discipline-*`)
-- [ ] Disk usage reasonable (`du -sh /home/sportlink/`)
+- [ ] Disk usage reasonable (`du -sh /home/rondo/`)
 
 Monthly checks:
 - [ ] Log files cleaned up (`find logs/cron/ -name "*.log" -mtime +30 | wc -l`)

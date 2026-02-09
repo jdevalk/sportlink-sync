@@ -15,7 +15,7 @@ node tools/delete-duplicates.js --verbose   # Dry run first
 node tools/delete-duplicates.js --apply      # Delete duplicates (keeps oldest per KNVB ID)
 ```
 
-**Prevention:** All sync scripts enforce a server check that blocks local execution. Always sync from `root@46.202.155.16:/home/sportlink/`.
+**Prevention:** All sync scripts enforce a server check that blocks local execution. Always sync from `root@46.202.155.16:/home/rondo/`.
 
 ---
 
@@ -88,7 +88,7 @@ Another people sync is running. Exiting.
 
 **Fix:**
 ```bash
-rm /home/sportlink/.sync-people.lock   # Or whichever sync type
+rm /home/rondo/.sync-people.lock   # Or whichever sync type
 ```
 
 **Note:** This is safe because flock automatically releases on process termination. A stale lock file only persists if the process was killed in an unusual way.
@@ -184,7 +184,7 @@ node tools/check-photo-consistency.js --verbose
 
 **If data was wiped:** Run a full functions sync to restore:
 ```bash
-ssh root@46.202.155.16 "cd /home/sportlink && node pipelines/sync-functions.js --all --verbose"
+ssh root@46.202.155.16 "cd /home/rondo && node pipelines/sync-functions.js --all --verbose"
 ```
 
 ---

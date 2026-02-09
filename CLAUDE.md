@@ -42,18 +42,18 @@ Detailed documentation lives in `docs/`:
 
 ```bash
 ssh root@46.202.155.16
-cd /home/sportlink
+cd /home/rondo
 scripts/sync.sh people    # or any other pipeline
 ```
 
-Deploy code: `git push` then `ssh root@46.202.155.16 "cd /home/sportlink && git pull"`
+Deploy code: `git push` then `ssh root@46.202.155.16 "cd /home/rondo && git pull"`
 
 ## Claude specific instructions
 Prefer Read over `cat`, Grep over `grep/rg` in Bash, and Glob over `find` in Bash. Use Bash only for: running tests, executing build commands, git operations, and multi-step shell scripts. 
 
 ## Remote Server
 
-IP: `46.202.155.16`, path: `/home/sportlink/`
+IP: `46.202.155.16`, path: `/home/rondo/`
 Login with the user's SSH key.
 
 ## Environment Variables

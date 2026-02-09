@@ -61,8 +61,8 @@ sudo apt-get install -y \
 
 ```bash
 cd /home
-git clone <repository-url> sportlink
-cd sportlink
+git clone <repository-url> rondo
+cd rondo
 
 # Install Node.js dependencies
 npm install
@@ -73,7 +73,7 @@ npx playwright install chromium
 
 ### 4. Create Environment File
 
-Create `/home/sportlink/.env` with your credentials:
+Create `/home/rondo/.env` with your credentials:
 
 ```bash
 # Sportlink credentials
@@ -179,7 +179,7 @@ crontab -l
 ## Directory Structure After Install
 
 ```
-/home/sportlink/
+/home/rondo/
 ├── .env                          # Credentials (not in git)
 ├── data/                         # SQLite databases (created on first run)
 │   ├── laposta-sync.sqlite       # Laposta sync state
@@ -202,7 +202,7 @@ crontab -l
 To deploy code updates:
 
 ```bash
-cd /home/sportlink
+cd /home/rondo
 git pull
 npm install  # Only needed if dependencies changed
 ```
@@ -258,5 +258,5 @@ Check Postmark credentials in `.env` and verify the sender email is verified in 
 
 If a sync was interrupted (e.g., server restart), the lock file may remain:
 ```bash
-rm /home/sportlink/.sync-people.lock  # Remove stale lock
+rm /home/rondo/.sync-people.lock  # Remove stale lock
 ```

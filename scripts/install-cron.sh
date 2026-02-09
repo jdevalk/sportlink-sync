@@ -133,7 +133,7 @@ CRON_TZ=Europe/Amsterdam
 "
 
 # Install crontab (remove old entries first)
-(crontab -l 2>/dev/null | grep -v 'sportlink\|sync\.sh\|cron-wrapper' || true; echo "$CRON_ENTRIES") | crontab -
+(crontab -l 2>/dev/null | grep -v 'rondo\|sync\.sh\|cron-wrapper' || true; echo "$CRON_ENTRIES") | crontab -
 
 echo "Cron jobs installed successfully!"
 echo ""

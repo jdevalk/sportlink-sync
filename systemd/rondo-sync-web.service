@@ -4,10 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=sportlink
-Group=sportlink
-WorkingDirectory=/home/sportlink
-ExecStart=/usr/bin/node /home/sportlink/lib/web-server.js
+User=rondo
+Group=rondo
+WorkingDirectory=/home/rondo
+ExecStart=/usr/bin/node /home/rondo/lib/web-server.js
 Restart=on-failure
 RestartSec=10
 StartLimitBurst=5
