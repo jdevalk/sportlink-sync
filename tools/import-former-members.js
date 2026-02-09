@@ -130,8 +130,8 @@ async function runImport(options = {}) {
 
     const tracked = trackedByKnvbId.get(knvbId);
 
-    // Skip if member already exists in database with a stadion_id and has been synced
-    if (tracked && tracked.stadion_id && tracked.last_synced_hash) {
+    // Skip if member already exists in database with a stadion_id
+    if (tracked && tracked.stadion_id) {
       stats.skippedFormer++;
       if (verbose) console.log(`  Skipping ${knvbId}: already synced as former or active member`);
       continue;
