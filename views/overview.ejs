@@ -46,6 +46,12 @@
           Never run
         </div>
       <% } %>
+
+      <% if (pipeline.nextRun) { %>
+        <div class="next-run">
+          Next: <%= formatNextRun(pipeline.nextRun) %> <span class="schedule-label">(<%= pipeline.nextRun.label %>)</span>
+        </div>
+      <% } %>
     </a>
   <% }) %>
 </div>

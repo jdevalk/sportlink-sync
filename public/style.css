@@ -312,6 +312,19 @@ body > form button:active {
   color: #999;
 }
 
+.pipeline-card .next-run {
+  font-size: 0.85rem;
+  color: #007bff;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+}
+
+.pipeline-card .next-run .schedule-label {
+  color: #999;
+  font-size: 0.8rem;
+}
+
 /* Breadcrumb */
 .breadcrumb {
   font-size: 0.9rem;
