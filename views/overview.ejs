@@ -9,7 +9,7 @@
         <% if (pipeline.isOverdue) { %>
           <span class="badge-overdue">OVERDUE</span>
         <% } %>
-        <button class="btn-start" onclick="startPipeline('<%= pipeline.name %>', this); event.preventDefault(); event.stopPropagation();">Start</button>
+        <button class="btn-start" <% if (pipeline.status === 'running') { %>disabled title="Pipeline is currently running"<% } %> onclick="startPipeline('<%= pipeline.name %>', this); event.preventDefault(); event.stopPropagation();"><%= pipeline.status === 'running' ? 'Running' : 'Start' %></button>
       </div>
 
       <% if (pipeline.status === 'running' && pipeline.lastRun) { %>
@@ -62,6 +62,11 @@ async function startPipeline(name, btn) {
   btn.textContent = 'Starting\u2026';
   try {
     const res = await fetch('/api/pipeline/' + encodeURIComponent(name) + '/start', { method: 'POST' });
+    if (res.status === 409) {
+      btn.textContent = 'Running';
+      btn.disabled = true;
+      return;
+    }
     const data = await res.json();
     if (data.ok) {
       btn.textContent = 'Started';
