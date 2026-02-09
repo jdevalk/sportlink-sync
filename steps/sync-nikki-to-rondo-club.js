@@ -36,7 +36,7 @@ function computeFieldsHash(fields) {
  * @param {boolean} [options.dryRun=false] - Don't actually update Rondo Club
  * @returns {Promise<{success: boolean, updated: number, skipped: number, errors: number}>}
  */
-async function runNikkiStadionSync(options = {}) {
+async function runNikkiRondoClubSync(options = {}) {
   const { logger: providedLogger, verbose = false, force = false, dryRun = false } = options;
   const logger = providedLogger || createSyncLogger({ verbose, prefix: 'nikki-stadion' });
 
@@ -187,13 +187,13 @@ async function runNikkiStadionSync(options = {}) {
   }
 }
 
-module.exports = { runNikkiStadionSync, buildPerYearAcfFields };
+module.exports = { runNikkiRondoClubSync, buildPerYearAcfFields };
 
 if (require.main === module) {
   const { verbose, force } = parseCliArgs();
   const dryRun = process.argv.includes('--dry-run');
 
-  runNikkiStadionSync({ verbose, force, dryRun })
+  runNikkiRondoClubSync({ verbose, force, dryRun })
     .then(result => {
       if (!result.success) process.exitCode = 1;
     })
