@@ -14,6 +14,7 @@
 - ✅ **v2.2 Discipline Cases** — Phases 30-32 (shipped 2026-02-03)
 - ✅ **v2.3 Birthday Migration** — Phase 33 (shipped 2026-02-06)
 - ✅ **v3.0 Web Dashboard** — Phases 34-38 (shipped 2026-02-09)
+- 🚧 **v3.1 Fetch Former Members** — Phase 40 (in progress)
 
 ## Phases
 
@@ -32,6 +33,33 @@
 
 - [ ] Phase 39: Multi-Club Readiness (0/1 plan) — deferred until second club onboards
 
+### 🚧 v3.1 Fetch Former Members (In Progress)
+
+**Milestone Goal:** One-time tool to download former members from Sportlink and sync to Rondo Club for tracking outstanding payments/equipment.
+
+#### Phase 40: Former Member Import Tool
+
+**Goal:** Operator can run one-time tool that downloads all former members from Sportlink (inactive status) and syncs them to Rondo Club with former_member flag
+
+**Depends on:** Phase 38 (existing member sync infrastructure)
+
+**Requirements:** DL-01, DL-02, DL-03, SYNC-01, SYNC-02, SYNC-03, SYNC-04, TOOL-01, TOOL-02, TOOL-03
+
+**Success Criteria** (what must be TRUE):
+1. Tool can authenticate to Sportlink and toggle status filter to INACTIVE members
+2. Tool downloads former member data (name, contact, address, KNVB ID) from SearchMembers API
+3. Tool downloads photo for each former member via MemberHeader API
+4. Former members sync to Rondo Club as person records with acf.former_member = true
+5. Former member photos upload to their Rondo Club person records
+6. Tool skips members that already exist as active (no duplicates created)
+7. Tool provides dry-run mode showing what would be synced without making changes
+8. Tool outputs progress with counts (downloaded, synced, skipped, failed)
+
+**Plans:** TBD
+
+Plans:
+- [ ] 40-01: [To be planned]
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -42,7 +70,8 @@
 | 37. Dashboard UI | v3.0 | 2/2 | Complete | 2026-02-09 |
 | 38. Email Migration | v3.0 | 1/1 | Complete | 2026-02-09 |
 | 39. Multi-Club Readiness | — | 0/1 | Deferred | - |
+| 40. Former Member Import Tool | v3.1 | 0/1 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-08*
-*Last updated: 2026-02-09 after v3.0 milestone*
+*Last updated: 2026-02-09 after v3.1 roadmap*

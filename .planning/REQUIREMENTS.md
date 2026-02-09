@@ -45,22 +45,22 @@ Requirements for v3.1 Fetch Former Members. One-time onboarding tool.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DL-01 | — | Pending |
-| DL-02 | — | Pending |
-| DL-03 | — | Pending |
-| SYNC-01 | — | Pending |
-| SYNC-02 | — | Pending |
-| SYNC-03 | — | Pending |
-| SYNC-04 | — | Pending |
-| TOOL-01 | — | Pending |
-| TOOL-02 | — | Pending |
-| TOOL-03 | — | Pending |
+| DL-01 | Phase 40 | Pending |
+| DL-02 | Phase 40 | Pending |
+| DL-03 | Phase 40 | Pending |
+| SYNC-01 | Phase 40 | Pending |
+| SYNC-02 | Phase 40 | Pending |
+| SYNC-03 | Phase 40 | Pending |
+| SYNC-04 | Phase 40 | Pending |
+| TOOL-01 | Phase 40 | Pending |
+| TOOL-02 | Phase 40 | Pending |
+| TOOL-03 | Phase 40 | Pending |
 
 **Coverage:**
 - v3.1 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-09 after initial definition*
+*Last updated: 2026-02-09 after roadmap creation*
