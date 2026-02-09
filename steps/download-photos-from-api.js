@@ -56,7 +56,13 @@ async function runPhotoDownload(options = {}) {
     page.on('response', r => logDebug('<<', r.status(), r.url()));
 
     try {
-      await loginToSportlink(page, { logger });
+      try {
+        await loginToSportlink(page, { logger });
+      } catch (loginError) {
+        logger.log(`Sportlink login failed (${loginError.message.split('\n')[0]}) — skipping photo download`);
+        result.warning = `Login failed: ${loginError.message.split('\n')[0]}`;
+        return result;
+      }
 
       for (let i = 0; i < members.length; i++) {
         const member = members[i];

@@ -287,10 +287,14 @@ async function runPeopleSync(options = {}) {
       stats.photos.pending = photoDownloadResult.total - photoDownloadResult.downloaded;
 
       tracker.endStep(photoDownloadStepId, {
-        outcome: 'success',
+        outcome: photoDownloadResult.warning ? 'partial' : 'success',
         created: photoDownloadResult.downloaded,
         failed: photoDownloadResult.failed
       });
+
+      if (photoDownloadResult.warning) {
+        logger.log(`Warning: ${photoDownloadResult.warning}`);
+      }
 
       if (photoDownloadResult.errors?.length > 0) {
         stats.photos.errors.push(...photoDownloadResult.errors.map(e => ({
