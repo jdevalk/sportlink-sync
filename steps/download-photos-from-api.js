@@ -24,6 +24,7 @@ async function runPhotoDownload(options = {}) {
     success: true,
     total: 0,
     downloaded: 0,
+    skipped: 0,
     failed: 0,
     errors: []
   };
@@ -103,7 +104,12 @@ async function runPhotoDownload(options = {}) {
           logger.verbose(`  Downloading photo...`);
           const photoResult = await downloadPhotoFromUrl(headerResult.photo_url, member.knvb_id, photosDir, logger);
 
-          if (photoResult.success) {
+          if (photoResult.permanent_error) {
+            // Photo URL returns 404 "Not Found" — this is permanent, not an error
+            updatePhotoState(db, member.knvb_id, 'error');
+            result.skipped++;
+            logger.verbose(`    Photo unavailable (404) — marked as permanent error, will retry if PersonImageDate changes`);
+          } else if (photoResult.success) {
             updatePhotoState(db, member.knvb_id, 'downloaded');
             result.downloaded++;
             logger.verbose(`    Saved ${path.basename(photoResult.path)} (${photoResult.bytes} bytes)`);
@@ -128,10 +134,7 @@ async function runPhotoDownload(options = {}) {
     }
 
     // Summary
-    logger.log(`Photos downloaded: ${result.downloaded}/${result.total}`);
-    if (result.failed > 0) {
-      logger.log(`  Failed: ${result.failed}`);
-    }
+    logger.log(`Photos: ${result.downloaded} downloaded, ${result.skipped} unavailable, ${result.failed} failed (${result.total} total)`);
     if (result.errors.length > 0) {
       result.success = false;
     }
