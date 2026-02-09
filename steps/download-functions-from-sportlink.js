@@ -1,6 +1,8 @@
 require('varlock/auto-load');
 
 const { chromium } = require('playwright');
+const fs = require('fs/promises');
+const path = require('path');
 const {
   openDb,
   getAllTrackedMembers,
@@ -12,12 +14,70 @@ const {
   upsertMemberFreeFields,
   clearMemberFreeFields,
   upsertMemberInvoiceData,
-  clearMemberInvoiceData
+  clearMemberInvoiceData,
+  getMembersNeedingPhotoDownloadKnvbIds,
+  updatePhotoState
 } = require('../lib/rondo-club-db');
 const { createSyncLogger } = require('../lib/logger');
 const { loginToSportlink } = require('../lib/sportlink-login');
 const { createLoggerAdapter, createDebugLogger } = require('../lib/log-adapters');
 const { rondoClubRequest } = require('../lib/rondo-club-client');
+
+/**
+ * MIME type to file extension mapping
+ */
+const MIME_TO_EXT = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+};
+
+/**
+ * Extract base MIME type and map to file extension
+ */
+function mimeToExtension(contentType) {
+  const baseType = (contentType || '').split(';')[0].trim().toLowerCase();
+  return MIME_TO_EXT[baseType] || 'jpg';
+}
+
+/**
+ * Download photo from URL immediately (while signed URL is fresh)
+ * @param {string} photoUrl - Sportlink CDN signed URL
+ * @param {string} knvbId - Member KNVB ID
+ * @param {string} photosDir - Directory to save photos
+ * @param {Object} logger - Logger instance
+ * @returns {Promise<{success: boolean, path?: string, bytes?: number}>}
+ */
+async function downloadPhotoFromUrl(photoUrl, knvbId, photosDir, logger) {
+  try {
+    const response = await fetch(photoUrl, {
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (!response.ok) {
+      logger.verbose(`    Photo download HTTP ${response.status}`);
+      return { success: false };
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length < 100) {
+      logger.verbose(`    Photo too small (${buffer.length} bytes), skipping`);
+      return { success: false };
+    }
+
+    const contentType = response.headers.get('content-type');
+    const ext = mimeToExtension(contentType);
+    const filepath = path.join(photosDir, `${knvbId}.${ext}`);
+    await fs.writeFile(filepath, buffer);
+
+    return { success: true, path: filepath, bytes: buffer.length };
+  } catch (error) {
+    logger.verbose(`    Photo download error: ${error.message}`);
+    return { success: false };
+  }
+}
 
 /**
  * Parse functions API response
@@ -418,9 +478,9 @@ async function fetchVogFilteredKnvbIds(logger) {
 }
 
 /**
- * Filter members to only those updated recently
+ * Filter members to only those updated recently (by LastUpdate or PersonImageDate)
  * @param {Array} members - Array of tracked members [{knvb_id, stadion_id}]
- * @param {Map} memberDataMap - Map of knvb_id -> member data (includes LastUpdate)
+ * @param {Map} memberDataMap - Map of knvb_id -> member data (includes LastUpdate, PersonImageDate)
  * @returns {Array} Filtered members
  */
 function filterRecentlyUpdated(members, memberDataMap, days = 2) {
@@ -436,7 +496,15 @@ function filterRecentlyUpdated(members, memberDataMap, days = 2) {
 
     // Parse LastUpdate field (format: "YYYY-MM-DD" or similar)
     const lastUpdate = new Date(memberData.LastUpdate);
-    return lastUpdate >= cutoff;
+    if (lastUpdate >= cutoff) return true;
+
+    // Also include members with recent PersonImageDate (photo changed)
+    if (memberData.PersonImageDate) {
+      const imageDate = new Date(memberData.PersonImageDate);
+      if (imageDate >= cutoff) return true;
+    }
+
+    return false;
   });
 }
 
@@ -462,6 +530,7 @@ async function runFunctionsDownload(options = {}) {
     committeesCount: 0,
     freeFieldsCount: 0,
     invoiceDataCount: 0,
+    photosDownloaded: 0,
     skipped: 0,
     errors: []
   };
@@ -512,13 +581,27 @@ async function runFunctionsDownload(options = {}) {
             for (const member of members) {
               if (!recentKnvbIds.has(member.knvb_id) && vogKnvbIds.has(member.knvb_id)) {
                 recentMembers.push(member);
+                recentKnvbIds.add(member.knvb_id);
                 vogAddedCount++;
               }
             }
           }
 
+          // Add members with pending_download photos (need fresh URL for download)
+          const pendingPhotoKnvbIds = getMembersNeedingPhotoDownloadKnvbIds(db);
+          let photoAddedCount = 0;
+          if (pendingPhotoKnvbIds.size > 0) {
+            for (const member of members) {
+              if (!recentKnvbIds.has(member.knvb_id) && pendingPhotoKnvbIds.has(member.knvb_id)) {
+                recentMembers.push(member);
+                recentKnvbIds.add(member.knvb_id);
+                photoAddedCount++;
+              }
+            }
+          }
+
           members = recentMembers;
-          logger.log(`Processing ${members.length} of ${allMembersCount} members (${members.length - vogAddedCount} recent + ${vogAddedCount} VOG-filtered)`);
+          logger.log(`Processing ${members.length} of ${allMembersCount} members (${members.length - vogAddedCount - photoAddedCount} recent + ${vogAddedCount} VOG-filtered + ${photoAddedCount} pending photo)`);
         } catch (err) {
           logger.verbose(`Error filtering members, processing all: ${err.message}`);
           logger.log(`Processing ${members.length} members (full sync)`);
@@ -552,6 +635,13 @@ async function runFunctionsDownload(options = {}) {
     const allFreeFields = [];
     const allInvoiceData = [];
     const uniqueCommitteeNames = new Set();
+
+    // Ensure photos directory exists for inline photo downloads
+    const photosDir = path.join(process.cwd(), 'photos');
+    await fs.mkdir(photosDir, { recursive: true });
+
+    // Get set of members needing photo download (for inline download after MemberHeader)
+    const pendingPhotoMembers = getMembersNeedingPhotoDownloadKnvbIds(db);
 
     try {
       await loginToSportlink(page, { logger });
@@ -593,6 +683,17 @@ async function runFunctionsDownload(options = {}) {
           if (memberData && (memberData.freescout_id || memberData.vog_datum || memberData.has_financial_block || memberData.photo_url)) {
             allFreeFields.push(memberData);
             logger.verbose(`  Found FreeScout ID: ${memberData.freescout_id || 'none'}, VOG datum: ${memberData.vog_datum || 'none'}, Financial block: ${memberData.has_financial_block}`);
+          }
+
+          // Download photo immediately if this member has pending_download and we got a fresh URL
+          if (pendingPhotoMembers.has(member.knvb_id) && memberData?.photo_url) {
+            logger.verbose(`  Downloading photo (pending_download + fresh URL)...`);
+            const photoResult = await downloadPhotoFromUrl(memberData.photo_url, member.knvb_id, photosDir, logger);
+            if (photoResult.success) {
+              updatePhotoState(db, member.knvb_id, 'downloaded');
+              result.photosDownloaded++;
+              logger.verbose(`    Saved ${path.basename(photoResult.path)} (${photoResult.bytes} bytes)`);
+            }
           }
 
           // Fetch invoice data from /financial tab (only when --with-invoice flag is set)
@@ -679,6 +780,9 @@ async function runFunctionsDownload(options = {}) {
     logger.log(`  Committee memberships found: ${result.committeesCount}`);
     logger.log(`  Unique commissies: ${commissies.length}`);
     logger.log(`  Free fields (VOG/FreeScout): ${result.freeFieldsCount}`);
+    if (result.photosDownloaded > 0) {
+      logger.log(`  Photos downloaded: ${result.photosDownloaded}`);
+    }
     if (withInvoice) {
       logger.log(`  Invoice data records: ${result.invoiceDataCount}`);
     }

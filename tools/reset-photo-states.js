@@ -94,9 +94,8 @@ function main() {
     console.log(`Reset ${membersToReset.length} members to 'pending_download'`);
     console.log('');
     console.log('Next steps:');
-    console.log('  1. Run photo download: node download-photos-from-api.js');
-    console.log('  2. Run photo upload: node upload-photos-to-stadion.js');
-    console.log('  (Or run the full people sync: scripts/sync.sh people)');
+    console.log('  1. Run functions sync to download photos: scripts/sync.sh functions');
+    console.log('  2. Run people sync to upload photos: scripts/sync.sh people');
 
   } finally {
     db.close();
