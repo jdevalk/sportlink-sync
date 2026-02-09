@@ -1,5 +1,38 @@
 # Project Milestones: Rondo Sync
 
+## v3.0 Web Dashboard (Shipped: 2026-02-09)
+
+**Delivered:** Web-based monitoring dashboard for sync pipelines with per-user authentication, run tracking, error browser, and error-only email alerts — replacing SSH-based monitoring and always-send email reports.
+
+**Phases completed:** 34-38 (7 plans total, 14 tasks)
+
+**Key accomplishments:**
+
+- WAL mode on all 5 SQLite databases with 5s busy_timeout for concurrent cron + web server access
+- RunTracker class instruments all 7 pipelines with per-step counts and individual error recording
+- Fastify web server with Argon2id auth, SQLite sessions, deployed at https://sync.rondo.club via nginx/TLS + systemd
+- Dashboard pipeline overview with traffic-light status (green/yellow/red) and overdue detection
+- Run history, run detail, error browser with filtering, and error detail with expandable stack traces
+- Error-only email alerts with dashboard links replace always-send reports; periodic overdue checks with 4-hour cooldown
+
+**Stats:**
+
+- 80 files modified (code)
+- 23,129 lines total JavaScript (project)
+- 5 phases, 7 plans, 14 tasks
+- 2 days (2026-02-08 → 2026-02-09)
+- Total execution time: 103 min
+
+**Git range:** `271f312` → `9e599a4`
+
+**Known limitations:**
+- INFRA-04 partial: web server runs as root (no sportlink user on server) — tracked as pending todo
+- MULTI-02 deferred: multi-club architecture for Phase 39 when second club onboards
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v2.3 Birthday Field Migration (Shipped: 2026-02-06)
 
 **Delivered:** Migrated birthday handling from separate important_date posts to a simple `acf.birthdate` field on person records, simplifying the data model and removing an entire sync lifecycle.

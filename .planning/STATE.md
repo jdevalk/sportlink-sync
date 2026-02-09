@@ -2,23 +2,22 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-08)
+See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention.
-**Current focus:** v3.0 Web Dashboard -- Phase 38: Email Migration (complete)
+**Current focus:** v3.0 Web Dashboard milestone complete. Planning next milestone.
 
 ## Current Position
 
-Phase: 38 of 38 (Email Migration) -- fifth of 5 active phases
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-02-09 -- Completed 38-01-PLAN.md
+Phase: All v3.0 phases complete (34-38)
+Status: Milestone shipped
+Last activity: 2026-02-09 — v3.0 Web Dashboard milestone archived
 
-Progress: [██████████] 100%
+Progress: [██████████] 100% (v3.0)
 
 ## Performance Metrics
 
-**Velocity:**
+**Velocity (v3.0):**
 - Total plans completed: 7
 - Average duration: 14.7 min
 - Total execution time: 103 min
@@ -33,32 +32,11 @@ Progress: [██████████] 100%
 | 37-dashboard-ui | 2 | 11 min | 5.5 min |
 | 38-email-migration | 1 | 2 min | 2 min |
 
-*Updated after each plan completion*
-
 ## Accumulated Context
 
 ### Decisions
 
-| Phase | Decision | Impact |
-|-------|----------|--------|
-| 34 | 5000ms busy_timeout for concurrent access | Enough time for writes without excessive blocking |
-| 35 | RunTracker methods wrapped in _safe() | Tracking failures never crash pipelines |
-| 35 | Per-run database connection | Each pipeline run gets its own connection, closed after endRun |
-| 35 | sync-all delegates step tracking | 'all' pipeline tracks run-level, delegated pipelines track their own step details |
-| 36 | SQLite session store for persistence | Sessions survive server restarts, no memory leak from default in-memory store |
-| 36 | Argon2id for password hashing | OWASP recommended, memory-hard, resistant to GPU attacks |
-| 36 | Pre-hashed passwords in users.json | Passwords never in plain text, even during setup |
-| 36 | Rate limit login: 5/min per IP | Balance security (prevent brute force) and usability (allow typos) |
-| 36 | Systemd service runs as root | No sportlink user on server; all existing services run as root |
-| 36 | Cloudflare DNS proxy | DNS resolves to Cloudflare IPs, proxied to origin server |
-| 37 | EJS partials pattern (include head/foot) | @fastify/view doesn't support layout inheritance natively |
-| 37 | Overdue detection based on cron schedule | Each pipeline has threshold (people/functions: 4h, nikki/freescout: 25h, teams/discipline: 192h) |
-| 37 | Lazy database connection in queries module | Open once, reuse, close on server shutdown via onClose hook |
-| 37 | Helper functions as EJS locals | formatRelativeTime and formatDuration passed to all views for consistent formatting |
-| 37 | Dynamic WHERE clause for error filtering | Builds conditions based on pipeline, date range, run ID filters |
-| 37 | Progressive disclosure for stack traces | HTML details/summary keeps page clean, traces accessible on click |
-| 38 | Alert-only emails replace success reports | Dashboard is source of truth, emails only for failures/overdue |
-| 38 | Periodic overdue checks in web server | 30-min interval with 4-hour cooldown prevents spam |
+(Cleared — full decision log in PROJECT.md Key Decisions table and milestones/v3.0-ROADMAP.md)
 
 ### Pending Todos
 
@@ -83,6 +61,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 38-01-PLAN.md (Phase 38: Email Migration)
+Stopped at: v3.0 Web Dashboard milestone archived
 Resume file: None
-Next steps: v3.0 Web Dashboard milestone complete
+Next steps: `/gsd:new-milestone` to start next milestone cycle
