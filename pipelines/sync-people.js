@@ -10,7 +10,7 @@ const { runSubmit } = require('../steps/submit-laposta-list');
 const { runSync: runRondoClubSync } = require('../steps/submit-rondo-club-sync');
 const { runPhotoDownload } = require('../steps/download-photos-from-api');
 const { runPhotoSync } = require('../steps/upload-photos-to-rondo-club');
-const { runReverseSync } = require('../lib/reverse-sync-sportlink');
+// const { runReverseSync } = require('../lib/reverse-sync-sportlink'); // disabled
 
 /**
  * Print summary report for people sync
@@ -65,32 +65,10 @@ function printSummary(logger, stats) {
   }
   logger.log('');
 
-  // Only show reverse sync section if there were changes or failures
-  if (stats.reverseSync.synced > 0 || stats.reverseSync.failed > 0) {
-    logger.log('REVERSE SYNC (RONDO CLUB -> SPORTLINK)');
-    logger.log(minorDivider);
-    logger.log(`Contact fields synced: ${stats.reverseSync.synced} members`);
-    if (stats.reverseSync.failed > 0) {
-      logger.log(`Failed: ${stats.reverseSync.failed} members`);
-    }
-
-    // Optional: field-level detail if REVERSE_SYNC_DETAIL=detailed
-    const detailLevel = process.env.REVERSE_SYNC_DETAIL || 'summary';
-    if (detailLevel === 'detailed' && stats.reverseSync.results) {
-      for (const result of stats.reverseSync.results) {
-        if (result.success && result.fieldCount > 0) {
-          logger.log(`  ${result.knvbId}: ${result.fieldCount} field(s) synced`);
-        }
-      }
-    }
-    logger.log('');
-  }
-
   const allErrors = [
     ...stats.errors,
     ...stats.rondoClub.errors,
-    ...stats.photos.errors,
-    ...stats.reverseSync.errors
+    ...stats.photos.errors
   ];
   if (allErrors.length > 0) {
     logger.log(`ERRORS (${allErrors.length})`);
@@ -149,12 +127,7 @@ async function runPeopleSync(options = {}) {
       skipped: 0,
       errors: []
     },
-    reverseSync: {
-      synced: 0,
-      failed: 0,
-      errors: [],
-      results: []
-    }
+    reverseSync: { synced: 0, failed: 0, errors: [], results: [] } // disabled, kept for summary compat
   };
 
   try {
@@ -389,49 +362,8 @@ async function runPeopleSync(options = {}) {
       });
     }
 
-    // Step 7: Reverse Sync (Rondo Club -> Sportlink)
-    logger.verbose('Running reverse sync (Rondo Club -> Sportlink)...');
-    const reverseSyncStepId = tracker.startStep('reverse-sync');
-    try {
-      const reverseSyncResult = await runReverseSync({ logger, verbose });
-
-      stats.reverseSync.synced = reverseSyncResult.synced;
-      stats.reverseSync.failed = reverseSyncResult.failed;
-      stats.reverseSync.results = reverseSyncResult.results || [];
-
-      if (reverseSyncResult.results) {
-        // Add field-level detail to errors for failed syncs
-        for (const result of reverseSyncResult.results) {
-          if (!result.success) {
-            stats.reverseSync.errors.push({
-              knvb_id: result.knvbId,
-              message: result.error || 'Sync failed',
-              system: 'reverse-sync'
-            });
-          }
-        }
-      }
-
-      tracker.endStep(reverseSyncStepId, {
-        outcome: 'success',
-        updated: stats.reverseSync.synced,
-        failed: stats.reverseSync.errors.length
-      });
-      tracker.recordErrors('reverse-sync', reverseSyncStepId, stats.reverseSync.errors);
-    } catch (err) {
-      logger.error(`Reverse sync failed: ${err.message}`);
-      stats.reverseSync.errors.push({
-        message: `Reverse sync failed: ${err.message}`,
-        system: 'reverse-sync'
-      });
-      tracker.endStep(reverseSyncStepId, { outcome: 'failure' });
-      tracker.recordError({
-        stepName: 'reverse-sync',
-        stepId: reverseSyncStepId,
-        errorMessage: err.message,
-        errorStack: err.stack
-      });
-    }
+    // Step 7: Reverse Sync (Rondo Club -> Sportlink) — currently disabled
+    // TODO: Re-enable once reverse sync is fixed
 
     // Complete
     stats.completedAt = formatTimestamp();
@@ -439,8 +371,7 @@ async function runPeopleSync(options = {}) {
 
     const success = stats.errors.length === 0 &&
                     stats.rondoClub.errors.length === 0 &&
-                    stats.photos.errors.length === 0 &&
-                    stats.reverseSync.errors.length === 0;
+                    stats.photos.errors.length === 0;
 
     tracker.endRun(success, stats);
 
