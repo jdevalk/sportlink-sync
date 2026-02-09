@@ -12,7 +12,7 @@ Requirements for the web dashboard milestone. Each maps to roadmap phases.
 - [x] **INFRA-01**: Node.js upgraded from 18 to 22 LTS on the production server
 - [x] **INFRA-02**: All SQLite databases use WAL journal mode with busy_timeout for concurrent access
 - [x] **INFRA-03**: Dashboard database (`dashboard.sqlite`) created with run tracking schema
-- [ ] **INFRA-04**: Web server runs as non-root user with minimal permissions
+- [~] **INFRA-04**: Web server runs as non-root user with minimal permissions (partial: runs as root, no sportlink user on server)
 
 ### Run Tracking
 
@@ -24,18 +24,18 @@ Requirements for the web dashboard milestone. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: Users log in with individual username and password
-- [ ] **AUTH-02**: Passwords are hashed with Argon2id
-- [ ] **AUTH-03**: Sessions persist across browser refresh via secure cookies
-- [ ] **AUTH-04**: All dashboard routes require authentication (no public pages except login)
-- [ ] **AUTH-05**: CLI tool exists to create/manage user accounts
+- [x] **AUTH-01**: Users log in with individual username and password
+- [x] **AUTH-02**: Passwords are hashed with Argon2id
+- [x] **AUTH-03**: Sessions persist across browser refresh via secure cookies
+- [x] **AUTH-04**: All dashboard routes require authentication (no public pages except login)
+- [x] **AUTH-05**: CLI tool exists to create/manage user accounts
 
 ### Web Server
 
-- [ ] **WEB-01**: Fastify web server serves the dashboard on the production server
-- [ ] **WEB-02**: Nginx reverse proxy handles TLS termination
-- [ ] **WEB-03**: Web server managed by systemd with automatic restart on crash
-- [ ] **WEB-04**: Web server binds to localhost only (not exposed directly)
+- [x] **WEB-01**: Fastify web server serves the dashboard on the production server
+- [x] **WEB-02**: Nginx reverse proxy handles TLS termination
+- [x] **WEB-03**: Web server managed by systemd with automatic restart on crash
+- [x] **WEB-04**: Web server binds to localhost only (not exposed directly)
 
 ### Dashboard UI
 
@@ -103,21 +103,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-01 | Phase 34 | Complete |
 | INFRA-02 | Phase 34 | Complete |
 | INFRA-03 | Phase 34 | Complete |
-| INFRA-04 | Phase 36 | Pending |
+| INFRA-04 | Phase 36 | Partial |
 | TRACK-01 | Phase 35 | Complete |
 | TRACK-02 | Phase 35 | Complete |
 | TRACK-03 | Phase 35 | Complete |
 | TRACK-04 | Phase 35 | Complete |
 | TRACK-05 | Phase 35 | Complete |
-| AUTH-01 | Phase 36 | Pending |
-| AUTH-02 | Phase 36 | Pending |
-| AUTH-03 | Phase 36 | Pending |
-| AUTH-04 | Phase 36 | Pending |
-| AUTH-05 | Phase 36 | Pending |
-| WEB-01 | Phase 36 | Pending |
-| WEB-02 | Phase 36 | Pending |
-| WEB-03 | Phase 36 | Pending |
-| WEB-04 | Phase 36 | Pending |
+| AUTH-01 | Phase 36 | Complete |
+| AUTH-02 | Phase 36 | Complete |
+| AUTH-03 | Phase 36 | Complete |
+| AUTH-04 | Phase 36 | Complete |
+| AUTH-05 | Phase 36 | Complete |
+| WEB-01 | Phase 36 | Complete |
+| WEB-02 | Phase 36 | Complete |
+| WEB-03 | Phase 36 | Complete |
+| WEB-04 | Phase 36 | Complete |
 | DASH-01 | Phase 37 | Pending |
 | DASH-02 | Phase 37 | Pending |
 | DASH-03 | Phase 37 | Pending |
@@ -139,4 +139,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after initial definition*
+*Last updated: 2026-02-09 after Phase 36 completion*

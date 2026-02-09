@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 36 of 38 (Web Server and Authentication) -- third of 5 active phases
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-09 -- Completed 36-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-09 -- Completed 36-02-PLAN.md
 
-Progress: [████░░░░░░] 37%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 28.3 min
-- Total execution time: 85 min
+- Total plans completed: 4
+- Average duration: 22.5 min
+- Total execution time: 90 min
 
 **By Phase:**
 
@@ -29,7 +29,7 @@ Progress: [████░░░░░░] 37%
 |-------|-------|-------|----------|
 | 34-infrastructure-foundation | 1 | 8 min | 8 min |
 | 35-run-tracking | 1 | 67 min | 67 min |
-| 36-web-server-and-authentication | 1 | 10 min | 10 min |
+| 36-web-server-and-authentication | 2 | 15 min | 7.5 min |
 
 *Updated after each plan completion*
 
@@ -47,7 +47,8 @@ Progress: [████░░░░░░] 37%
 | 36 | Argon2id for password hashing | OWASP recommended, memory-hard, resistant to GPU attacks |
 | 36 | Pre-hashed passwords in users.json | Passwords never in plain text, even during setup |
 | 36 | Rate limit login: 5/min per IP | Balance security (prevent brute force) and usability (allow typos) |
-| 36 | Non-root systemd service | INFRA-04 requirement - web server runs as sportlink user |
+| 36 | Systemd service runs as root | No sportlink user on server; all existing services run as root |
+| 36 | Cloudflare DNS proxy | DNS resolves to Cloudflare IPs, proxied to origin server |
 
 ### Pending Todos
 
@@ -71,6 +72,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 36-01 (Fastify web server with authentication)
+Stopped at: Completed Phase 36 (Web Server and Authentication)
 Resume file: None
-Next steps: Execute 36-02 (Server deployment) or plan Phase 37 (Dashboard UI)
+Next steps: `/gsd:plan-phase 37` to plan Dashboard UI
