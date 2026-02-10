@@ -670,7 +670,9 @@ async function markFormerMembers(db, currentKnvbIds, options) {
         { acf: { former_member: true } },
         options
       );
-      // Keep member in tracking DB (do NOT call deleteMember) so we can detect if they rejoin
+      // Keep member in tracking DB so we can detect if they rejoin,
+      // but clear data_json so they're excluded from active-only queries
+      db.prepare('UPDATE stadion_members SET data_json = ? WHERE knvb_id = ?').run('{}', member.knvb_id);
       marked.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
     } catch (error) {
       // Handle 404 - person was deleted from WordPress, remove from tracking
