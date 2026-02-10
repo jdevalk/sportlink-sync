@@ -51,10 +51,12 @@
   3. All `*_stadion_modified` columns are renamed to `*_rondo_club_modified`
   4. Migration runs without breaking active sync processes on production server
   5. Migration uses CREATE+INSERT+DROP pattern (not ALTER TABLE RENAME) to avoid concurrent access bugs
-**Plans**: 1 plan
+**Plans**: 3 plans
 
 Plans:
-- [ ] 41-01: Rename stadion tables/columns to rondo_club in rondo-club-db.js, discipline-db.js, sync-origin.js, conflict-resolver.js with safe CREATE+INSERT+DROP migration
+- [ ] 41-01-PLAN.md — Migration function + initDb() schema + openDb() integration + sync-origin.js
+- [ ] 41-02-PLAN.md — SQL query updates across all functions in rondo-club-db.js
+- [ ] 41-03-PLAN.md — discipline-db.js + conflict-resolver.js rename + migration
 
 #### Phase 42: Code References
 **Goal**: Update all stadion references in codebase to rondo_club
@@ -104,7 +106,7 @@ Phases execute in numeric order: 41 → 42 → 43
 | 38. Email Migration | v3.0 | 1/1 | Complete | 2026-02-09 |
 | 39. Multi-Club Readiness | — | 0/1 | Deferred | - |
 | 40. Former Member Import Tool | v3.1 | 2/2 | Complete | 2026-02-09 |
-| 41. Database Migration | v3.2 | 0/1 | Planned | - |
+| 41. Database Migration | v3.2 | 0/3 | Planned | - |
 | 42. Code References | v3.2 | 0/TBD | Not started | - |
 | 43. Documentation | v3.2 | 0/TBD | Not started | - |
 
