@@ -201,7 +201,13 @@ body > form button:active {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.pipeline-description {
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 0.75rem;
 }
 
 .pipeline-header h3 {

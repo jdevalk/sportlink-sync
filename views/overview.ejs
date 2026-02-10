@@ -12,6 +12,10 @@
         <button class="btn-start" <% if (pipeline.status === 'running') { %>disabled title="Pipeline is currently running"<% } %> onclick="startPipeline('<%= pipeline.name %>', this); event.preventDefault(); event.stopPropagation();"><%= pipeline.status === 'running' ? 'Running' : 'Start' %></button>
       </div>
 
+      <% if (pipeline.description) { %>
+        <div class="pipeline-description"><%= pipeline.description %></div>
+      <% } %>
+
       <% if (pipeline.status === 'running' && pipeline.lastRun) { %>
         <div class="last-run running-info">
           Running since <%= formatRelativeTime(pipeline.lastRun.started_at) %>
