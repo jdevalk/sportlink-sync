@@ -103,7 +103,7 @@ async function runFunctionsSync(options = {}) {
   const logger = createSyncLogger({ verbose, prefix: 'functions' });
   const startTime = Date.now();
 
-  const tracker = new RunTracker('functions');
+  const tracker = new RunTracker(all ? 'functions-full' : 'functions');
   tracker.startRun();
 
   const stats = {

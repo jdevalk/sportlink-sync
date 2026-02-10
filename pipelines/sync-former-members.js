@@ -14,6 +14,7 @@ const { loginToSportlink } = require('../lib/sportlink-login');
 const { parseMemberHeaderResponse, downloadPhotoFromUrl } = require('../lib/photo-utils');
 const { readEnv } = require('../lib/utils');
 const { createDebugLogger } = require('../lib/log-adapters');
+const { RunTracker } = require('../lib/run-tracker');
 
 const FORMER_MEMBERS_CACHE = path.join(process.cwd(), 'data', 'former-members.json');
 
@@ -29,6 +30,9 @@ const FORMER_MEMBERS_CACHE = path.join(process.cwd(), 'data', 'former-members.js
  */
 async function runImport(options = {}) {
   const { dryRun = true, verbose = false, skipDownload = false, skipPhotos = false, force = false } = options;
+
+  const tracker = dryRun ? null : new RunTracker('former-members');
+  if (tracker) tracker.startRun();
 
   console.log(dryRun ? '=== DRY RUN ===' : '=== IMPORTING FORMER MEMBERS ===');
   console.log('');
@@ -62,6 +66,7 @@ async function runImport(options = {}) {
     } catch (err) {
       console.error(`Error reading cache file: ${err.message}`);
       console.error('Run without --skip-download to fetch fresh data.');
+      if (tracker) tracker.endRun('failure', stats);
       return stats;
     }
   } else {
@@ -70,6 +75,7 @@ async function runImport(options = {}) {
 
     if (!downloadResult.success) {
       console.error(`Download failed: ${downloadResult.error}`);
+      if (tracker) tracker.endRun('failure', stats);
       return stats;
     }
 
@@ -296,6 +302,7 @@ async function runImport(options = {}) {
             console.log(`Synced: ${stats.synced}`);
             console.log(`Failed: ${stats.failed}`);
             printPhotoStats(stats);
+            if (tracker) tracker.endRun(stats.synced > 0 ? 'partial' : 'failure', stats);
             return stats;
           }
 
@@ -446,6 +453,11 @@ async function runImport(options = {}) {
     stats.errors.forEach(({ knvb_id, error }) => {
       console.log(`  - ${knvb_id}: ${error}`);
     });
+  }
+
+  if (tracker) {
+    const outcome = stats.failed > 0 ? (stats.synced > 0 ? 'partial' : 'failure') : 'success';
+    tracker.endRun(outcome, stats);
   }
 
   return stats;
