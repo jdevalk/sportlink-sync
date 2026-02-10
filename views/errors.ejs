@@ -29,16 +29,23 @@
   </div>
 <% } %>
 
-<!-- Result count -->
-<p style="margin-bottom: 1rem; color: #666;">
-  <% if (totalErrors === 0) { %>
-    No errors found
-  <% } else if (totalErrors === 1) { %>
-    Showing 1 error
-  <% } else { %>
-    Showing <%= totalErrors %> errors
+<!-- Result count + clear button -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+  <p style="color: #666; margin: 0;">
+    <% if (totalErrors === 0) { %>
+      No errors found
+    <% } else if (totalErrors === 1) { %>
+      Showing 1 error
+    <% } else { %>
+      Showing <%= totalErrors %> errors
+    <% } %>
+  </p>
+  <% if (totalErrors > 0) { %>
+    <form method="POST" action="/api/logs/clear" onsubmit="return confirm('Clear all logs? This deletes all runs, steps, and errors.')">
+      <button type="submit" class="btn-danger">Clear logs</button>
+    </form>
   <% } %>
-</p>
+</div>
 
 <!-- Error list -->
 <% if (errors.length > 0) { %>

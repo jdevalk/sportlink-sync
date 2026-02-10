@@ -561,6 +561,20 @@ body > form button:active {
   color: #495057;
 }
 
+.btn-danger {
+  padding: 0.5rem 1rem;
+  background: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
 /* Error card */
 .error-card {
   background: white;
