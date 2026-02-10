@@ -51,6 +51,10 @@
         <div class="next-run">
           Next: <%= formatNextRun(pipeline.nextRun) %> <span class="schedule-label">(<%= pipeline.nextRun.label %>)</span>
         </div>
+      <% } else if (pipeline.manualNote) { %>
+        <div class="next-run">
+          <span class="schedule-label"><%= pipeline.manualNote %></span>
+        </div>
       <% } %>
     </a>
   <% }) %>
