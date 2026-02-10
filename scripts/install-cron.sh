@@ -105,7 +105,6 @@ echo ""
 # Build cron entries - sync.sh handles locking internally
 CRON_ENTRIES="
 # Rondo Sync automation (installed $(date +%Y-%m-%d))
-CRON_TZ=Europe/Amsterdam
 
 # People sync: 4x daily during work hours (members, parents, photos)
 0 8,11,14,17 * * * $PROJECT_DIR/scripts/sync.sh people
@@ -122,8 +121,8 @@ CRON_TZ=Europe/Amsterdam
 # Functions sync (recent): 4x daily, 30 min before each people sync
 30 7,10,13,16 * * * $PROJECT_DIR/scripts/sync.sh functions
 
-# Functions sync (full): weekly on Sunday at 1:00 AM
-0 1 * * 0 $PROJECT_DIR/scripts/sync.sh functions --all
+# Functions sync (full + invoice): weekly on Sunday at 1:00 AM
+0 1 * * 0 $PROJECT_DIR/scripts/sync.sh functions --all --with-invoice
 
 # Discipline sync: weekly on Monday at 11:30 PM
 30 23 * * 1 $PROJECT_DIR/scripts/sync.sh discipline

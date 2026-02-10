@@ -10,6 +10,7 @@
 #   sync.sh invoice  # Monthly: functions + invoice data from /financial tab
 #   sync.sh nikki    # Daily: nikki contributions download + Rondo Club sync
 #   sync.sh freescout # Daily: FreeScout customer sync
+#   sync.sh former-members  # Manual: import former members from Sportlink
 #   sync.sh reverse  # Every 15 min: reverse sync (Rondo Club -> Sportlink)
 #   sync.sh all      # Full sync (all steps)
 #
@@ -54,9 +55,10 @@ if [ -z "$1" ]; then
     echo "  6) teams            Team rosters + work history"
     echo "  7) discipline       Discipline cases"
     echo "  8) invoice          Functions + invoice data"
-    echo "  9) all              Run all pipelines sequentially"
+    echo "  9) former-members  Import former members from Sportlink"
+    echo " 10) all              Run all pipelines sequentially"
     echo ""
-    printf "Choice [1-9]: "
+    printf "Choice [1-10]: "
     read -r CHOICE
 
     case "$CHOICE" in
@@ -68,7 +70,8 @@ if [ -z "$1" ]; then
         6) set -- "teams" ;;
         7) set -- "discipline" ;;
         8) set -- "invoice" ;;
-        9) set -- "all" ;;
+        9) set -- "former-members" ;;
+        10) set -- "all" ;;
         *)
             echo "Invalid choice." >&2
             exit 1
@@ -90,7 +93,7 @@ EXTRA_FLAGS="$*"
 
 # Validate sync type
 case "$SYNC_TYPE" in
-    people|photos|teams|functions|invoice|nikki|freescout|reverse|discipline|all)
+    people|photos|teams|functions|invoice|nikki|freescout|reverse|discipline|former-members|all)
         ;;
     *)
         echo "Unknown sync type: $SYNC_TYPE" >&2
@@ -161,6 +164,10 @@ case "$SYNC_TYPE" in
         ;;
     discipline)
         SYNC_SCRIPT="sync-discipline.js"
+        ;;
+    former-members)
+        SYNC_SCRIPT="sync-former-members.js"
+        SYNC_FLAGS="--import"
         ;;
     all)
         SYNC_SCRIPT="sync-all.js"
