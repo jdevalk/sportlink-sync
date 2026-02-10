@@ -84,7 +84,16 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 
 ### Active
 
-(None — define with `/gsd:new-milestone`)
+## Current Milestone: v3.2 Stadion-to-Rondo Rename
+
+**Goal:** Rename all "stadion" references to "rondo_club" across the entire codebase — database tables, columns, file references, variable names, and documentation.
+
+**Target features:**
+- SQLite table migration (stadion_* → rondo_club_*)
+- Column rename (stadion_id → rondo_club_id, *_stadion_modified → *_rondo_club_modified)
+- Code reference updates across all steps, pipelines, libs, and tools
+- Documentation updates
+- Safe live migration (server runs cron syncs continuously)
 
 ### Out of Scope
 
@@ -155,4 +164,4 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 | Photo steps in import tool | Atomic operation; photo failures don't block member sync | ✓ Good |
 
 ---
-*Last updated: 2026-02-09 after v3.1 milestone*
+*Last updated: 2026-02-10 after v3.2 milestone start*

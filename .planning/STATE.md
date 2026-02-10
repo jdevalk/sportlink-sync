@@ -2,32 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-09)
+See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention
-**Current focus:** Planning next milestone
+**Current focus:** v3.2 Stadion-to-Rondo Rename
 
 ## Current Position
 
-Phase: 40 of 40 (Former Member Import Tool)
-Plan: 2 of 2
-Status: Milestone v3.1 complete
-Last activity: 2026-02-09 — Completed v3.1 Fetch Former Members milestone
-
-Progress: [██████████████████████████████] 100% (41/41 plans complete across all milestones)
-
-## Performance Metrics
-
-**Velocity (v3.1):**
-- Total plans completed: 2
-- Average duration: 2.0 min
-- Total execution time: 4 min
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 40-former-member-import-tool | 2 | 4 min | 2 min |
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-10 — Milestone v3.2 started
 
 ## Accumulated Context
 
@@ -59,6 +44,6 @@ Full decision log in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-09
-Stopped at: Completed v3.1 milestone
+Last session: 2026-02-10
+Stopped at: Defining v3.2 requirements
 Resume file: None
