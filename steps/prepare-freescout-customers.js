@@ -140,13 +140,25 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
     }
   }
 
+  // Get FreeScout ID from tracking databases
+  const freescoutId = getExistingFreescoutId(freescoutDb, rondoClubDb, member.knvb_id);
+
+  // For members with empty data_json (former members whose Sportlink data was wiped),
+  // fall back to the email from the DB column and existing freescout data for name/phone.
+  // Only do this when we already have a freescout record to preserve.
+  let existingFreescoutData = null;
+  if (!email && member.email && freescoutId) {
+    email = member.email;
+    const existing = getCustomerByKnvbId(freescoutDb, member.knvb_id);
+    if (existing && existing.data) {
+      existingFreescoutData = existing.data;
+    }
+  }
+
   // Skip members without email
   if (!email) {
     return null;
   }
-
-  // Get FreeScout ID from tracking databases
-  const freescoutId = getExistingFreescoutId(freescoutDb, rondoClubDb, member.knvb_id);
 
   // Get mobile phone from contact_info
   let mobilePhone = null;
@@ -157,25 +169,35 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
     }
   }
 
+  let firstName = acf.first_name || '';
+  let lastName = acf.last_name || '';
+  let phones = [];
+  if (mobilePhone) {
+    phones.push({ type: 'mobile', value: mobilePhone });
+  }
+
+  // Use existing freescout data as fallback for name/phone
+  if (existingFreescoutData) {
+    if (!firstName) firstName = existingFreescoutData.firstName || '';
+    if (!lastName) lastName = existingFreescoutData.lastName || '';
+    if (phones.length === 0 && existingFreescoutData.phones) {
+      phones = existingFreescoutData.phones;
+    }
+  }
+
   // Get union teams
   const unionTeams = getUnionTeams(rondoClubDb, member.knvb_id);
 
   // Get Nikki data
   const nikkiData = getMostRecentNikkiData(nikkiDb, member.knvb_id);
 
-  // Build phones array (only mobile for now)
-  const phones = [];
-  if (mobilePhone) {
-    phones.push({ type: 'mobile', value: mobilePhone });
-  }
-
   return {
     knvb_id: member.knvb_id,
     email: email.toLowerCase(),
     freescout_id: freescoutId,
     data: {
-      firstName: acf.first_name || '',
-      lastName: acf.last_name || '',
+      firstName,
+      lastName,
       phones: phones,
       photoUrl: getPhotoUrl(member)
     },

@@ -98,7 +98,7 @@ async function runFreescoutSync(options = {}) {
       stats.deleted = result.deleted || 0;
       stats.errors = (result.errors || []).map(e => ({
         knvb_id: e.knvb_id,
-        message: e.error,
+        message: e.message,
         system: 'freescout'
       }));
       tracker.endStep(freescoutStepId, {
