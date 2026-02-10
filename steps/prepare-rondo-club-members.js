@@ -170,10 +170,14 @@ function preparePerson(sportlinkMember, freeFields = null, invoiceData = null) {
 
   // Membership metadata fields
   const memberSince = (sportlinkMember.MemberSince || '').trim() || null;
+  const relationEnd = (sportlinkMember.RelationEnd || '').trim() || null;
+  const dateOfPassing = (sportlinkMember.DateOfPassing || '').trim() || null;
   const ageClass = (sportlinkMember.AgeClassDescription || '').trim() || null;
   const memberType = (sportlinkMember.TypeOfMemberDescription || '').trim() || null;
 
   if (memberSince) acf['lid-sinds'] = memberSince;
+  if (relationEnd) acf['lid-tot'] = relationEnd;
+  if (dateOfPassing) acf['datum-overlijden'] = dateOfPassing;
   if (ageClass) acf['leeftijdsgroep'] = ageClass;
   if (personImageDate) acf['datum-foto'] = personImageDate;
   if (memberType) acf['type-lid'] = memberType;
