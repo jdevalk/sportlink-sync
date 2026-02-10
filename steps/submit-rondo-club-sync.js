@@ -662,12 +662,21 @@ async function markFormerMembers(db, currentKnvbIds, options) {
       continue;
     }
 
-    logVerbose(`Marking as former member: ${member.knvb_id} (Rondo Club ID: ${member.stadion_id})`);
+    // Extract first_name and last_name from stored data (required for WordPress PUT)
+    let firstName = '';
+    let lastName = '';
+    try {
+      const data = JSON.parse(member.data_json || '{}');
+      firstName = data.acf?.first_name || '';
+      lastName = data.acf?.last_name || '';
+    } catch (e) { /* ignore parse errors */ }
+
+    logVerbose(`Marking as former member: ${member.knvb_id} (${firstName} ${lastName}, Rondo Club ID: ${member.stadion_id})`);
     try {
       await rondoClubRequest(
         `wp/v2/people/${member.stadion_id}`,
         'PUT',
-        { acf: { former_member: true } },
+        { first_name: firstName, last_name: lastName, acf: { former_member: true } },
         options
       );
       // Keep member in tracking DB so we can detect if they rejoin,
