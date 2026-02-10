@@ -19,5 +19,8 @@ logs/
 # User config (contains password hashes)
 config/users.json
 
+# Varlock
+.varlock/
+
 # OS
 .DS_Store
