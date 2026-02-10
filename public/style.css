@@ -207,7 +207,7 @@ body > form button:active {
 .pipeline-description {
   font-size: 0.85rem;
   color: #777;
-  margin-bottom: 1rem;
+  margin: 0.75rem 0;
 }
 
 .pipeline-header h3 {
