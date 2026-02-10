@@ -24,10 +24,11 @@ const FORMER_MEMBERS_CACHE = path.join(process.cwd(), 'data', 'former-members.js
  * @param {boolean} [options.verbose=false] - Verbose output
  * @param {boolean} [options.skipDownload=false] - Skip download, use cached data
  * @param {boolean} [options.skipPhotos=false] - Skip photo download and upload
+ * @param {boolean} [options.force=false] - Force update existing former members
  * @returns {Promise<{downloaded: number, toSync: number, synced: number, skippedActive: number, skippedFormer: number, failed: number, errors: Array, photos: Object}>}
  */
 async function runImport(options = {}) {
-  const { dryRun = true, verbose = false, skipDownload = false, skipPhotos = false } = options;
+  const { dryRun = true, verbose = false, skipDownload = false, skipPhotos = false, force = false } = options;
 
   console.log(dryRun ? '=== DRY RUN ===' : '=== IMPORTING FORMER MEMBERS ===');
   console.log('');
@@ -130,11 +131,13 @@ async function runImport(options = {}) {
 
     const tracked = trackedByKnvbId.get(knvbId);
 
-    // Skip if member already exists in database with a stadion_id
+    // Skip if member already exists in database with a stadion_id (unless force)
     if (tracked && tracked.stadion_id) {
-      stats.skippedFormer++;
-      if (verbose) console.log(`  Skipping ${knvbId}: already synced as former or active member`);
-      continue;
+      if (!force) {
+        stats.skippedFormer++;
+        if (verbose) console.log(`  Skipping ${knvbId}: already synced as former or active member`);
+        continue;
+      }
     }
 
     // Prepare person data using shared preparePerson function
@@ -145,7 +148,8 @@ async function runImport(options = {}) {
 
     toSync.push({
       knvb_id: knvbId,
-      prepared: prepared
+      prepared: prepared,
+      stadion_id: (tracked && tracked.stadion_id) ? tracked.stadion_id : null
     });
   }
 
@@ -175,6 +179,7 @@ async function runImport(options = {}) {
     console.log('');
     console.log('=== DRY RUN COMPLETE ===');
     console.log('Run with --import to actually sync these members.');
+    console.log('Use --force to also update existing former members.');
     console.log('Use --skip-photos to skip photo download/upload.');
     return stats;
   }
@@ -185,14 +190,20 @@ async function runImport(options = {}) {
   const dbForSync = openDb();
   try {
     for (let i = 0; i < toSync.length; i++) {
-      const { knvb_id, prepared } = toSync[i];
+      const { knvb_id, prepared, stadion_id } = toSync[i];
 
       try {
-        // POST to create new person
-        const response = await rondoClubRequest('wp/v2/people', 'POST', prepared.data, { verbose });
+        let response;
+        if (stadion_id) {
+          // PUT to update existing person
+          response = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'PUT', prepared.data, { verbose });
+        } else {
+          // POST to create new person
+          response = await rondoClubRequest('wp/v2/people', 'POST', prepared.data, { verbose });
+        }
 
         if (response.status >= 200 && response.status < 300) {
-          const stadionId = response.body.id;
+          const resultId = stadion_id || response.body.id;
           const sourceHash = computeSourceHash(knvb_id, prepared.data);
 
           // Track in stadion_members table
@@ -206,10 +217,11 @@ async function runImport(options = {}) {
           }]);
 
           // Update sync state with stadion_id
-          updateSyncState(dbForSync, knvb_id, sourceHash, stadionId);
+          updateSyncState(dbForSync, knvb_id, sourceHash, resultId);
 
           stats.synced++;
-          if (verbose) console.log(`  ✓ Synced ${knvb_id} → Rondo Club post ${stadionId}`);
+          const action = stadion_id ? 'Updated' : 'Created';
+          if (verbose) console.log(`  ✓ ${action} ${knvb_id} → Rondo Club post ${resultId}`);
         } else {
           stats.failed++;
           const errorMsg = `${response.status} ${JSON.stringify(response.body)}`;
@@ -555,8 +567,9 @@ if (require.main === module) {
   const verbose = args.includes('--verbose');
   const skipDownload = args.includes('--skip-download');
   const skipPhotos = args.includes('--skip-photos');
+  const force = args.includes('--force');
 
-  runImport({ dryRun, verbose, skipDownload, skipPhotos })
+  runImport({ dryRun, verbose, skipDownload, skipPhotos, force })
     .then(result => {
       if (result.failed > 0) process.exitCode = 1;
     })
