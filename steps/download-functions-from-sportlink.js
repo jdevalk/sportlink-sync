@@ -3,7 +3,7 @@ require('varlock/auto-load');
 const { chromium } = require('playwright');
 const {
   openDb,
-  getAllTrackedMembers,
+  getActiveTrackedMembers,
   upsertMemberFunctions,
   upsertMemberCommittees,
   upsertCommissies,
@@ -456,7 +456,7 @@ async function runFunctionsDownload(options = {}) {
   const db = openDb();
   try {
     // Get all tracked members (those already synced to Rondo Club)
-    let members = getAllTrackedMembers(db);
+    let members = getActiveTrackedMembers(db);
     const allMembersCount = members.length;
 
     if (members.length === 0) {
