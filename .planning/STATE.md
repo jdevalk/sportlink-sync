@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 
 ## Current Position
 
-Phase: 41 of 43 (Database Migration) — COMPLETE
-Plan: 3 of 3 in current phase (all plans complete)
-Status: Phase complete, verified (human_needed for production deployment)
-Last activity: 2026-02-11 — Phase 41 executed and verified
+Phase: 42 of 43 (Code References) — IN PROGRESS
+Plan: 1 of 3 in current phase (plan 42-01 complete)
+Status: Plan 42-01 complete — step files renamed
+Last activity: 2026-02-11 — Plan 42-01 executed (step files)
 
 Progress: [████████████████████████████████████████░░░░] 95% (41 of 43 phases complete)
 
@@ -33,7 +33,7 @@ Recent decisions affecting v3.2:
 
 ### Critical Deployment Note
 
-**Phase 41 MUST be deployed atomically with Phase 42.** Migration runs automatically on openDb() and renames all tables. Steps/, pipelines/, and tools/ files still reference old stadion_* names until Phase 42 is complete.
+**Phase 41 MUST be deployed atomically with Phase 42.** Migration runs automatically on openDb() and renames all tables. Plan 42-01 complete: steps/ files now use rondo_club naming. Plans 42-02 and 42-03 remain (pipelines/, tools/, lib/).
 
 ### Pending Todos
 
@@ -60,5 +60,5 @@ Recent decisions affecting v3.2:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Phase 41 complete — all 3 plans executed, verified (human_needed for production)
-Resume file: Ready for Phase 42 (Code References) planning
+Stopped at: Completed 42-01-PLAN.md (step files renamed to rondo_club)
+Resume file: Ready for Phase 42 Plan 02 (pipelines and tools)
