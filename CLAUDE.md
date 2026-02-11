@@ -64,6 +64,7 @@ FREESCOUT_API_KEY=           # FreeScout API key (optional)
 FREESCOUT_URL=               # FreeScout URL (optional)
 NIKKI_API_KEY=               # Nikki API key (optional)
 NIKKI_URL=                   # Nikki URL (optional)
+SYNC_API_KEY=                # API key for programmatic sync endpoints (used by Rondo Club)
 ```
 
 ## Directory Layout
