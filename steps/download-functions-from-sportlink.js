@@ -794,6 +794,7 @@ async function runFunctionsDownload(options = {}) {
 
 module.exports = {
   runFunctionsDownload,
+  loginToSportlink,
   fetchMemberGeneralData,
   fetchMemberFunctions,
   fetchMemberDataFromOtherPage,
