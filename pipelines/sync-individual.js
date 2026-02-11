@@ -157,7 +157,7 @@ async function syncFunctionsForMember(knvbId, rondoClubId, db, memberFunctions, 
 
   // Build commissie map
   const commissies = getAllCommissies(db);
-  const commissieMap = new Map(commissies.map(c => [c.commissie_name, c.stadion_id]));
+  const commissieMap = new Map(commissies.map(c => [c.commissie_name, c.rondo_club_id]));
 
   if (commissies.length === 0) {
     log('No commissies found in database. Run functions sync first.');
@@ -198,7 +198,7 @@ async function syncFunctionsForMember(knvbId, rondoClubId, db, memberFunctions, 
 
   try {
     const result = await syncCommissieWorkHistoryForMember(
-      { knvb_id: knvbId, stadion_id: rondoClubId },
+      { knvb_id: knvbId, rondo_club_id: rondoClubId },
       currentCommissies,
       db,
       commissieMap,
@@ -271,7 +271,7 @@ async function syncIndividual(knvbId, options = {}) {
     // Upsert to tracking database to get current state
     upsertMembers(rondoClubDb, [prepared]);
 
-    // Get member with stadion_id from database
+    // Get member with rondo_club_id from database
     const [trackedMember] = getMembersNeedingSync(rondoClubDb, force);
     const memberToSync = trackedMember?.knvb_id === knvbId ? trackedMember : null;
 
@@ -281,10 +281,10 @@ async function syncIndividual(knvbId, options = {}) {
       return { success: true, action: 'skipped', reason: 'no changes' };
     }
 
-    // Get stadion_id from database directly if not forcing
-    const stmt = rondoClubDb.prepare('SELECT stadion_id FROM stadion_members WHERE knvb_id = ?');
+    // Get rondo_club_id from database directly if not forcing
+    const stmt = rondoClubDb.prepare('SELECT rondo_club_id FROM rondo_club_members WHERE knvb_id = ?');
     const row = stmt.get(knvbId);
-    const rondoClubId = row?.stadion_id;
+    const rondoClubId = row?.rondo_club_id;
 
     log(`Rondo Club ID: ${rondoClubId || 'none (will create)'}`);
 
@@ -346,12 +346,12 @@ async function syncIndividual(knvbId, options = {}) {
         // Resolve conflicts
         let updateData = prepared.data;
         const sportlinkData = extractTrackedFieldValues(prepared.data);
-        const stadionData = extractTrackedFieldValues(existingData);
+        const rondoClubData = extractTrackedFieldValues(existingData);
 
         const resolution = resolveFieldConflicts(
           { knvb_id: knvbId, source_hash: prepared.source_hash },
           sportlinkData,
-          stadionData,
+          rondoClubData,
           rondoClubDb
         );
 

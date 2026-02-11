@@ -137,8 +137,8 @@ async function runImport(options = {}) {
 
     const tracked = trackedByKnvbId.get(knvbId);
 
-    // Skip if member already exists in database with a stadion_id (unless force)
-    if (tracked && tracked.stadion_id) {
+    // Skip if member already exists in database with a rondo_club_id (unless force)
+    if (tracked && tracked.rondo_club_id) {
       if (!force) {
         stats.skippedFormer++;
         if (verbose) console.log(`  Skipping ${knvbId}: already synced as former or active member`);
@@ -155,7 +155,7 @@ async function runImport(options = {}) {
     toSync.push({
       knvb_id: knvbId,
       prepared: prepared,
-      stadion_id: (tracked && tracked.stadion_id) ? tracked.stadion_id : null
+      rondo_club_id: (tracked && tracked.rondo_club_id) ? tracked.rondo_club_id : null
     });
   }
 
@@ -196,23 +196,23 @@ async function runImport(options = {}) {
   const dbForSync = openDb();
   try {
     for (let i = 0; i < toSync.length; i++) {
-      const { knvb_id, prepared, stadion_id } = toSync[i];
+      const { knvb_id, prepared, rondo_club_id } = toSync[i];
 
       try {
         let response;
-        if (stadion_id) {
+        if (rondo_club_id) {
           // PUT to update existing person
-          response = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'PUT', prepared.data, { verbose });
+          response = await rondoClubRequest(`wp/v2/people/${rondo_club_id}`, 'PUT', prepared.data, { verbose });
         } else {
           // POST to create new person
           response = await rondoClubRequest('wp/v2/people', 'POST', prepared.data, { verbose });
         }
 
         if (response.status >= 200 && response.status < 300) {
-          const resultId = stadion_id || response.body.id;
+          const resultId = rondo_club_id || response.body.id;
           const sourceHash = computeSourceHash(knvb_id, prepared.data);
 
-          // Track in stadion_members table
+          // Track in rondo_club_members table
           upsertMembers(dbForSync, [{
             knvb_id: knvb_id,
             email: prepared.email,
@@ -222,11 +222,11 @@ async function runImport(options = {}) {
             last_seen_at: new Date().toISOString()
           }]);
 
-          // Update sync state with stadion_id
+          // Update sync state with rondo_club_id
           updateSyncState(dbForSync, knvb_id, sourceHash, resultId);
 
           stats.synced++;
-          const action = stadion_id ? 'Updated' : 'Created';
+          const action = rondo_club_id ? 'Updated' : 'Created';
           if (verbose) console.log(`  ✓ ${action} ${knvb_id} → Rondo Club post ${resultId}`);
         } else {
           stats.failed++;
@@ -401,8 +401,8 @@ async function runImport(options = {}) {
           const member = membersWithPhotos[i];
           if (verbose) console.log(`  Uploading ${i + 1}/${membersWithPhotos.length}: ${member.knvb_id}`);
 
-          if (!member.stadion_id) {
-            if (verbose) console.log(`    Skipped: no stadion_id`);
+          if (!member.rondo_club_id) {
+            if (verbose) console.log(`    Skipped: no rondo_club_id`);
             continue;
           }
 
@@ -415,7 +415,7 @@ async function runImport(options = {}) {
 
           // Upload to Rondo Club
           try {
-            await uploadPhotoToRondoClub(member.stadion_id, photoFile.path, verbose);
+            await uploadPhotoToRondoClub(member.rondo_club_id, photoFile.path, verbose);
             updatePhotoState(dbForUpload, member.knvb_id, 'synced');
             stats.photos.uploaded++;
             if (verbose) console.log(`    Uploaded successfully`);

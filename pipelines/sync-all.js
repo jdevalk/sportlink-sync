@@ -704,9 +704,9 @@ async function runSyncAll(options = {}) {
     // Calculate photo coverage
     try {
       const db = openDb();
-      const totalMembers = db.prepare('SELECT COUNT(*) as count FROM stadion_members').get().count;
+      const totalMembers = db.prepare('SELECT COUNT(*) as count FROM rondo_club_members').get().count;
       const membersWithPhotos = db.prepare(
-        "SELECT COUNT(*) as count FROM stadion_members WHERE photo_state = 'synced'"
+        "SELECT COUNT(*) as count FROM rondo_club_members WHERE photo_state = 'synced'"
       ).get().count;
       db.close();
 

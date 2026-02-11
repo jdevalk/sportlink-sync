@@ -21,7 +21,7 @@ async function runAllFieldsReverseSync(options = {}) {
   logger.log('Fields: email, email2, mobile, phone, datum-vog, freescout-id, financiele-blokkade');
 
   try {
-    // Detect Rondo Club changes to populate stadion_change_detections table
+    // Detect Rondo Club changes to populate rondo_club_change_detections table
     logger.log('Detecting Rondo Club changes...');
     const detectedChanges = await detectChanges({ verbose, logger });
     logger.log(`Detected ${detectedChanges.length} field change(s)`);
