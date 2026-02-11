@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 ## Current Position
 
 Phase: 41 of 43 (Database Migration)
-Plan: 3 of 3 in current phase
-Status: Executing phase plans
-Last activity: 2026-02-11 — Completed 41-03: Database layer naming updates (discipline-db, conflict-resolver)
+Plan: 3 of 3 in current phase (all plans complete)
+Status: Phase 41 complete
+Last activity: 2026-02-11 — Completed 41-02: SQL query layer updates (rondo-club-db, detect-changes)
 
 Progress: [████████████████████████████████████████░░░░] 93% (40 of 43 phases complete, 3 of 3 plans in Phase 41)
 
@@ -28,6 +28,7 @@ Recent decisions affecting v3.2:
 - Stadion-to-Rondo rename: Reflect product name change across entire codebase
 - [Phase 41-01]: Use CREATE+INSERT+DROP pattern for table migrations to avoid ALTER TABLE RENAME bugs
 - [Phase 41-01]: Migration runs after pragmas but before initDb in openDb() for safety
+- [Phase 41-02]: Migration bugs fixed via Rule 1 auto-fixes (incorrect table references, idempotency check)
 - [Phase 41-03]: Use ALTER TABLE RENAME COLUMN for discipline_cases.stadion_id (safe for single-process discipline pipeline)
 
 ### Pending Todos
@@ -60,5 +61,5 @@ Recent decisions affecting v3.2:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 41-03-PLAN.md: Database layer naming updates (discipline-db, conflict-resolver)
-Resume file: Phase 41 complete - ready for Phase 42 (Code References) or next milestone
+Stopped at: Completed 41-02-PLAN.md: SQL query layer updates (rondo-club-db, detect-changes)
+Resume file: Phase 41 complete (all 3 plans done) - ready for Phase 42 (Code References)
