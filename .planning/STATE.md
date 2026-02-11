@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 ## Current Position
 
 Phase: 41 of 43 (Database Migration)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-10 — Roadmap created for v3.2 milestone
+Plan: 1 of 3 in current phase
+Status: Executing phase plans
+Last activity: 2026-02-11 — Completed 41-01: Database migration infrastructure
 
-Progress: [████████████████████████████████████████░░░░] 93% (40 of 43 phases complete)
+Progress: [████████████████████████████████████████░░░░] 93% (40 of 43 phases complete, 1 of 3 plans in Phase 41)
 
 ## Accumulated Context
 
@@ -26,6 +26,8 @@ Recent decisions affecting v3.2:
 - WAL mode + busy_timeout: Concurrent cron + web server access (critical for safe migration)
 - CREATE+INSERT+DROP pattern: Avoid ALTER TABLE RENAME bugs seen in dashboard-db migration
 - Stadion-to-Rondo rename: Reflect product name change across entire codebase
+- [Phase 41-01]: Use CREATE+INSERT+DROP pattern for table migrations to avoid ALTER TABLE RENAME bugs
+- [Phase 41-01]: Migration runs after pragmas but before initDb in openDb() for safety
 
 ### Pending Todos
 
@@ -56,6 +58,6 @@ Recent decisions affecting v3.2:
 
 ## Session Continuity
 
-Last session: 2026-02-10
-Stopped at: Roadmap created for v3.2 Stadion-to-Rondo Rename milestone
-Resume file: None - ready to start Phase 41 planning
+Last session: 2026-02-11
+Stopped at: Completed 41-01-PLAN.md: Database migration infrastructure
+Resume file: Ready to execute 41-02-PLAN.md (SQL query layer updates)
