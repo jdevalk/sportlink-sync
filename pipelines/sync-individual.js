@@ -24,6 +24,7 @@ const { extractFieldValue } = require('../lib/detect-rondo-club-changes');
 const { syncCommissieWorkHistoryForMember } = require('../steps/submit-rondo-club-commissie-work-history');
 const {
   loginToSportlink,
+  fetchMemberGeneralData,
   fetchMemberFunctions,
   fetchMemberDataFromOtherPage,
   parseFunctionsResponse
@@ -92,6 +93,15 @@ async function fetchFreshDataFromSportlink(knvbId, db, options = {}) {
     await loginToSportlink(page, logger);
     log('Logged in to Sportlink');
 
+    // Fetch general member data (person, communication, address, parental info)
+    log(`Fetching general data for ${knvbId}...`);
+    const memberData = await fetchMemberGeneralData(page, knvbId, logger);
+
+    if (memberData) {
+      log(`  Name: ${memberData.FirstName} ${memberData.Infix || ''} ${memberData.LastName}`);
+      log(`  Email: ${memberData.Email || 'none'}`);
+    }
+
     // Fetch functions
     log(`Fetching functions for ${knvbId}...`);
     const functionsData = await fetchMemberFunctions(page, knvbId, logger);
@@ -137,6 +147,7 @@ async function fetchFreshDataFromSportlink(knvbId, db, options = {}) {
 
     return {
       success: true,
+      memberData,
       functions,
       committees,
       freeFields: freeFieldsData
@@ -230,6 +241,7 @@ async function syncIndividual(knvbId, options = {}) {
 
   try {
     // Fetch fresh data from Sportlink if requested
+    let freshMemberData = null;
     if (fetch) {
       console.log('Fetching fresh data from Sportlink...');
       const fetchResult = await fetchFreshDataFromSportlink(knvbId, rondoClubDb, { verbose });
@@ -237,28 +249,34 @@ async function syncIndividual(knvbId, options = {}) {
         console.error('Failed to fetch data from Sportlink');
         return { success: false, error: 'Failed to fetch from Sportlink' };
       }
+      freshMemberData = fetchResult.memberData;
       console.log('Fresh data fetched successfully');
     }
 
-    // Get latest Sportlink data
-    const resultsJson = getLatestSportlinkResults(lapostaDb);
-    if (!resultsJson) {
-      console.error('No Sportlink data found. Run download-data-from-sportlink.js first.');
-      return { success: false, error: 'No Sportlink data' };
+    // Use fresh member data from /general if available, otherwise fall back to bulk download
+    let member;
+    if (freshMemberData) {
+      member = freshMemberData;
+      log(`Using fresh data: ${member.FirstName} ${member.Infix || ''} ${member.LastName}`);
+    } else {
+      const resultsJson = getLatestSportlinkResults(lapostaDb);
+      if (!resultsJson) {
+        console.error('No Sportlink data found. Run download-data-from-sportlink.js first.');
+        return { success: false, error: 'No Sportlink data' };
+      }
+
+      const data = JSON.parse(resultsJson);
+      const members = data.Members || data;
+      log(`Found ${members.length} members in Sportlink data`);
+
+      member = members.find(m => m.PublicPersonId === knvbId);
+      if (!member) {
+        console.error(`Member with KNVB ID "${knvbId}" not found in Sportlink data`);
+        return { success: false, error: 'Member not found' };
+      }
+
+      log(`Found member: ${member.FirstName} ${member.Infix || ''} ${member.LastName}`);
     }
-
-    const data = JSON.parse(resultsJson);
-    const members = data.Members || data;
-    log(`Found ${members.length} members in Sportlink data`);
-
-    // Find the specific member (KNVB ID is stored as PublicPersonId)
-    const member = members.find(m => m.PublicPersonId === knvbId);
-    if (!member) {
-      console.error(`Member with KNVB ID "${knvbId}" not found in Sportlink data`);
-      return { success: false, error: 'Member not found' };
-    }
-
-    log(`Found member: ${member.FirstName} ${member.Infix || ''} ${member.LastName}`);
 
     // Get free fields for this member (now includes freshly fetched data if --fetch was used)
     const freeFields = getMemberFreeFieldsByKnvbId(rondoClubDb, knvbId);

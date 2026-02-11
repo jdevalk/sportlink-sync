@@ -299,6 +299,115 @@ async function fetchMemberFinancialData(page, knvbId, logger) {
 }
 
 /**
+ * Fetch member general data (person, communication, address, parental info) from /general tab
+ * @param {Object} page - Playwright page object
+ * @param {string} knvbId - Member KNVB ID
+ * @param {Object} logger - Logger instance
+ * @returns {Promise<Object|null>} - Flat member object in SearchMembers-style format, or null
+ */
+async function fetchMemberGeneralData(page, knvbId, logger) {
+  const generalUrl = `https://club.sportlink.com/member/member-details/${knvbId}/general`;
+
+  // Set up promises BEFORE navigation to capture API responses
+  const personDataPromise = page.waitForResponse(
+    resp => resp.url().includes('/member/persondata/MemberPersonData?'),
+    { timeout: 15000 }
+  ).catch(() => null);
+
+  const communicationPromise = page.waitForResponse(
+    resp => resp.url().includes('/member/persondata/MemberCommunication?'),
+    { timeout: 15000 }
+  ).catch(() => null);
+
+  const addressesPromise = page.waitForResponse(
+    resp => resp.url().includes('/member/persondata/MemberAddresses?'),
+    { timeout: 15000 }
+  ).catch(() => null);
+
+  const parentalInfoPromise = page.waitForResponse(
+    resp => resp.url().includes('/member/MemberParentalInfo?'),
+    { timeout: 15000 }
+  ).catch(() => null);
+
+  logger.verbose(`  Navigating to ${generalUrl}...`);
+  await page.goto(generalUrl, { waitUntil: 'networkidle' });
+
+  const [personDataResponse, communicationResponse, addressesResponse, parentalInfoResponse] = await Promise.all([
+    personDataPromise,
+    communicationPromise,
+    addressesPromise,
+    parentalInfoPromise
+  ]);
+
+  // Parse responses
+  let personData = null;
+  if (personDataResponse && personDataResponse.ok()) {
+    try { personData = await personDataResponse.json(); } catch (err) {
+      logger.verbose(`  Error parsing MemberPersonData: ${err.message}`);
+    }
+  }
+
+  let communicationData = null;
+  if (communicationResponse && communicationResponse.ok()) {
+    try { communicationData = await communicationResponse.json(); } catch (err) {
+      logger.verbose(`  Error parsing MemberCommunication: ${err.message}`);
+    }
+  }
+
+  let addressesData = null;
+  if (addressesResponse && addressesResponse.ok()) {
+    try { addressesData = await addressesResponse.json(); } catch (err) {
+      logger.verbose(`  Error parsing MemberAddresses: ${err.message}`);
+    }
+  }
+
+  let parentalInfoData = null;
+  if (parentalInfoResponse && parentalInfoResponse.ok()) {
+    try { parentalInfoData = await parentalInfoResponse.json(); } catch (err) {
+      logger.verbose(`  Error parsing MemberParentalInfo: ${err.message}`);
+    }
+  }
+
+  if (!personData && !communicationData && !addressesData && !parentalInfoData) {
+    logger.verbose(`  No general API responses captured`);
+    return null;
+  }
+
+  // Map to flat SearchMembers-style object
+  const person = personData?.Person || {};
+  const comm = communicationData?.Communication || {};
+  const addr = addressesData?.Address || {};
+  const parent = parentalInfoData || {};
+
+  return {
+    PublicPersonId: person.PublicPersonId || knvbId,
+    FirstName: person.FirstName || null,
+    Infix: person.Infix || null,
+    LastName: person.LastName || null,
+    GenderCode: person.GenderCode || null,
+    DateOfBirth: person.DateOfBirth || null,
+    MemberSince: person.MemberSince || null,
+    DateOfPassing: person.DateOfPassing || null,
+    TypeOfMemberDescription: person.TypeOfMemberDescription || null,
+    Email: comm.Email1 || null,
+    Mobile: comm.Mobile1 || null,
+    Telephone: comm.Telephone1 || null,
+    StreetName: addr.StreetName || null,
+    AddressNumber: addr.AddressNumber || null,
+    AddressNumberAppendix: addr.AddressNumberAppendix || null,
+    ZipCode: addr.ZipCode || null,
+    City: addr.City || null,
+    CountryName: addr.CountryName || null,
+    NameParent1: parent.NameParent1 || null,
+    TelephoneParent1: parent.TelephoneParent1 || null,
+    EmailAddressParent1: parent.EmailAddressParent1 || null,
+    NameParent2: parent.NameParent2 || null,
+    TelephoneParent2: parent.TelephoneParent2 || null,
+    EmailAddressParent2: parent.EmailAddressParent2 || null
+  };
+}
+
+/**
  * Fetch functions for a single member
  * Captures both MemberFunctions and MemberCommittees API responses
  */
@@ -685,6 +794,7 @@ async function runFunctionsDownload(options = {}) {
 
 module.exports = {
   runFunctionsDownload,
+  fetchMemberGeneralData,
   fetchMemberFunctions,
   fetchMemberDataFromOtherPage,
   fetchMemberFinancialData,
