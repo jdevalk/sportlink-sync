@@ -52,17 +52,17 @@ async function runMerge(options = {}) {
   const db = openDb();
 
   try {
-    // Step 1: Find all parent emails with a different stadion_id than their member
+    // Step 1: Find all parent emails with a different rondo_club_id than their member
     const duplicates = db.prepare(`
       SELECT DISTINCT
         p.email,
-        p.stadion_id as parent_sid,
-        m.stadion_id as member_sid
-      FROM stadion_parents p
-      JOIN stadion_members m ON LOWER(m.email) = LOWER(p.email)
-      WHERE m.stadion_id IS NOT NULL
-        AND p.stadion_id IS NOT NULL
-        AND m.stadion_id != p.stadion_id
+        p.rondo_club_id as parent_sid,
+        m.rondo_club_id as member_sid
+      FROM rondo_club_parents p
+      JOIN rondo_club_members m ON LOWER(m.email) = LOWER(p.email)
+      WHERE m.rondo_club_id IS NOT NULL
+        AND p.rondo_club_id IS NOT NULL
+        AND m.rondo_club_id != p.rondo_club_id
       GROUP BY p.email
     `).all();
 
@@ -96,7 +96,7 @@ async function runMerge(options = {}) {
         } catch (e) {
           if (e.message.includes('404')) {
             if (verbose) console.log(`  Parent post ${parent_sid} already deleted, updating tracking`);
-            db.prepare('UPDATE stadion_parents SET stadion_id = ? WHERE LOWER(email) = LOWER(?)').run(member_sid, email);
+            db.prepare('UPDATE rondo_club_parents SET rondo_club_id = ? WHERE LOWER(email) = LOWER(?)').run(member_sid, email);
             merged++;
             continue;
           }
@@ -176,8 +176,8 @@ async function runMerge(options = {}) {
         deleted++;
         if (verbose) console.log(`  Deleted duplicate parent post ${parent_sid}`);
 
-        // Update parent tracking to point to member's stadion_id
-        db.prepare('UPDATE stadion_parents SET stadion_id = ? WHERE LOWER(email) = LOWER(?)').run(member_sid, email);
+        // Update parent tracking to point to member's rondo_club_id
+        db.prepare('UPDATE rondo_club_parents SET rondo_club_id = ? WHERE LOWER(email) = LOWER(?)').run(member_sid, email);
 
         merged++;
         if (merged % 25 === 0) {

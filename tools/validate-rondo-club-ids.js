@@ -6,7 +6,7 @@ const RONDO_URL = process.env.RONDO_URL;
 const RONDO_USERNAME = process.env.RONDO_USERNAME;
 const RONDO_APP_PASSWORD = process.env.RONDO_APP_PASSWORD;
 
-async function getAllStadionPeopleIds() {
+async function getAllRondoClubPeopleIds() {
   const validIds = new Set();
   let page = 1;
 
@@ -41,24 +41,24 @@ async function run() {
 
   // Get all valid person IDs from Rondo Club
   console.log('Fetching valid person IDs from Rondo Club...');
-  const validIds = await getAllStadionPeopleIds();
+  const validIds = await getAllRondoClubPeopleIds();
   console.log(`Valid Rondo Club IDs: ${validIds.size}`);
   console.log('');
 
-  // Check tracking DB for invalid stadion_ids
+  // Check tracking DB for invalid rondo_club_ids
   const db = openDb();
 
-  const members = db.prepare('SELECT knvb_id, stadion_id FROM stadion_members WHERE stadion_id IS NOT NULL').all();
-  const invalidMembers = members.filter(m => !validIds.has(m.stadion_id));
+  const members = db.prepare('SELECT knvb_id, rondo_club_id FROM rondo_club_members WHERE rondo_club_id IS NOT NULL').all();
+  const invalidMembers = members.filter(m => !validIds.has(m.rondo_club_id));
 
   console.log(`Members in tracking DB: ${members.length}`);
-  console.log(`Members with invalid stadion_id: ${invalidMembers.length}`);
+  console.log(`Members with invalid rondo_club_id: ${invalidMembers.length}`);
 
   if (invalidMembers.length > 0) {
     console.log('');
-    console.log('Invalid stadion_ids (first 20):');
+    console.log('Invalid rondo_club_ids (first 20):');
     invalidMembers.slice(0, 20).forEach(m => {
-      console.log(`  ${m.knvb_id}: stadion_id ${m.stadion_id} not found`);
+      console.log(`  ${m.knvb_id}: rondo_club_id ${m.rondo_club_id} not found`);
     });
     if (invalidMembers.length > 20) {
       console.log(`  ... and ${invalidMembers.length - 20} more`);
@@ -67,11 +67,11 @@ async function run() {
 
   if (!dryRun && invalidMembers.length > 0) {
     console.log('');
-    console.log('Nullifying invalid stadion_ids...');
+    console.log('Nullifying invalid rondo_club_ids...');
     for (const m of invalidMembers) {
-      db.prepare('UPDATE stadion_members SET stadion_id = NULL, last_synced_hash = NULL WHERE knvb_id = ?').run(m.knvb_id);
+      db.prepare('UPDATE rondo_club_members SET rondo_club_id = NULL, last_synced_hash = NULL WHERE knvb_id = ?').run(m.knvb_id);
     }
-    console.log(`Invalidated ${invalidMembers.length} stale stadion_ids`);
+    console.log(`Invalidated ${invalidMembers.length} stale rondo_club_ids`);
   }
 
   db.close();

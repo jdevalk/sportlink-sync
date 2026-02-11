@@ -7,7 +7,7 @@
  *
  * It checks both:
  * - sportlink_member_free_fields.photo_url (from MemberHeader API)
- * - stadion_members.person_image_date (from Sportlink download)
+ * - rondo_club_members.person_image_date (from Sportlink download)
  *
  * Members with either value will have their photo_state reset to 'pending_download'.
  *
@@ -28,7 +28,7 @@ function main() {
     // Count current states
     const currentStates = db.prepare(`
       SELECT photo_state, COUNT(*) as count
-      FROM stadion_members
+      FROM rondo_club_members
       GROUP BY photo_state
       ORDER BY photo_state
     `).all();
@@ -48,7 +48,7 @@ function main() {
         m.person_image_date,
         f.photo_url,
         f.photo_date
-      FROM stadion_members m
+      FROM rondo_club_members m
       LEFT JOIN sportlink_member_free_fields f ON m.knvb_id = f.knvb_id
       WHERE m.photo_state IN ('no_photo', 'pending_delete')
         AND (f.photo_url IS NOT NULL OR m.person_image_date IS NOT NULL)
@@ -78,7 +78,7 @@ function main() {
     // Reset photo states
     const now = new Date().toISOString();
     const updateStmt = db.prepare(`
-      UPDATE stadion_members
+      UPDATE rondo_club_members
       SET
         photo_state = 'pending_download',
         photo_state_updated_at = ?

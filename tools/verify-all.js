@@ -8,7 +8,7 @@ console.log('=== Overall Verification ===\n');
 console.log('1. Schema verification');
 const d = db.openDb(':memory:');
 const tables = d.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
-const hasRequiredTables = ['stadion_change_detections', 'reverse_sync_state'].every(t => tables.includes(t));
+const hasRequiredTables = ['rondo_club_change_detections', 'reverse_sync_state'].every(t => tables.includes(t));
 console.log(`   Required tables: ${hasRequiredTables ? 'PASS' : 'FAIL'}`);
 d.close();
 

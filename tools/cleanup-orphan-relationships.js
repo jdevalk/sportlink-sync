@@ -38,7 +38,7 @@ async function rondoClubRequest(endpoint, method = 'GET', body = null) {
   return response.json();
 }
 
-async function getAllStadionPeople() {
+async function getAllRondoClubPeople() {
   const people = [];
   let page = 1;
   const perPage = 100;
@@ -63,19 +63,19 @@ async function runCleanup(options = {}) {
 
   // Get all Rondo Club people
   console.log('Fetching all people from Rondo Club...');
-  const stadionPeople = await getAllStadionPeople();
-  console.log(`Found ${stadionPeople.length} people in Rondo Club`);
+  const rondoClubPeople = await getAllRondoClubPeople();
+  console.log(`Found ${rondoClubPeople.length} people in Rondo Club`);
   console.log('');
 
   // Build set of valid person IDs
-  const validIds = new Set(stadionPeople.map(p => p.id));
+  const validIds = new Set(rondoClubPeople.map(p => p.id));
   console.log(`Valid person IDs: ${validIds.size}`);
   console.log('');
 
   // Find people with orphaned relationships
   const toFix = [];
 
-  for (const person of stadionPeople) {
+  for (const person of rondoClubPeople) {
     const relationships = person.acf?.relationships || [];
     if (relationships.length === 0) continue;
 

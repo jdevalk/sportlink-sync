@@ -29,7 +29,7 @@ async function rondoClubRequest(endpoint, method = 'GET', body = null) {
   return response.json();
 }
 
-async function getAllStadionPeople() {
+async function getAllRondoClubPeople() {
   const people = [];
   let page = 1;
   const perPage = 100;
@@ -104,8 +104,8 @@ async function runCleanup(options = {}) {
 
   // Get all Rondo Club people
   console.log('Fetching all people from Rondo Club...');
-  const stadionPeople = await getAllStadionPeople();
-  console.log(`Found ${stadionPeople.length} people in Rondo Club`);
+  const rondoClubPeople = await getAllRondoClubPeople();
+  console.log(`Found ${rondoClubPeople.length} people in Rondo Club`);
   console.log('');
 
   // Build expected sets
@@ -118,7 +118,7 @@ async function runCleanup(options = {}) {
   const byKnvbId = new Map(); // knvbId -> [records]
   const parentsByEmail = new Map(); // email -> [records without KNVB ID]
 
-  for (const person of stadionPeople) {
+  for (const person of rondoClubPeople) {
     const knvbId = person.acf?.['knvb-id'] || null;
     const email = (person.acf?.contact_info?.find(c => c.contact_type === 'email')?.contact_value || '').toLowerCase().trim();
     const firstName = (person.acf?.first_name || '').trim();

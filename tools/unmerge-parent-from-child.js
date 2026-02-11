@@ -41,8 +41,8 @@ async function rondoClubRequest(endpoint, method = 'GET', body = null) {
  * When a parent shares an email with their child (common in youth clubs),
  * the parent sync mistakenly merged the parent into the child's post.
  * This script:
- * 1. Finds all parents whose stadion_id points to one of their own children
- * 2. Resets the parent's stadion_id to NULL so the next sync creates them fresh
+ * 1. Finds all parents whose rondo_club_id points to one of their own children
+ * 2. Resets the parent's rondo_club_id to NULL so the next sync creates them fresh
  * 3. Removes any self-referential "parent" relationships on the child's post
  */
 async function runUnmerge(options = {}) {
@@ -54,8 +54,8 @@ async function runUnmerge(options = {}) {
   const db = openDb();
 
   try {
-    // Find all parents whose stadion_id matches one of their children
-    const parents = db.prepare('SELECT email, stadion_id, data_json FROM stadion_parents WHERE stadion_id IS NOT NULL').all();
+    // Find all parents whose rondo_club_id matches one of their children
+    const parents = db.prepare('SELECT email, rondo_club_id, data_json FROM rondo_club_parents WHERE rondo_club_id IS NOT NULL').all();
 
     const toFix = [];
     for (const p of parents) {
@@ -63,12 +63,12 @@ async function runUnmerge(options = {}) {
       const childKnvbIds = data.childKnvbIds || [];
 
       for (const childKnvb of childKnvbIds) {
-        const child = db.prepare('SELECT stadion_id FROM stadion_members WHERE knvb_id = ?').get(childKnvb);
-        if (child && child.stadion_id === p.stadion_id) {
+        const child = db.prepare('SELECT rondo_club_id FROM rondo_club_members WHERE knvb_id = ?').get(childKnvb);
+        if (child && child.rondo_club_id === p.rondo_club_id) {
           toFix.push({
             email: p.email,
             parentName: [data.data?.acf?.first_name, data.data?.acf?.last_name].filter(Boolean).join(' ') || p.email,
-            childStadionId: p.stadion_id,
+            childRondoClubId: p.rondo_club_id,
             childKnvbId: childKnvb
           });
           break; // One match is enough
@@ -85,7 +85,7 @@ async function runUnmerge(options = {}) {
 
     for (const fix of toFix) {
       if (verbose) {
-        console.log(`${fix.parentName} (${fix.email}) → merged into child post ${fix.childStadionId}`);
+        console.log(`${fix.parentName} (${fix.email}) → merged into child post ${fix.childRondoClubId}`);
       }
 
       if (dryRun) {
@@ -94,21 +94,21 @@ async function runUnmerge(options = {}) {
       }
 
       try {
-        // Reset parent's stadion_id so next sync creates a fresh post
-        db.prepare('UPDATE stadion_parents SET stadion_id = NULL, last_synced_hash = NULL WHERE email = ?').run(fix.email);
+        // Reset parent's rondo_club_id so next sync creates a fresh post
+        db.prepare('UPDATE rondo_club_parents SET rondo_club_id = NULL, last_synced_hash = NULL WHERE email = ?').run(fix.email);
         reset++;
 
         // Clean up the child's post: remove self-referential parent relationships
         // (the child pointing to itself as its own parent)
         try {
-          const childPost = await rondoClubRequest(`wp/v2/people/${fix.childStadionId}`);
+          const childPost = await rondoClubRequest(`wp/v2/people/${fix.childRondoClubId}`);
           const relationships = childPost.acf?.relationships || [];
 
           // Remove relationships where the child points to itself
-          const cleanedRels = relationships.filter(r => r.related_person !== fix.childStadionId);
+          const cleanedRels = relationships.filter(r => r.related_person !== fix.childRondoClubId);
 
           if (cleanedRels.length < relationships.length) {
-            await rondoClubRequest(`wp/v2/people/${fix.childStadionId}`, 'PUT', {
+            await rondoClubRequest(`wp/v2/people/${fix.childRondoClubId}`, 'PUT', {
               acf: {
                 first_name: childPost.acf?.first_name || '',
                 last_name: childPost.acf?.last_name || '',
@@ -116,10 +116,10 @@ async function runUnmerge(options = {}) {
               }
             });
             cleaned++;
-            if (verbose) console.log(`  Cleaned ${relationships.length - cleanedRels.length} self-referential relationship(s) from post ${fix.childStadionId}`);
+            if (verbose) console.log(`  Cleaned ${relationships.length - cleanedRels.length} self-referential relationship(s) from post ${fix.childRondoClubId}`);
           }
         } catch (e) {
-          if (verbose) console.log(`  Warning: could not clean child post ${fix.childStadionId}: ${e.message}`);
+          if (verbose) console.log(`  Warning: could not clean child post ${fix.childRondoClubId}: ${e.message}`);
         }
 
         if (reset % 25 === 0) {

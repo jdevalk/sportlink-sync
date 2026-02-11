@@ -94,7 +94,7 @@ async function mergePerson(parentId, memberId) {
   try {
     const email = parent.acf.contact_info?.find(c => c.contact_type === 'email')?.contact_value;
     if (email) {
-      db.prepare('DELETE FROM stadion_parents WHERE email = ?').run(email);
+      db.prepare('DELETE FROM rondo_club_parents WHERE email = ?').run(email);
       console.log(`Removed parent tracking for ${email}`);
     }
   } finally {

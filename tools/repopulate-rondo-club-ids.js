@@ -7,11 +7,11 @@ const { openDb, updateSyncState, getAllTrackedMembers } = require('../lib/rondo-
  * Fetch all people from Rondo Club with their KNVB IDs.
  * Uses pagination to handle large datasets.
  * @param {Object} options - Logger and verbose options
- * @returns {Promise<Map<string, number>>} - Map<knvb_id, stadion_id>
+ * @returns {Promise<Map<string, number>>} - Map<knvb_id, rondo_club_id>
  */
-async function fetchAllPeopleFromStadion(options) {
+async function fetchAllPeopleFromRondoClub(options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
-  const knvbToStadion = new Map();
+  const knvbToRondoClub = new Map();
   let page = 1;
   let hasMore = true;
 
@@ -46,11 +46,11 @@ async function fetchAllPeopleFromStadion(options) {
     for (const person of people) {
       const knvbId = person.acf?.['knvb-id'];
       if (knvbId) {
-        knvbToStadion.set(knvbId, person.id);
+        knvbToRondoClub.set(knvbId, person.id);
       }
     }
 
-    logVerbose(`  Page ${page}: ${people.length} people (${knvbToStadion.size} with KNVB IDs)`);
+    logVerbose(`  Page ${page}: ${people.length} people (${knvbToRondoClub.size} with KNVB IDs)`);
     page++;
 
     // Safety: stop if we've fetched too many pages
@@ -60,11 +60,11 @@ async function fetchAllPeopleFromStadion(options) {
     }
   }
 
-  return knvbToStadion;
+  return knvbToRondoClub;
 }
 
 /**
- * Repopulate stadion_ids in local database from Rondo Club API.
+ * Repopulate rondo_club_ids in local database from Rondo Club API.
  * @param {Object} options
  * @param {boolean} [options.verbose=false] - Verbose mode
  * @param {boolean} [options.dryRun=false] - Don't update, just report
@@ -77,50 +77,50 @@ async function runRepopulate(options = {}) {
 
   try {
     // Fetch all people from Rondo Club
-    const knvbToStadion = await fetchAllPeopleFromStadion(options);
-    console.log(`Found ${knvbToStadion.size} people in Rondo Club with KNVB IDs`);
+    const knvbToRondoClub = await fetchAllPeopleFromRondoClub(options);
+    console.log(`Found ${knvbToRondoClub.size} people in Rondo Club with KNVB IDs`);
 
-    // Get all tracked members from local DB (including those without stadion_id)
+    // Get all tracked members from local DB (including those without rondo_club_id)
     const trackedMembers = db.prepare(`
-      SELECT knvb_id, stadion_id, last_synced_hash
-      FROM stadion_members
+      SELECT knvb_id, rondo_club_id, last_synced_hash
+      FROM rondo_club_members
       WHERE knvb_id IS NOT NULL
     `).all();
     console.log(`Found ${trackedMembers.length} members in local database`);
 
     let updated = 0;
     let alreadySet = 0;
-    let notInStadion = 0;
+    let notInRondoClub = 0;
 
     for (const member of trackedMembers) {
-      const rondoClubId = knvbToStadion.get(member.knvb_id);
+      const rondoClubId = knvbToRondoClub.get(member.knvb_id);
 
       if (rondoClubId) {
-        if (member.stadion_id === rondoClubId) {
+        if (member.rondo_club_id === rondoClubId) {
           alreadySet++;
           continue;
         }
 
         if (dryRun) {
-          logVerbose(`Would update ${member.knvb_id}: stadion_id ${member.stadion_id || 'null'} -> ${rondoClubId}`);
+          logVerbose(`Would update ${member.knvb_id}: rondo_club_id ${member.rondo_club_id || 'null'} -> ${rondoClubId}`);
         } else {
-          // Update the stadion_id - use existing hash to avoid re-syncing
+          // Update the rondo_club_id - use existing hash to avoid re-syncing
           updateSyncState(db, member.knvb_id, member.last_synced_hash, rondoClubId);
-          logVerbose(`Updated ${member.knvb_id}: stadion_id -> ${rondoClubId}`);
+          logVerbose(`Updated ${member.knvb_id}: rondo_club_id -> ${rondoClubId}`);
         }
         updated++;
       } else {
         logVerbose(`${member.knvb_id} not found in Rondo Club`);
-        notInStadion++;
+        notInRondoClub++;
       }
     }
 
     console.log(`\nResults:`);
     console.log(`  Updated: ${updated}${dryRun ? ' (dry run)' : ''}`);
     console.log(`  Already set: ${alreadySet}`);
-    console.log(`  Not in Rondo Club: ${notInStadion}`);
+    console.log(`  Not in Rondo Club: ${notInRondoClub}`);
 
-    return { updated, alreadySet, notInStadion };
+    return { updated, alreadySet, notInRondoClub };
   } finally {
     db.close();
   }

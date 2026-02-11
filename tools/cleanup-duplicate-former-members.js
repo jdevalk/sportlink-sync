@@ -10,7 +10,7 @@ const { rondoClubRequest } = require('../lib/rondo-club-client');
  * for the same person. This script:
  *
  * 1. Finds duplicate posts sharing the same KNVB ID
- * 2. Keeps the post tracked in the local stadion_members DB
+ * 2. Keeps the post tracked in the local rondo_club_members DB
  * 3. Deletes the untracked duplicate(s)
  * 4. Also removes no-KNVB posts that match by name to a post with KNVB ID
  *
@@ -25,11 +25,11 @@ async function runCleanup(options = {}) {
   const db = openDb();
 
   try {
-    // Build set of tracked stadion_ids from local DB
+    // Build set of tracked rondo_club_ids from local DB
     const tracked = new Set();
-    const rows = db.prepare('SELECT stadion_id FROM stadion_members WHERE stadion_id IS NOT NULL').all();
-    for (const r of rows) tracked.add(r.stadion_id);
-    console.log(`Local DB tracks ${tracked.size} stadion_ids`);
+    const rows = db.prepare('SELECT rondo_club_id FROM rondo_club_members WHERE rondo_club_id IS NOT NULL').all();
+    for (const r of rows) tracked.add(r.rondo_club_id);
+    console.log(`Local DB tracks ${tracked.size} rondo_club_ids`);
 
     // Fetch all former members from WordPress
     console.log('Fetching all former members from WordPress...');
@@ -45,7 +45,7 @@ async function runCleanup(options = {}) {
       page++;
       if (page % 10 === 0) console.log(`  Fetched ${allFormer.length} so far (page ${page})...`);
     }
-    console.log(`Fetched ${allFormer.length} former members total`);
+    console.log(`Fetched ${allFormer.length} former members from rondo_club_members DB`);
     console.log('');
 
     // Group by KNVB ID

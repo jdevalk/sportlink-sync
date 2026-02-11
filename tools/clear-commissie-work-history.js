@@ -11,9 +11,9 @@ async function clearWorkHistory() {
   const committees = getAllActiveMemberCommittees(db);
   const knvbIds = new Set([...functions.map(f => f.knvb_id), ...committees.map(c => c.knvb_id)]);
 
-  // Get their stadion_ids
+  // Get their rondo_club_ids
   const members = getAllTrackedMembers(db);
-  const memberMap = new Map(members.map(m => [m.knvb_id, m.stadion_id]));
+  const memberMap = new Map(members.map(m => [m.knvb_id, m.rondo_club_id]));
 
   console.log('Clearing work_history for', knvbIds.size, 'members...');
 

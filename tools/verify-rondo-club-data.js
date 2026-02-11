@@ -4,12 +4,12 @@
  *
  * Checks for discrepancies between local tracking database and actual
  * Rondo Club data. Identifies:
- * - Invalid stadion_ids (IDs that don't exist in WordPress)
+ * - Invalid rondo_club_ids (IDs that don't exist in WordPress)
  * - Orphan records (exist in Rondo Club but not tracked locally)
- * - Missing mappings (tracked locally but no stadion_id)
+ * - Missing mappings (tracked locally but no rondo_club_id)
  *
  * Usage:
- *   node scripts/verify-stadion-data.js [--fix] [--verbose]
+ *   node tools/verify-rondo-club-data.js [--fix] [--verbose]
  *
  *   --fix      Attempt to fix discrepancies (nullify invalid IDs)
  *   --verbose  Show detailed output
@@ -23,32 +23,32 @@ const { openDb } = require('../lib/rondo-club-db');
 // Configuration
 const ENTITIES = {
   members: {
-    table: 'stadion_members',
-    idColumn: 'stadion_id',
+    table: 'rondo_club_members',
+    idColumn: 'rondo_club_id',
     keyColumn: 'knvb_id',
     endpoint: 'wp/v2/people',
     acfKeyField: 'knvb-id',
     label: 'Members'
   },
   parents: {
-    table: 'stadion_parents',
-    idColumn: 'stadion_id',
+    table: 'rondo_club_parents',
+    idColumn: 'rondo_club_id',
     keyColumn: 'email',
     endpoint: 'wp/v2/people',
     acfKeyField: null, // Parents use email lookup
     label: 'Parents'
   },
   teams: {
-    table: 'stadion_teams',
-    idColumn: 'stadion_id',
+    table: 'rondo_club_teams',
+    idColumn: 'rondo_club_id',
     keyColumn: 'team_name',
     endpoint: 'wp/v2/teams',
     acfKeyField: null, // Teams use title
     label: 'Teams'
   },
   commissies: {
-    table: 'stadion_commissies',
-    idColumn: 'stadion_id',
+    table: 'rondo_club_commissies',
+    idColumn: 'rondo_club_id',
     keyColumn: 'commissie_name',
     endpoint: 'wp/v2/commissies',
     acfKeyField: null, // Commissies use title
@@ -142,7 +142,7 @@ async function verifyEntity(db, entityKey, options) {
 
   console.log(`  Local DB: ${tracked} tracked (${withId} with ID, ${withoutId} without)`);
 
-  // Find invalid stadion_ids (exist locally but not in Rondo Club)
+  // Find invalid rondo_club_ids (exist locally but not in Rondo Club)
   const invalidRecords = localRecords.filter(r => {
     return r[config.idColumn] != null && !validIds.has(r[config.idColumn]);
   });
@@ -151,7 +151,7 @@ async function verifyEntity(db, entityKey, options) {
   const results = {
     entity: entityKey,
     label: config.label,
-    stadionCount: validIds.size,
+    rondoClubCount: validIds.size,
     localCount: tracked,
     withId: withId,
     withoutId: withoutId,
@@ -161,7 +161,7 @@ async function verifyEntity(db, entityKey, options) {
 
   // Report invalid IDs
   if (invalidRecords.length > 0) {
-    console.log(`  ⚠ Invalid IDs: ${invalidRecords.length}`);
+    console.log(`  ⚠ Invalid rondo_club_ids: ${invalidRecords.length}`);
 
     if (verbose) {
       const preview = invalidRecords.slice(0, 5);
@@ -221,7 +221,7 @@ function printSummary(results, options) {
   for (const r of results) {
     const row = [
       r.label,
-      r.stadionCount.toString(),
+      r.rondoClubCount.toString(),
       r.localCount.toString(),
       r.invalidIds > 0 ? `⚠ ${r.invalidIds}` : '✓ 0',
       r.fixed > 0 ? r.fixed.toString() : '-'
@@ -258,24 +258,24 @@ async function run() {
 Verify SQLite tracking data against Rondo Club WordPress.
 
 Usage:
-  node scripts/verify-stadion-data.js [options]
+  node tools/verify-rondo-club-data.js [options]
 
 Options:
-  --fix      Nullify invalid stadion_ids (allows re-sync)
+  --fix      Nullify invalid rondo_club_ids (allows re-sync)
   --verbose  Show detailed output
   --help     Show this help
 
 Verifies:
-  - Members (stadion_members → /wp/v2/people)
-  - Parents (stadion_parents → /wp/v2/people)
-  - Teams (stadion_teams → /wp/v2/teams)
-  - Commissies (stadion_commissies → /wp/v2/commissies)
+  - Members (rondo_club_members → /wp/v2/people)
+  - Parents (rondo_club_parents → /wp/v2/people)
+  - Teams (rondo_club_teams → /wp/v2/teams)
+  - Commissies (rondo_club_commissies → /wp/v2/commissies)
 `);
     process.exit(0);
   }
 
   console.log('═'.repeat(50));
-  console.log('STADION DATA VERIFICATION');
+  console.log('RONDO CLUB DATA VERIFICATION');
   console.log('═'.repeat(50));
 
   if (fix) {
