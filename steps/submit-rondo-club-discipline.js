@@ -30,18 +30,18 @@ function toAcfDateFormat(dateString) {
 }
 
 /**
- * Build knvb_id -> stadion_id lookup map from rondo-sync.sqlite
+ * Build knvb_id -> rondo_club_id lookup map from rondo-sync.sqlite
  * @returns {Map<string, number>} - Map of KNVB ID to Rondo Club person ID
  */
-function buildPersonLookup() {
+function buildPersonRondoClubIdLookup() {
   const db = openRondoClubDb();
-  const stmt = db.prepare('SELECT knvb_id, stadion_id FROM stadion_members WHERE stadion_id IS NOT NULL');
+  const stmt = db.prepare('SELECT knvb_id, rondo_club_id FROM rondo_club_members WHERE rondo_club_id IS NOT NULL');
   const rows = stmt.all();
   db.close();
 
   const lookup = new Map();
   rows.forEach(row => {
-    lookup.set(row.knvb_id, row.stadion_id);
+    lookup.set(row.knvb_id, row.rondo_club_id);
   });
   return lookup;
 }
@@ -141,30 +141,30 @@ function buildCaseTitle(personName, matchDescription, matchDate) {
 /**
  * Sync a single discipline case to Rondo Club (create or update)
  * @param {Object} caseData - Case record from database
- * @param {number} personStadionId - Rondo Club person post ID
+ * @param {number} personRondoClubId - Rondo Club person post ID
  * @param {number} seasonTermId - Season term ID
  * @param {string} personName - Person name for title
  * @param {Object} db - Discipline database connection
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<{action: string, id: number}>}
  */
-async function syncCase(caseData, personStadionId, seasonTermId, personName, db, options) {
+async function syncCase(caseData, personRondoClubId, seasonTermId, personName, db, options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  let { stadion_id } = caseData;
+  let { rondo_club_id } = caseData;
   const { dossier_id, source_hash, last_synced_hash, match_date, match_description } = caseData;
 
   // Check if update needed (unless force)
-  if (stadion_id && !options.force && source_hash === last_synced_hash) {
+  if (rondo_club_id && !options.force && source_hash === last_synced_hash) {
     logVerbose(`Case unchanged, skipping: ${dossier_id}`);
-    return { action: 'skipped', id: stadion_id };
+    return { action: 'skipped', id: rondo_club_id };
   }
 
   // Build ACF fields payload
   // Note: Date fields use ACF date_picker with Ymd return format (e.g., "20260115")
   const acfFields = {
     'dossier_id': dossier_id,
-    'person': personStadionId,
+    'person': personRondoClubId,
     'match_date': toAcfDateFormat(match_date),
     'match_description': match_description || '',
     'team_name': caseData.team_name || '',
@@ -186,26 +186,26 @@ async function syncCase(caseData, personStadionId, seasonTermId, personName, db,
     acf: acfFields
   };
 
-  if (stadion_id) {
+  if (rondo_club_id) {
     // UPDATE existing case
-    const endpoint = `wp/v2/discipline-cases/${stadion_id}`;
-    logVerbose(`Updating discipline case: ${stadion_id} - ${dossier_id}`);
+    const endpoint = `wp/v2/discipline-cases/${rondo_club_id}`;
+    logVerbose(`Updating discipline case: ${rondo_club_id} - ${dossier_id}`);
     logVerbose(`  PUT ${endpoint}`);
     logVerbose(`  Payload: ${JSON.stringify(payload, null, 2)}`);
 
     try {
       const response = await rondoClubRequest(endpoint, 'PUT', payload, options);
-      updateCaseSyncState(db, dossier_id, source_hash, stadion_id, season);
-      return { action: 'updated', id: stadion_id };
+      updateCaseSyncState(db, dossier_id, source_hash, rondo_club_id, season);
+      return { action: 'updated', id: rondo_club_id };
     } catch (error) {
       // Check if case was deleted in WordPress (404)
       if (error.details?.code === 'rest_post_invalid_id' || error.details?.data?.status === 404) {
-        logVerbose(`Case ${dossier_id} (ID: ${stadion_id}) no longer exists in WordPress, recreating...`);
-        // Clear the stadion_id so we fall through to create
-        stadion_id = null;
+        logVerbose(`Case ${dossier_id} (ID: ${rondo_club_id}) no longer exists in WordPress, recreating...`);
+        // Clear the rondo_club_id so we fall through to create
+        rondo_club_id = null;
         updateCaseSyncState(db, dossier_id, null, null, null);
       } else {
-        console.error(`API Error updating case "${dossier_id}" (ID: ${stadion_id}):`);
+        console.error(`API Error updating case "${dossier_id}" (ID: ${rondo_club_id}):`);
         console.error(`  Status: ${error.message}`);
         if (error.details) {
           console.error(`  Code: ${error.details.code || 'unknown'}`);
@@ -220,7 +220,7 @@ async function syncCase(caseData, personStadionId, seasonTermId, personName, db,
   }
 
   // CREATE new case (or recreate if deleted from WordPress)
-  if (!stadion_id) {
+  if (!rondo_club_id) {
     const endpoint = 'wp/v2/discipline-cases';
     logVerbose(`Creating new discipline case: ${dossier_id}`);
     logVerbose(`  POST ${endpoint}`);
@@ -263,7 +263,7 @@ async function runSync(options = {}) {
 
   // Build person lookup map
   logVerbose('Building person lookup map from rondo-sync.sqlite...');
-  const personLookup = buildPersonLookup();
+  const personLookup = buildPersonRondoClubIdLookup();
   logVerbose(`  Loaded ${personLookup.size} person mappings`);
 
   // Initialize caches
@@ -291,9 +291,9 @@ async function runSync(options = {}) {
   for (const caseData of cases) {
     const { dossier_id, public_person_id, match_date } = caseData;
 
-    // Look up person stadion_id
-    const personStadionId = personLookup.get(public_person_id);
-    if (!personStadionId) {
+    // Look up person rondo_club_id
+    const personRondoClubId = personLookup.get(public_person_id);
+    if (!personRondoClubId) {
       logVerbose(`Skipping case ${dossier_id}: person ${public_person_id} not yet synced to Rondo Club`);
       results.skipped_no_person++;
       continue;
@@ -301,7 +301,7 @@ async function runSync(options = {}) {
 
     try {
       // Fetch person name (cached)
-      const personName = await fetchPersonName(personStadionId, options, personNameCache);
+      const personName = await fetchPersonName(personRondoClubId, options, personNameCache);
 
       // Derive season from match date
       const season = getSeasonFromDate(match_date);
@@ -315,7 +315,7 @@ async function runSync(options = {}) {
       const seasonTermId = await getOrCreateSeasonTermId(season, options, seasonTermCache);
 
       // Sync the case
-      const result = await syncCase(caseData, personStadionId, seasonTermId, personName, db, options);
+      const result = await syncCase(caseData, personRondoClubId, seasonTermId, personName, db, options);
 
       if (result.action === 'created') {
         results.created++;

@@ -77,13 +77,13 @@ async function getBirthdayTermId(options = {}) {
 
 /**
  * Create a new important date in Rondo Club
- * @param {number} stadionPersonId - Rondo Club person post ID
+ * @param {number} rondoClubPersonId - Rondo Club person post ID
  * @param {string} dateValue - Date in YYYY-MM-DD format
  * @param {number} birthdayTermId - Term ID for birthday date type
  * @param {Object} options - Logger options
  * @returns {Promise<number>} Created important date post ID
  */
-async function createImportantDate(stadionPersonId, dateValue, birthdayTermId, options = {}) {
+async function createImportantDate(rondoClubPersonId, dateValue, birthdayTermId, options = {}) {
   const response = await rondoClubRequest(
     'wp/v2/important-dates',
     'POST',
@@ -93,7 +93,7 @@ async function createImportantDate(stadionPersonId, dateValue, birthdayTermId, o
       date_type: [birthdayTermId],
       acf: {
         date_value: dateValue,
-        related_people: [stadionPersonId],
+        related_people: [rondoClubPersonId],
         year_unknown: false,
         is_recurring: true,
         custom_label: ''
@@ -107,19 +107,19 @@ async function createImportantDate(stadionPersonId, dateValue, birthdayTermId, o
 
 /**
  * Update an existing important date in Rondo Club
- * @param {number} stadionDateId - Rondo Club important date post ID
- * @param {number} stadionPersonId - Rondo Club person post ID
+ * @param {number} rondoClubDateId - Rondo Club important date post ID
+ * @param {number} rondoClubPersonId - Rondo Club person post ID
  * @param {string} dateValue - Date in YYYY-MM-DD format
  * @param {Object} options - Logger options
  */
-async function updateImportantDate(stadionDateId, stadionPersonId, dateValue, options = {}) {
+async function updateImportantDate(rondoClubDateId, rondoClubPersonId, dateValue, options = {}) {
   await rondoClubRequest(
-    `wp/v2/important-dates/${stadionDateId}`,
+    `wp/v2/important-dates/${rondoClubDateId}`,
     'PUT',
     {
       acf: {
         date_value: dateValue,
-        related_people: [stadionPersonId]
+        related_people: [rondoClubPersonId]
       }
     },
     options
@@ -128,12 +128,12 @@ async function updateImportantDate(stadionDateId, stadionPersonId, dateValue, op
 
 /**
  * Delete an important date from Rondo Club
- * @param {number} stadionDateId - Rondo Club important date post ID
+ * @param {number} rondoClubDateId - Rondo Club important date post ID
  * @param {Object} options - Logger options
  */
-async function deleteStadionImportantDate(stadionDateId, options = {}) {
+async function deleteRondoClubImportantDate(rondoClubDateId, options = {}) {
   await rondoClubRequest(
-    `wp/v2/important-dates/${stadionDateId}`,
+    `wp/v2/important-dates/${rondoClubDateId}`,
     'DELETE',
     null,
     options
@@ -169,7 +169,7 @@ async function runSync(options = {}) {
     // Step 1: Load birthdays from SQLite and upsert to tracking table
     result.total = loadBirthdaysFromSqlite(db, options);
 
-    // Step 2: Get dates needing sync (members must have stadion_id)
+    // Step 2: Get dates needing sync (members must have rondo_club_id)
     const needsSync = getImportantDatesNeedingSync(db, force);
     result.skipped = result.total - needsSync.length;
 
@@ -177,7 +177,7 @@ async function runSync(options = {}) {
 
     // Step 2.5: Get the birthday term ID (only if we have dates to create)
     let birthdayTermId = null;
-    if (needsSync.some(d => !d.stadion_date_id)) {
+    if (needsSync.some(d => !d.rondo_club_date_id)) {
       logVerbose('Fetching birthday term ID...');
       birthdayTermId = await getBirthdayTermId(options);
       logVerbose(`Birthday term ID: ${birthdayTermId}`);
@@ -189,14 +189,14 @@ async function runSync(options = {}) {
       logVerbose(`Syncing ${i + 1}/${needsSync.length}: ${date.knvb_id} (${date.date_value})`);
 
       try {
-        if (date.stadion_date_id) {
+        if (date.rondo_club_date_id) {
           // Update existing
-          await updateImportantDate(date.stadion_date_id, date.stadion_id, date.date_value, options);
-          updateImportantDateSyncState(db, date.knvb_id, date.date_type, date.source_hash, date.stadion_date_id);
+          await updateImportantDate(date.rondo_club_date_id, date.rondo_club_id, date.date_value, options);
+          updateImportantDateSyncState(db, date.knvb_id, date.date_type, date.source_hash, date.rondo_club_date_id);
           result.updated++;
         } else {
           // Create new
-          const newId = await createImportantDate(date.stadion_id, date.date_value, birthdayTermId, options);
+          const newId = await createImportantDate(date.rondo_club_id, date.date_value, birthdayTermId, options);
           updateImportantDateSyncState(db, date.knvb_id, date.date_type, date.source_hash, newId);
           result.created++;
         }
@@ -221,7 +221,7 @@ async function runSync(options = {}) {
     for (const orphan of orphanDates) {
       logVerbose(`Deleting orphan date: ${orphan.knvb_id}`);
       try {
-        await deleteStadionImportantDate(orphan.stadion_date_id, options);
+        await deleteRondoClubImportantDate(orphan.rondo_club_date_id, options);
         deleteImportantDate(db, orphan.knvb_id, orphan.date_type);
         result.deleted++;
       } catch (error) {
