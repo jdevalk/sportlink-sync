@@ -27,7 +27,7 @@
         <% } %>
       <% } else if (pipeline.lastRun) { %>
         <div class="last-run">
-          Last run: <%= formatRelativeTime(pipeline.lastRun.started_at) %>
+          Last run: <%= formatRelativeTime(pipeline.lastRun.finished_at || pipeline.lastRun.started_at) %>
         </div>
 
         <div class="counts">
