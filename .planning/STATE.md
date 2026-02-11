@@ -41,7 +41,7 @@ Recent decisions affecting v3.2:
 
 ### Pending Todos
 
-8 pending (see /gsd:check-todos for full list):
+9 pending (see /gsd:check-todos for full list):
 - fetch-invoice-addresses-from-sportlink
 - review-deleted-member-handling
 - rename-project-to-rondo (in progress as v3.2)
@@ -49,6 +49,7 @@ Recent decisions affecting v3.2:
 - detect-stale-parent-email-addresses
 - rename-stadion-references-to-rondo-in-database-structure (in progress as v3.2)
 - improve-freescout-integration-with-rondo-club
+- build-interface-for-syncing-individuals-to-club
 
 ### Active Debug Sessions
 
