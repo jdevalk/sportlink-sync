@@ -123,6 +123,11 @@ async function createCustomer(customer, options) {
     payload.phones = customer.data.phones;
   }
 
+  // Add websites if available
+  if (customer.data.websites && customer.data.websites.length > 0) {
+    payload.websites = customer.data.websites;
+  }
+
   logVerbose(`Creating new customer: ${customer.email}`);
   const response = await freescoutRequest('/api/customers', 'POST', payload, options);
   return response.body.id;
@@ -146,6 +151,11 @@ async function updateCustomer(freescoutId, customer, options) {
   // Add phones if available
   if (customer.data.phones && customer.data.phones.length > 0) {
     payload.phones = customer.data.phones;
+  }
+
+  // Add websites if available
+  if (customer.data.websites && customer.data.websites.length > 0) {
+    payload.websites = customer.data.websites;
   }
 
   logVerbose(`Updating customer ${freescoutId}: ${customer.email}`);
