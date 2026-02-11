@@ -7,7 +7,7 @@
   "scripts": {
     "download": "node steps/download-data-from-sportlink.js",
     "prepare-laposta": "node steps/prepare-laposta-members.js",
-    "prepare-stadion": "node steps/prepare-rondo-club-members.js",
+    "prepare-rondo-club": "node steps/prepare-rondo-club-members.js",
     "submit-laposta": "node steps/submit-laposta-list.js",
     "sync-laposta": "node steps/submit-laposta-list.js",
     "dedupe-laposta": "node tools/dedupe-laposta-list.js",

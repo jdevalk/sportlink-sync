@@ -24,7 +24,7 @@ Run the dev server: `cd ~/Code/rondo/developer && npm run dev` → http://localh
 
 ## CRITICAL: Never Run Sync Locally
 
-**Sync scripts must only run on the production server.** Running locally causes duplicate entries because each machine has its own SQLite database with different `stadion_id` mappings.
+**Sync scripts must only run on the production server.** Running locally causes duplicate entries because each machine has its own SQLite database with different `rondo_club_id` mappings.
 
 ```bash
 ssh root@46.202.155.16
