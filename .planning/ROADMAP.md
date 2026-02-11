@@ -15,7 +15,7 @@
 - ✅ **v2.3 Birthday Migration** — Phase 33 (shipped 2026-02-06)
 - ✅ **v3.0 Web Dashboard** — Phases 34-38 (shipped 2026-02-09)
 - ✅ **v3.1 Fetch Former Members** — Phase 40 (shipped 2026-02-09)
-- 🚧 **v3.2 Stadion-to-Rondo Rename** — Phases 41-43 (in progress)
+- ✅ **v3.2 Stadion-to-Rondo Rename** — Phases 41-43 (shipped 2026-02-11)
 
 ## Phases
 
@@ -37,59 +37,14 @@
 
 </details>
 
-### 🚧 v3.2 Stadion-to-Rondo Rename (In Progress)
+<details>
+<summary>✅ v3.2 Stadion-to-Rondo Rename (Phases 41-43) — SHIPPED 2026-02-11</summary>
 
-**Milestone Goal:** Rename all "stadion" references to "rondo_club" across the entire codebase — database tables, columns, file references, variable names, and documentation.
+- [x] Phase 41: Database Migration (3/3 plans) — completed 2026-02-11
+- [x] Phase 42: Code References (3/3 plans) — completed 2026-02-11
+- [x] Phase 43: Documentation (2/2 plans) — completed 2026-02-11
 
-#### Phase 41: Database Migration
-**Goal**: Rename SQLite tables and columns from stadion to rondo_club
-**Depends on**: Nothing (first phase in milestone)
-**Requirements**: DB-01, DB-02, DB-03, DB-04
-**Success Criteria** (what must be TRUE):
-  1. All `stadion_*` tables are renamed to `rondo_club_*` in rondo-sync.sqlite
-  2. All `stadion_id` columns are renamed to `rondo_club_id`
-  3. All `*_stadion_modified` columns are renamed to `*_rondo_club_modified`
-  4. Migration runs without breaking active sync processes on production server
-  5. Migration uses CREATE+INSERT+DROP pattern (not ALTER TABLE RENAME) to avoid concurrent access bugs
-**Plans**: 3 plans
-
-Plans:
-- [x] 41-01-PLAN.md — Migration function + initDb() schema + openDb() integration + sync-origin.js
-- [x] 41-02-PLAN.md — SQL query updates across all functions in rondo-club-db.js
-- [x] 41-03-PLAN.md — discipline-db.js + conflict-resolver.js rename + migration
-
-#### Phase 42: Code References
-**Goal**: Update all stadion references in codebase to rondo_club
-**Depends on**: Phase 41
-**Requirements**: CODE-01, CODE-02, CODE-03, CODE-04, CODE-05
-**Success Criteria** (what must be TRUE):
-  1. All `stadion_` references in lib/ are updated to `rondo_club_`
-  2. All `stadion_` references in steps/ are updated to `rondo_club_`
-  3. All `stadion_` references in pipelines/ are updated to `rondo_club_`
-  4. All `stadion_` references in tools/ are updated to `rondo_club_`
-  5. Variable names using `stadion` are renamed throughout codebase
-  6. All sync pipelines run successfully after rename
-**Plans**: 3 plans
-
-Plans:
-- [x] 42-01-PLAN.md — Rename stadion refs in people-pipeline steps (member sync, photos, freescout, nikki, functions)
-- [x] 42-02-PLAN.md — Rename stadion refs in team/commissie/discipline/important-dates steps
-- [x] 42-03-PLAN.md — Rename stadion refs in pipelines, tools, and lib/http-client.js
-
-#### Phase 43: Documentation
-**Goal**: Update all documentation to reflect rondo_club naming
-**Depends on**: Phase 42
-**Requirements**: DOCS-01, DOCS-02, DOCS-03
-**Success Criteria** (what must be TRUE):
-  1. All `stadion` references in docs/ are updated
-  2. CLAUDE.md reflects new naming conventions
-  3. README.md and package.json are updated
-  4. Developer docs site synced with changes
-**Plans**: 2 plans
-
-Plans:
-- [ ] 43-01-PLAN.md — Rename stadion refs in docs/, CLAUDE.md, and package.json
-- [ ] 43-02-PLAN.md — Rename stadion refs in developer docs site sync/ section
+</details>
 
 ### Deferred
 
@@ -111,8 +66,8 @@ Phases execute in numeric order: 41 → 42 → 43
 | 40. Former Member Import Tool | v3.1 | 2/2 | Complete | 2026-02-09 |
 | 41. Database Migration | v3.2 | 3/3 | Complete | 2026-02-11 |
 | 42. Code References | v3.2 | 3/3 | Complete | 2026-02-11 |
-| 43. Documentation | v3.2 | 0/2 | Not started | - |
+| 43. Documentation | v3.2 | 2/2 | Complete | 2026-02-11 |
 
 ---
 *Roadmap created: 2026-02-08*
-*Last updated: 2026-02-11 after Phase 42 execution complete*
+*Last updated: 2026-02-11 after Phase 43 execution complete — v3.2 milestone shipped*
