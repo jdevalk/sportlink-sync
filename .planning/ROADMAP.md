@@ -85,10 +85,11 @@ Plans:
   2. CLAUDE.md reflects new naming conventions
   3. README.md and package.json are updated
   4. Developer docs site synced with changes
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 43-01: TBD
+- [ ] 43-01-PLAN.md — Rename stadion refs in docs/, CLAUDE.md, and package.json
+- [ ] 43-02-PLAN.md — Rename stadion refs in developer docs site sync/ section
 
 ### Deferred
 
@@ -110,7 +111,7 @@ Phases execute in numeric order: 41 → 42 → 43
 | 40. Former Member Import Tool | v3.1 | 2/2 | Complete | 2026-02-09 |
 | 41. Database Migration | v3.2 | 3/3 | Complete | 2026-02-11 |
 | 42. Code References | v3.2 | 3/3 | Complete | 2026-02-11 |
-| 43. Documentation | v3.2 | 0/TBD | Not started | - |
+| 43. Documentation | v3.2 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-08*
