@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention
-**Current focus:** Phase 41 complete — ready for Phase 42
+**Current focus:** Phase 42 complete — human verification needed, then Phase 43
 
 ## Current Position
 
-Phase: 42 of 43 (Code References) — COMPLETE
+Phase: 42 of 43 (Code References) — COMPLETE (human_needed)
 Plan: 3 of 3 in current phase (all plans complete)
-Status: Phase complete — all stadion references renamed to rondo_club
-Last activity: 2026-02-11 — Plan 42-03 executed (17 files: pipelines, tools, lib)
+Status: Phase complete, verified (human_needed for production runtime testing)
+Last activity: 2026-02-11 — Phase 42 executed and verified
 
 Progress: [████████████████████████████████████████░░░░] 96% (42 of 43 phases complete)
 
@@ -62,5 +62,5 @@ Recent decisions affecting v3.2:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed Phase 42 (all 3 plans: stadion→rondo_club rename complete)
-Resume file: Ready for Phase 43 (Final Testing & Deployment)
+Stopped at: Phase 42 complete — verified (human_needed for production runtime tests)
+Resume file: Ready for Phase 43 (Documentation) after human verification

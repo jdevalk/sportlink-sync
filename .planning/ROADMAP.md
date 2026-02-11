@@ -72,9 +72,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 42-01-PLAN.md — Rename stadion refs in people-pipeline steps (member sync, photos, freescout, nikki, functions)
-- [ ] 42-02-PLAN.md — Rename stadion refs in team/commissie/discipline/important-dates steps
-- [ ] 42-03-PLAN.md — Rename stadion refs in pipelines, tools, and lib/http-client.js
+- [x] 42-01-PLAN.md — Rename stadion refs in people-pipeline steps (member sync, photos, freescout, nikki, functions)
+- [x] 42-02-PLAN.md — Rename stadion refs in team/commissie/discipline/important-dates steps
+- [x] 42-03-PLAN.md — Rename stadion refs in pipelines, tools, and lib/http-client.js
 
 #### Phase 43: Documentation
 **Goal**: Update all documentation to reflect rondo_club naming
@@ -109,9 +109,9 @@ Phases execute in numeric order: 41 → 42 → 43
 | 39. Multi-Club Readiness | — | 0/1 | Deferred | - |
 | 40. Former Member Import Tool | v3.1 | 2/2 | Complete | 2026-02-09 |
 | 41. Database Migration | v3.2 | 3/3 | Complete | 2026-02-11 |
-| 42. Code References | v3.2 | 0/3 | Not started | - |
+| 42. Code References | v3.2 | 3/3 | Complete | 2026-02-11 |
 | 43. Documentation | v3.2 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-08*
-*Last updated: 2026-02-11 after Phase 42 planning complete*
+*Last updated: 2026-02-11 after Phase 42 execution complete*
