@@ -5,6 +5,7 @@ const fs = require('fs');
 const { openDb: openRondoClubDb, getMemberFreeFieldsByKnvbId, getMemberWorkHistory, getAllTrackedMembers } = require('../lib/rondo-club-db');
 const { openDb: openFreescoutDb, getCustomerByKnvbId } = require('../lib/freescout-db');
 const { createLoggerAdapter } = require('../lib/log-adapters');
+const { readEnv } = require('../lib/utils');
 
 // Nikki DB is optional - will be null if not available
 let openNikkiDb = null;
@@ -191,6 +192,22 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
   // Get Nikki data
   const nikkiData = getMostRecentNikkiData(nikkiDb, member.knvb_id);
 
+  // Build websites array
+  const websites = [];
+
+  // Always include Sportlink URL (every member has a KNVB ID)
+  websites.push({
+    value: `https://club.sportlink.com/member/member-details/${member.knvb_id}/general`
+  });
+
+  // Include Rondo Club URL only if member has a WordPress post
+  if (member.rondo_club_id) {
+    const rondoUrl = readEnv('RONDO_URL').replace(/\/$/, ''); // Strip trailing slash
+    websites.push({
+      value: `${rondoUrl}/people/${member.rondo_club_id}`
+    });
+  }
+
   return {
     knvb_id: member.knvb_id,
     email: email.toLowerCase(),
@@ -199,7 +216,8 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
       firstName,
       lastName,
       phones: phones,
-      photoUrl: getPhotoUrl(member)
+      photoUrl: getPhotoUrl(member),
+      websites: websites
     },
     customFields: {
       union_teams: unionTeams,
