@@ -42,7 +42,7 @@ async function fetchAllWordPressTeams(options) {
 
 /**
  * Sync a single team to Rondo Club (create or update)
- * Uses local stadion_id tracking - no API search needed
+ * Uses local rondo_club_id tracking - no API search needed
  * @param {Object} team - Team record from database
  * @param {Object} db - SQLite database connection
  * @param {Object} options - Logger and verbose options
@@ -50,7 +50,7 @@ async function fetchAllWordPressTeams(options) {
  */
 async function syncTeam(team, db, options) {
   const { team_name, sportlink_id, game_activity, gender, source_hash, last_synced_hash } = team;
-  let { stadion_id } = team;
+  let { rondo_club_id } = team;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   // Build ACF fields payload
@@ -66,11 +66,11 @@ async function syncTeam(team, db, options) {
   };
   if (gender && genderMap[gender]) acfFields.gender = genderMap[gender];
 
-  if (stadion_id) {
+  if (rondo_club_id) {
     // Team exists - check if changed (unless force)
     if (!options.force && source_hash === last_synced_hash) {
       logVerbose(`Team unchanged, skipping: ${team_name}`);
-      return { action: 'skipped', id: stadion_id };
+      return { action: 'skipped', id: rondo_club_id };
     }
     // UPDATE existing team (unlikely - team names don't change often)
     const payload = {
@@ -78,23 +78,23 @@ async function syncTeam(team, db, options) {
       status: 'publish',
       acf: acfFields
     };
-    const endpoint = `wp/v2/teams/${stadion_id}`;
-    logVerbose(`Updating existing team: ${stadion_id} - ${team_name}`);
+    const endpoint = `wp/v2/teams/${rondo_club_id}`;
+    logVerbose(`Updating existing team: ${rondo_club_id} - ${team_name}`);
     logVerbose(`  PUT ${endpoint}`);
     logVerbose(`  Payload: ${JSON.stringify(payload)}`);
     try {
       const response = await rondoClubRequest(endpoint, 'PUT', payload, options);
-      updateTeamSyncState(db, sportlink_id, source_hash, stadion_id);
-      return { action: 'updated', id: stadion_id };
+      updateTeamSyncState(db, sportlink_id, source_hash, rondo_club_id);
+      return { action: 'updated', id: rondo_club_id };
     } catch (error) {
       // Check if team was deleted in WordPress (404 with rest_post_invalid_id)
       if (error.details?.code === 'rest_post_invalid_id' || error.details?.data?.status === 404) {
-        logVerbose(`Team ${team_name} (ID: ${stadion_id}) no longer exists in WordPress, recreating...`);
-        // Clear the stadion_id so we fall through to create
-        stadion_id = null;
+        logVerbose(`Team ${team_name} (ID: ${rondo_club_id}) no longer exists in WordPress, recreating...`);
+        // Clear the rondo_club_id so we fall through to create
+        rondo_club_id = null;
         updateTeamSyncState(db, sportlink_id, null, null);
       } else {
-        console.error(`API Error updating team "${team_name}" (ID: ${stadion_id}):`);
+        console.error(`API Error updating team "${team_name}" (ID: ${rondo_club_id}):`);
         console.error(`  Status: ${error.message}`);
         if (error.details) {
           console.error(`  Code: ${error.details.code || 'unknown'}`);
@@ -109,7 +109,7 @@ async function syncTeam(team, db, options) {
   }
 
   // CREATE new team (or recreate if deleted from WordPress)
-  if (!stadion_id) {
+  if (!rondo_club_id) {
     const payload = {
       title: team_name,
       status: 'publish',
@@ -143,8 +143,7 @@ async function syncTeam(team, db, options) {
  * Main sync orchestration for teams
  *
  * NOTE: This function reads team data that was already populated by download-teams-from-sportlink.js.
- * It does NOT call prepare-stadion-teams.js because the team download provides sportlink_id
- * which is required for proper team rename handling.
+ * Team download provides sportlink_id which is required for proper team rename handling.
  *
  * @param {Object} options
  * @param {Object} [options.logger] - Logger instance
@@ -218,13 +217,13 @@ async function runSync(options = {}) {
         logVerbose(`Found ${orphanTeams.length} orphan teams to delete`);
 
         for (const orphan of orphanTeams) {
-          logVerbose(`Deleting orphan team: ${orphan.team_name} (ID: ${orphan.stadion_id})`);
+          logVerbose(`Deleting orphan team: ${orphan.team_name} (ID: ${orphan.rondo_club_id})`);
 
-          // Delete from WordPress if it has a stadion_id
-          if (orphan.stadion_id) {
+          // Delete from WordPress if it has a rondo_club_id
+          if (orphan.rondo_club_id) {
             try {
-              await rondoClubRequest(`wp/v2/teams/${orphan.stadion_id}`, 'DELETE', { force: true }, options);
-              logVerbose(`  Deleted from WordPress: ${orphan.stadion_id}`);
+              await rondoClubRequest(`wp/v2/teams/${orphan.rondo_club_id}`, 'DELETE', { force: true }, options);
+              logVerbose(`  Deleted from WordPress: ${orphan.rondo_club_id}`);
             } catch (error) {
               // Ignore 404 errors (already deleted)
               if (error.details?.data?.status !== 404) {
@@ -249,11 +248,11 @@ async function runSync(options = {}) {
       // This catches teams created before tracking was implemented
       logVerbose('Checking for untracked teams in WordPress...');
       const wordPressTeams = await fetchAllWordPressTeams(options);
-      // Re-fetch teams to get updated stadion_ids from newly created teams
+      // Re-fetch teams to get updated rondo_club_ids from newly created teams
       const updatedTeams = getAllTeamsForSync(db);
-      const trackedStadionIds = new Set(updatedTeams.filter(t => t.stadion_id).map(t => t.stadion_id));
+      const trackedRondoClubIds = new Set(updatedTeams.filter(t => t.rondo_club_id).map(t => t.rondo_club_id));
 
-      const untrackedTeams = wordPressTeams.filter(t => !trackedStadionIds.has(t.id));
+      const untrackedTeams = wordPressTeams.filter(t => !trackedRondoClubIds.has(t.id));
       if (untrackedTeams.length > 0) {
         logVerbose(`Found ${untrackedTeams.length} untracked teams in WordPress to delete`);
 

@@ -43,14 +43,14 @@ function convertDateForACF(dateStr) {
 
 /**
  * Build ACF work_history entry for a commissie.
- * @param {number} commissieStadionId - Commissie WordPress post ID
+ * @param {number} commissieRondoClubId - Commissie WordPress post ID
  * @param {string} jobTitle - Job title/role
  * @param {boolean} isActive - Is current
  * @param {string} startDate - Start date (Sportlink format)
  * @param {string} endDate - End date (Sportlink format)
  * @returns {Object} - ACF work_history entry
  */
-function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate, endDate) {
+function buildWorkHistoryEntry(commissieRondoClubId, jobTitle, isActive, startDate, endDate) {
   if (!jobTitle) {
     return null;  // Caller handles skip
   }
@@ -59,14 +59,14 @@ function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate
     is_current: isActive,
     start_date: convertDateForACF(startDate),
     end_date: isActive ? '' : convertDateForACF(endDate),
-    team: commissieStadionId  // Note: This will work once Rondo Club's work_history.team field accepts commissie post type
+    team: commissieRondoClubId  // Note: This will work once Rondo Club's work_history.team field accepts commissie post type
   };
 }
 
 /**
  * Detect commissie changes for a member.
  * Compares current commissies vs SYNCED records in SQLite.
- * Only records that have been actually synced to WordPress (have stadion_work_history_id)
+ * Only records that have been actually synced to WordPress (have rondo_club_work_history_id)
  * are considered "tracked". Unsynced records in the tracking table are treated as new.
  * @param {Object} db - SQLite database connection
  * @param {string} knvbId - Member KNVB ID
@@ -75,9 +75,9 @@ function buildWorkHistoryEntry(commissieStadionId, jobTitle, isActive, startDate
  */
 function detectCommissieChanges(db, knvbId, currentCommissies) {
   const trackedHistory = getMemberCommissieWorkHistory(db, knvbId);
-  // Only consider records as "synced" if they have a stadion_work_history_id
+  // Only consider records as "synced" if they have a rondo_club_work_history_id
   // Records just inserted by upsertCommissieWorkHistory won't have this set
-  const syncedHistory = trackedHistory.filter(h => h.stadion_work_history_id !== null);
+  const syncedHistory = trackedHistory.filter(h => h.rondo_club_work_history_id !== null);
 
   // Create composite keys for matching (commissie_name + role_name)
   const makeKey = (commissieName, roleName) => `${commissieName}|${roleName || ''}`;
@@ -93,20 +93,20 @@ function detectCommissieChanges(db, knvbId, currentCommissies) {
 
 /**
  * Sync commissie work history for a single member.
- * @param {Object} member - Member with KNVB ID, stadion_id
+ * @param {Object} member - Member with KNVB ID, rondo_club_id
  * @param {Array} currentCommissies - Current commissie memberships
  * @param {Object} db - Rondo Club SQLite database
- * @param {Map} commissieMap - Map<commissie_name, stadion_id>
+ * @param {Map} commissieMap - Map<commissie_name, rondo_club_id>
  * @param {Object} options - Logger and verbose options
  * @param {boolean} force - Force update even unchanged entries
  * @returns {Promise<{action: string, added: number, ended: number}>}
  */
 async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, commissieMap, options, force = false) {
-  const { knvb_id, stadion_id } = member;
+  const { knvb_id, rondo_club_id } = member;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   // Skip if member not yet synced to Rondo Club
-  if (!stadion_id) {
+  if (!rondo_club_id) {
     logVerbose(`Skipping ${knvb_id}: not yet synced to Rondo Club`);
     return { action: 'skipped', added: 0, ended: 0 };
   }
@@ -120,7 +120,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
   let existingFirstName = '';
   let existingLastName = '';
   try {
-    const response = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+    const response = await rondoClubRequest(`wp/v2/people/${rondo_club_id}`, 'GET', null, options);
     existingWorkHistory = response.body.acf?.work_history || [];
     existingFirstName = response.body.acf?.first_name || '';
     existingLastName = response.body.acf?.last_name || '';
@@ -137,9 +137,9 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
 
   // Handle removed commissies (only sync-created entries)
   for (const removed of changes.removed) {
-    if (removed.stadion_work_history_id !== null && removed.stadion_work_history_id !== undefined) {
+    if (removed.rondo_club_work_history_id !== null && removed.rondo_club_work_history_id !== undefined) {
       // This is a sync-created entry, we can modify it
-      const index = removed.stadion_work_history_id;
+      const index = removed.rondo_club_work_history_id;
       if (index < newWorkHistory.length) {
         newWorkHistory[index] = {
           ...newWorkHistory[index],
@@ -161,8 +161,8 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
 
   // Handle added commissies
   for (const commissie of changes.added) {
-    const commissieStadionId = commissieMap.get(commissie.commissie_name);
-    if (!commissieStadionId) {
+    const commissieRondoClubId = commissieMap.get(commissie.commissie_name);
+    if (!commissieRondoClubId) {
       logVerbose(`Warning: Commissie "${commissie.commissie_name}" not found in Rondo Club, skipping`);
       continue;
     }
@@ -173,7 +173,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
     }
 
     const entry = buildWorkHistoryEntry(
-      commissieStadionId,
+      commissieRondoClubId,
       commissie.role_name,
       commissie.is_active !== false,
       commissie.relation_start,
@@ -182,7 +182,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
     const newIndex = newWorkHistory.length;
     newWorkHistory.push(entry);
 
-    // Update tracking with stadion_work_history_id
+    // Update tracking with rondo_club_work_history_id
     const sourceHash = computeCommissieWorkHistoryHash(
       knvb_id,
       commissie.commissie_name,
@@ -199,8 +199,8 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
   // Handle unchanged commissies when force=true (update with current data including start_date)
   if (force) {
     for (const commissie of changes.unchanged) {
-      const commissieStadionId = commissieMap.get(commissie.commissie_name);
-      if (!commissieStadionId) continue;
+      const commissieRondoClubId = commissieMap.get(commissie.commissie_name);
+      if (!commissieRondoClubId) continue;
 
       // Find the tracked entry to get its index (match by both commissie_name and role_name)
       const trackedHistory = getMemberCommissieWorkHistory(db, knvb_id);
@@ -208,14 +208,14 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
         h.commissie_name === commissie.commissie_name &&
         (h.role_name || null) === (commissie.role_name || null)
       );
-      if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id < newWorkHistory.length) {
-        const index = tracked.stadion_work_history_id;
+      if (tracked && tracked.rondo_club_work_history_id !== null && tracked.rondo_club_work_history_id < newWorkHistory.length) {
+        const index = tracked.rondo_club_work_history_id;
         if (!commissie.role_name) {
           logVerbose(`Warning: Commissie "${commissie.commissie_name}" has no role_name for ${knvb_id}, skipping`);
           continue;
         }
         const entry = buildWorkHistoryEntry(
-          commissieStadionId,
+          commissieRondoClubId,
           commissie.role_name,
           commissie.is_active !== false,
           commissie.relation_start,
@@ -232,7 +232,7 @@ async function syncCommissieWorkHistoryForMember(member, currentCommissies, db, 
   if (modified) {
     try {
       await rondoClubRequest(
-        `wp/v2/people/${stadion_id}`,
+        `wp/v2/people/${rondo_club_id}`,
         'PUT',
         { acf: { first_name: existingFirstName, last_name: existingLastName, work_history: newWorkHistory } },
         options
@@ -280,7 +280,7 @@ async function runSync(options = {}) {
     try {
       // Load commissie mapping
       const commissies = getAllCommissies(db);
-      const commissieMap = new Map(commissies.map(c => [c.commissie_name, c.stadion_id]));
+      const commissieMap = new Map(commissies.map(c => [c.commissie_name, c.rondo_club_id]));
       logVerbose(`Loaded ${commissies.length} commissies from Rondo Club`);
 
       if (commissies.length === 0) {
@@ -357,7 +357,7 @@ async function runSync(options = {}) {
         if (!memberMap.has(record.knvb_id)) {
           memberMap.set(record.knvb_id, {
             knvb_id: record.knvb_id,
-            stadion_id: record.stadion_id
+            rondo_club_id: record.rondo_club_id
           });
         }
       }

@@ -50,35 +50,35 @@ async function fetchAllWordPressCommissies(options) {
  */
 async function syncCommissie(commissie, db, options) {
   const { commissie_name, source_hash, last_synced_hash } = commissie;
-  let { stadion_id } = commissie;
+  let { rondo_club_id } = commissie;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  if (stadion_id) {
+  if (rondo_club_id) {
     // Commissie exists - check if changed (unless force)
     if (!options.force && source_hash === last_synced_hash) {
       logVerbose(`Commissie unchanged, skipping: ${commissie_name}`);
-      return { action: 'skipped', id: stadion_id };
+      return { action: 'skipped', id: rondo_club_id };
     }
     // UPDATE existing commissie
     const payload = {
       title: commissie_name,
       status: 'publish'
     };
-    const endpoint = `wp/v2/commissies/${stadion_id}`;
-    logVerbose(`Updating existing commissie: ${stadion_id} - ${commissie_name}`);
+    const endpoint = `wp/v2/commissies/${rondo_club_id}`;
+    logVerbose(`Updating existing commissie: ${rondo_club_id} - ${commissie_name}`);
     logVerbose(`  PUT ${endpoint}`);
     try {
       const response = await rondoClubRequest(endpoint, 'PUT', payload, options);
-      updateCommissieSyncState(db, commissie_name, source_hash, stadion_id);
-      return { action: 'updated', id: stadion_id };
+      updateCommissieSyncState(db, commissie_name, source_hash, rondo_club_id);
+      return { action: 'updated', id: rondo_club_id };
     } catch (error) {
       // Check if commissie was deleted in WordPress (404)
       if (error.details?.code === 'rest_post_invalid_id' || error.details?.data?.status === 404) {
-        logVerbose(`Commissie ${commissie_name} (ID: ${stadion_id}) no longer exists in WordPress, recreating...`);
-        stadion_id = null;
+        logVerbose(`Commissie ${commissie_name} (ID: ${rondo_club_id}) no longer exists in WordPress, recreating...`);
+        rondo_club_id = null;
         updateCommissieSyncState(db, commissie_name, null, null);
       } else {
-        console.error(`API Error updating commissie "${commissie_name}" (ID: ${stadion_id}):`);
+        console.error(`API Error updating commissie "${commissie_name}" (ID: ${rondo_club_id}):`);
         console.error(`  Status: ${error.message}`);
         if (error.details) {
           console.error(`  Code: ${error.details.code || 'unknown'}`);
@@ -90,7 +90,7 @@ async function syncCommissie(commissie, db, options) {
   }
 
   // CREATE new commissie (or recreate if deleted from WordPress)
-  if (!stadion_id) {
+  if (!rondo_club_id) {
     const payload = {
       title: commissie_name,
       status: 'publish',
@@ -192,13 +192,13 @@ async function runSync(options = {}) {
           logVerbose(`Found ${orphanCommissies.length} orphan commissies to delete`);
 
           for (const orphan of orphanCommissies) {
-            logVerbose(`Deleting orphan commissie: ${orphan.commissie_name} (ID: ${orphan.stadion_id})`);
+            logVerbose(`Deleting orphan commissie: ${orphan.commissie_name} (ID: ${orphan.rondo_club_id})`);
 
-            // Delete from WordPress if it has a stadion_id
-            if (orphan.stadion_id) {
+            // Delete from WordPress if it has a rondo_club_id
+            if (orphan.rondo_club_id) {
               try {
-                await rondoClubRequest(`wp/v2/commissies/${orphan.stadion_id}`, 'DELETE', { force: true }, options);
-                logVerbose(`  Deleted from WordPress: ${orphan.stadion_id}`);
+                await rondoClubRequest(`wp/v2/commissies/${orphan.rondo_club_id}`, 'DELETE', { force: true }, options);
+                logVerbose(`  Deleted from WordPress: ${orphan.rondo_club_id}`);
               } catch (error) {
                 // Ignore 404 errors (already deleted)
                 if (error.details?.data?.status !== 404) {
@@ -224,9 +224,9 @@ async function runSync(options = {}) {
       logVerbose('Checking for untracked commissies in WordPress...');
       const wordPressCommissies = await fetchAllWordPressCommissies(options);
       const allCommissies = getAllCommissies(db);
-      const trackedStadionIds = new Set(allCommissies.filter(c => c.stadion_id).map(c => c.stadion_id));
+      const trackedRondoClubIds = new Set(allCommissies.filter(c => c.rondo_club_id).map(c => c.rondo_club_id));
 
-      const untrackedCommissies = wordPressCommissies.filter(c => !trackedStadionIds.has(c.id));
+      const untrackedCommissies = wordPressCommissies.filter(c => !trackedRondoClubIds.has(c.id));
       if (untrackedCommissies.length > 0) {
         logVerbose(`Found ${untrackedCommissies.length} untracked commissies in WordPress to delete`);
 

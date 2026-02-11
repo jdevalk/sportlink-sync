@@ -398,7 +398,7 @@ async function fetchVogFilteredKnvbIds(logger) {
 
 /**
  * Filter members to only those updated recently (by LastUpdate or PersonImageDate)
- * @param {Array} members - Array of tracked members [{knvb_id, stadion_id}]
+ * @param {Array} members - Array of tracked members [{knvb_id, rondo_club_id}]
  * @param {Map} memberDataMap - Map of knvb_id -> member data (includes LastUpdate, PersonImageDate)
  * @returns {Array} Filtered members
  */

@@ -38,7 +38,7 @@ function computeFieldsHash(fields) {
  */
 async function runNikkiRondoClubSync(options = {}) {
   const { logger: providedLogger, verbose = false, force = false, dryRun = false } = options;
-  const logger = providedLogger || createSyncLogger({ verbose, prefix: 'nikki-stadion' });
+  const logger = providedLogger || createSyncLogger({ verbose, prefix: 'nikki-rondo-club' });
 
   const result = {
     success: true,
@@ -58,21 +58,21 @@ async function runNikkiRondoClubSync(options = {}) {
     const contributionsByMember = getContributionsGroupedByMember(nikkiDb);
     logger.verbose(`Found contributions for ${contributionsByMember.size} members`);
 
-    // Get all tracked members from Rondo Club DB (knvb_id → stadion_id mapping)
+    // Get all tracked members from Rondo Club DB (knvb_id → rondo_club_id mapping)
     const trackedMembers = getAllTrackedMembers(rondoClubDb);
-    const knvbIdToStadionId = new Map();
+    const knvbIdToRondoClubId = new Map();
     for (const member of trackedMembers) {
-      if (member.knvb_id && member.stadion_id) {
-        knvbIdToStadionId.set(member.knvb_id, member.stadion_id);
+      if (member.knvb_id && member.rondo_club_id) {
+        knvbIdToRondoClubId.set(member.knvb_id, member.rondo_club_id);
       }
     }
-    logger.verbose(`Loaded ${knvbIdToStadionId.size} KNVB → Rondo Club ID mappings`);
+    logger.verbose(`Loaded ${knvbIdToRondoClubId.size} KNVB → Rondo Club ID mappings`);
 
     // Process each member with contributions
     let processed = 0;
     for (const [knvbId, contributions] of contributionsByMember) {
       processed++;
-      const rondoClubId = knvbIdToStadionId.get(knvbId);
+      const rondoClubId = knvbIdToRondoClubId.get(knvbId);
 
       if (!rondoClubId) {
         logger.verbose(`[${processed}/${contributionsByMember.size}] ${knvbId}: No Rondo Club ID, skipping`);

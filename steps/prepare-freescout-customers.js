@@ -54,7 +54,7 @@ function getExistingFreescoutId(freescoutDb, rondoClubDb, knvbId) {
 
 /**
  * Get photo URL for a member (only if photo is synced to Rondo Club)
- * @param {Object} member - Member record from stadion_members
+ * @param {Object} member - Member record from rondo_club_members
  * @returns {string|null} - Photo URL or null
  */
 function getPhotoUrl(member) {
@@ -65,7 +65,7 @@ function getPhotoUrl(member) {
 
   // Construct Rondo Club photo URL
   // The photo is attached to the person post in WordPress
-  // Format: RONDO_URL/wp-json/wp/v2/media?parent={stadion_id}
+  // Format: RONDO_URL/wp-json/wp/v2/media?parent={rondo_club_id}
   // But for FreeScout, we just need the featured image URL which requires another API call
   // For now, we'll skip photo URLs - FreeScout can fetch from Rondo Club if needed
   return null;
@@ -120,8 +120,8 @@ function getMostRecentNikkiData(nikkiDb, knvbId) {
 }
 
 /**
- * Transform a stadion member to FreeScout customer format
- * @param {Object} member - Member record from stadion_members
+ * Transform a Rondo Club member to FreeScout customer format
+ * @param {Object} member - Member record from rondo_club_members
  * @param {Object} freescoutDb - FreeScout database connection
  * @param {Object} rondoClubDb - Rondo Club database connection
  * @param {Object|null} nikkiDb - Nikki database connection (may be null)
@@ -249,10 +249,10 @@ async function runPrepare(options = {}) {
       nikkiWarningLogged = true;
     }
 
-    // Get all tracked members from stadion_members
+    // Get all tracked members from rondo_club_members
     const stmt = rondoClubDb.prepare(`
-      SELECT knvb_id, email, data_json, stadion_id, photo_state
-      FROM stadion_members
+      SELECT knvb_id, email, data_json, rondo_club_id, photo_state
+      FROM rondo_club_members
       ORDER BY knvb_id ASC
     `);
     const memberRows = stmt.all();
@@ -267,7 +267,7 @@ async function runPrepare(options = {}) {
       const member = {
         knvb_id: row.knvb_id,
         email: row.email,
-        stadion_id: row.stadion_id,
+        rondo_club_id: row.rondo_club_id,
         photo_state: row.photo_state,
         data: JSON.parse(row.data_json)
       };

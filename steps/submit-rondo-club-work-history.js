@@ -24,14 +24,14 @@ function isValidTeamName(teamName) {
 }
 
 /**
- * Look up team stadion_id by team code.
+ * Look up team rondo_club_id by team code.
  * SearchMembers returns team codes (e.g. "JO17-1") which match the TeamCode
  * field from the teams download.
  * @param {string} teamCode - Team code to look up
- * @param {Map} teamMap - Map<team_code, stadion_id>
+ * @param {Map} teamMap - Map<team_code, rondo_club_id>
  * @returns {number|undefined} - Rondo Club ID or undefined if not found
  */
-function lookupTeamStadionId(teamCode, teamMap) {
+function lookupTeamRondoClubId(teamCode, teamMap) {
   return teamMap.get(teamCode);
 }
 
@@ -88,18 +88,18 @@ function getJobTitleForTeam(db, knvbId, teamName) {
 
 /**
  * Build ACF work_history entry for a team.
- * @param {number} teamStadionId - Team WordPress post ID
+ * @param {number} teamRondoClubId - Team WordPress post ID
  * @param {boolean} isBackfill - Is this a backfilled entry
  * @param {string} jobTitle - Job title (required)
  * @returns {Object} - ACF work_history entry
  */
-function buildWorkHistoryEntry(teamStadionId, isBackfill, jobTitle) {
+function buildWorkHistoryEntry(teamRondoClubId, isBackfill, jobTitle) {
   return {
     job_title: jobTitle,
     is_current: true,
     start_date: isBackfill ? '' : formatDateForACF(new Date()),
     end_date: '',
-    team: teamStadionId
+    team: teamRondoClubId
   };
 }
 
@@ -115,33 +115,33 @@ function detectTeamChanges(db, knvbId, currentTeams) {
   const trackedHistory = getMemberWorkHistory(db, knvbId);
   const trackedTeams = trackedHistory.map(h => ({
     team_name: h.team_name,
-    stadion_work_history_id: h.stadion_work_history_id
+    rondo_club_work_history_id: h.rondo_club_work_history_id
   }));
 
   // Build map of tracked team names with their sync status
-  const trackedTeamMap = new Map(trackedTeams.map(t => [t.team_name, t.stadion_work_history_id]));
+  const trackedTeamMap = new Map(trackedTeams.map(t => [t.team_name, t.rondo_club_work_history_id]));
   const currentTeamSet = new Set(currentTeams);
 
   // Teams that need to be added:
   // 1. Not in tracked teams at all
-  // 2. In tracked teams but stadion_work_history_id is NULL (never synced to WordPress)
+  // 2. In tracked teams but rondo_club_work_history_id is NULL (never synced to WordPress)
   const added = currentTeams.filter(t => {
     if (!trackedTeamMap.has(t)) {
       return true; // Not tracked at all
     }
-    const stadionWorkHistoryId = trackedTeamMap.get(t);
-    return stadionWorkHistoryId === null || stadionWorkHistoryId === undefined; // Tracked but never synced
+    const rondoClubWorkHistoryId = trackedTeamMap.get(t);
+    return rondoClubWorkHistoryId === null || rondoClubWorkHistoryId === undefined; // Tracked but never synced
   });
 
   const removed = trackedTeams.filter(t => !currentTeamSet.has(t.team_name));
 
-  // Only teams that are both tracked AND have a stadion_work_history_id are truly unchanged
+  // Only teams that are both tracked AND have a rondo_club_work_history_id are truly unchanged
   const unchanged = currentTeams.filter(t => {
     if (!trackedTeamMap.has(t)) {
       return false; // Not tracked
     }
-    const stadionWorkHistoryId = trackedTeamMap.get(t);
-    return stadionWorkHistoryId !== null && stadionWorkHistoryId !== undefined; // Tracked and synced
+    const rondoClubWorkHistoryId = trackedTeamMap.get(t);
+    return rondoClubWorkHistoryId !== null && rondoClubWorkHistoryId !== undefined; // Tracked and synced
   });
 
   return { added, removed, unchanged };
@@ -153,17 +153,17 @@ function detectTeamChanges(db, knvbId, currentTeams) {
  * @param {Object} member - Member with KNVB ID and current teams
  * @param {Array<string>} currentTeams - Current team names
  * @param {Object} db - Rondo Club SQLite database
- * @param {Map} teamMap - Map<team_code, stadion_id>
+ * @param {Map} teamMap - Map<team_code, rondo_club_id>
  * @param {Object} options - Logger and verbose options
  * @param {boolean} force - Force update even unchanged entries
  * @returns {Promise<{action: string, added: number, ended: number, updated: number}>}
  */
 async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, options, force = false) {
-  const { knvb_id, stadion_id } = member;
+  const { knvb_id, rondo_club_id } = member;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   // Skip if member not yet synced to Rondo Club
-  if (!stadion_id) {
+  if (!rondo_club_id) {
     logVerbose(`Skipping ${knvb_id}: not yet synced to Rondo Club`);
     return { action: 'skipped', added: 0, ended: 0 };
   }
@@ -177,7 +177,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   let existingFirstName = '';
   let existingLastName = '';
   try {
-    const response = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+    const response = await rondoClubRequest(`wp/v2/people/${rondo_club_id}`, 'GET', null, options);
     existingWorkHistory = response.body.acf?.work_history || [];
     existingFirstName = response.body.acf?.first_name || '';
     existingLastName = response.body.acf?.last_name || '';
@@ -195,9 +195,9 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
 
   // Handle removed teams (only sync-created entries)
   for (const removed of changes.removed) {
-    if (removed.stadion_work_history_id !== null && removed.stadion_work_history_id !== undefined) {
+    if (removed.rondo_club_work_history_id !== null && removed.rondo_club_work_history_id !== undefined) {
       // This is a sync-created entry, we can modify it
-      const index = removed.stadion_work_history_id;
+      const index = removed.rondo_club_work_history_id;
       if (index < newWorkHistory.length) {
         newWorkHistory[index] = {
           ...newWorkHistory[index],
@@ -219,7 +219,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
 
   // Handle added teams
   for (const teamName of changes.added) {
-    const teamStadionId = lookupTeamStadionId(teamName, teamMap);
+    const teamStadionId = lookupTeamRondoClubId(teamName, teamMap);
     if (!teamStadionId) {
       logVerbose(`Warning: Team "${teamName}" not found in Rondo Club, skipping`);
       continue;
@@ -237,7 +237,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
     const newIndex = newWorkHistory.length;
     newWorkHistory.push(entry);
 
-    // Update tracking with stadion_work_history_id
+    // Update tracking with rondo_club_work_history_id
     const sourceHash = require('../lib/rondo-club-db').computeWorkHistoryHash(knvb_id, teamName);
     updateWorkHistorySyncState(db, knvb_id, teamName, sourceHash, newIndex);
 
@@ -250,7 +250,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   if (force) {
     const trackedHistory = getMemberWorkHistory(db, knvb_id);
     for (const teamName of changes.unchanged) {
-      const teamStadionId = lookupTeamStadionId(teamName, teamMap);
+      const teamStadionId = lookupTeamRondoClubId(teamName, teamMap);
       if (!teamStadionId) {
         logVerbose(`Warning: Team "${teamName}" not found in Rondo Club, skipping`);
         continue;
@@ -263,9 +263,9 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
       }
       const tracked = trackedHistory.find(h => h.team_name === teamName);
 
-      if (tracked && tracked.stadion_work_history_id !== null && tracked.stadion_work_history_id !== undefined) {
+      if (tracked && tracked.rondo_club_work_history_id !== null && tracked.rondo_club_work_history_id !== undefined) {
         // We have a tracked index - update that entry
-        const index = tracked.stadion_work_history_id;
+        const index = tracked.rondo_club_work_history_id;
         if (index < newWorkHistory.length) {
           newWorkHistory[index] = {
             ...newWorkHistory[index],
@@ -312,7 +312,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   if (modified) {
     try {
       await rondoClubRequest(
-        `wp/v2/people/${stadion_id}`,
+        `wp/v2/people/${rondo_club_id}`,
         'PUT',
         { acf: { first_name: existingFirstName, last_name: existingLastName, work_history: newWorkHistory } },
         options
@@ -376,10 +376,10 @@ async function runSync(options = {}) {
       const members = Array.isArray(sportlinkData.Members) ? sportlinkData.Members : [];
       logVerbose(`Found ${members.length} Sportlink members`);
 
-      // Load team mapping: team_code -> stadion_id
+      // Load team mapping: team_code -> rondo_club_id
       // SearchMembers returns team codes (e.g. "JO17-1") which match TeamCode from the teams download
       const teams = getAllTeams(rondoClubDb);
-      const teamMap = new Map(teams.filter(t => t.team_code).map(t => [t.team_code, t.stadion_id]));
+      const teamMap = new Map(teams.filter(t => t.team_code).map(t => [t.team_code, t.rondo_club_id]));
       logVerbose(`Loaded ${teams.length} teams from Rondo Club (${teamMap.size} with team codes)`);
 
       // Build work history records for all members
@@ -423,7 +423,7 @@ async function runSync(options = {}) {
         if (!memberMap.has(record.knvb_id)) {
           memberMap.set(record.knvb_id, {
             knvb_id: record.knvb_id,
-            stadion_id: record.stadion_id,
+            rondo_club_id: record.rondo_club_id,
             teams: []
           });
         }
