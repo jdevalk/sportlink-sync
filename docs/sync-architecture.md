@@ -16,7 +16,7 @@ This document describes what data flows from where to where, which fields are sy
 - [Pipeline 4: Functions (Commissies)](#pipeline-4-functions-commissies)
 - [Pipeline 5: FreeScout](#pipeline-5-freescout)
 - [Pipeline 6: Discipline](#pipeline-6-discipline)
-- [Reverse Sync (Rondo Club to Sportlink)](#reverse-sync-stadion-to-sportlink)
+- [Reverse Sync (Rondo Club to Sportlink)](#reverse-sync-rondo-club-to-sportlink)
 - [Databases](#databases)
 - [Locking](#locking)
 
@@ -251,9 +251,9 @@ Photos flow in three steps across two pipelines:
 
 1. **Detection** (People Step 1): Bulk download detects `PersonImageDate` changes, sets `photo_state = 'pending_download'`
 2. **Download** (People Step 5): Playwright visits `/other` tab per member, captures `MemberHeader` for signed photo URL, downloads photo to `photos/{knvb_id}.{ext}`, sets `photo_state = 'downloaded'`
-3. **Upload** (People Step 6): `POST /wp-json/rondo/v1/people/{stadion_id}/photo` (multipart form-data), sets `photo_state = 'synced'`
+3. **Upload** (People Step 6): `POST /wp-json/rondo/v1/people/{rondo_club_id}/photo` (multipart form-data), sets `photo_state = 'synced'`
 
-Photo states tracked in `stadion_members.photo_state`: `pending_download` -> `downloaded` -> `synced`. Removed photos go through `pending_delete` -> `no_photo`.
+Photo states tracked in `rondo_club_members.photo_state`: `pending_download` -> `downloaded` -> `synced`. Removed photos go through `pending_delete` -> `no_photo`.
 
 ---
 
@@ -268,7 +268,7 @@ graph LR
     ST[Rondo Club WordPress API<br>PUT /wp/v2/people]
 
     NK -->|steps/download-nikki-contributions.js<br>Playwright scraping| DB
-    DB -->|steps/sync-nikki-to-stadion.js| ST
+    DB -->|steps/sync-nikki-to-rondo-club.js| ST
 ```
 
 ### Nikki to SQLite: Fields Extracted
@@ -335,7 +335,7 @@ Links members to their teams via the ACF `work_history` repeater on person posts
 
 | Rondo Club ACF Field | Source | Notes |
 |---|---|---|
-| `work_history[].team` | `stadion_teams.stadion_id` | WordPress post ID of the team |
+| `work_history[].team` | `rondo_club_teams.rondo_club_id` | WordPress post ID of the team |
 | `work_history[].job_title` | `role_description` from `sportlink_team_members`, or fallback based on `KernelGameActivities` | "Speler" for players, "Staflid" for staff |
 | `work_history[].is_current` | Computed | `true` if currently on team |
 | `work_history[].start_date` | Computed | Today's date for new assignments, empty for backfill |
@@ -388,7 +388,7 @@ Links members to commissies via the ACF `work_history` repeater on person posts.
 
 | Rondo Club ACF Field | Source | Notes |
 |---|---|---|
-| `work_history[].team` | `stadion_commissies.stadion_id` | WordPress post ID of the commissie |
+| `work_history[].team` | `rondo_club_commissies.rondo_club_id` | WordPress post ID of the commissie |
 | `work_history[].job_title` | `role_name` from `sportlink_member_committees`, or "Lid" as fallback | Role within committee |
 | `work_history[].is_current` | `is_active` | Based on `RelationEnd` and `Status` |
 | `work_history[].start_date` | `relation_start` | Normalized to YYYY-MM-DD |
@@ -414,7 +414,7 @@ Runs daily at 8:00 AM. Reads member data from the local Rondo Club SQLite databa
 
 ```mermaid
 graph LR
-    DB_S[(rondo-sync.sqlite<br>stadion_members +<br>stadion_work_history)]
+    DB_S[(rondo-sync.sqlite<br>rondo_club_members +<br>rondo_club_work_history)]
     DB_N[(nikki-sync.sqlite<br>nikki_contributions)]
     DB_F[(freescout-sync.sqlite)]
     FS[FreeScout API]
@@ -430,18 +430,18 @@ graph LR
 
 | FreeScout Field | Source | Origin |
 |---|---|---|
-| `firstName` | `acf.first_name` | stadion_members |
-| `lastName` | `acf.last_name` | stadion_members |
-| `emails[].value` | `acf.contact_info` (type=email) | stadion_members |
-| `phones[].value` | `acf.contact_info` (type=mobile) | stadion_members |
+| `firstName` | `acf.first_name` | rondo_club_members |
+| `lastName` | `acf.last_name` | rondo_club_members |
+| `emails[].value` | `acf.contact_info` (type=email) | rondo_club_members |
+| `phones[].value` | `acf.contact_info` (type=mobile) | rondo_club_members |
 
 **Custom fields** (sent to `PUT /api/customers/{id}/customer_fields`):
 
 | FreeScout Custom Field | Field ID | Source | Origin |
 |---|---|---|---|
-| `union_teams` | 1 | All `team_name` values, comma-separated | stadion_work_history |
-| `public_person_id` | 4 | `knvb_id` | stadion_members |
-| `member_since` | 5 | `acf['lid-sinds']` | stadion_members |
+| `union_teams` | 1 | All `team_name` values, comma-separated | rondo_club_work_history |
+| `public_person_id` | 4 | `knvb_id` | rondo_club_members |
+| `member_since` | 5 | `acf['lid-sinds']` | rondo_club_members |
 | `nikki_saldo` | 7 | Most recent year's `saldo` | nikki_contributions |
 | `nikki_status` | 8 | Most recent year's `status` | nikki_contributions |
 
@@ -463,7 +463,7 @@ graph LR
     DB -->|steps/submit-rondo-club-discipline.js| ST
 ```
 
-Cases are linked to person posts in Rondo Club using `knvb_id` -> `stadion_id` mapping.
+Cases are linked to person posts in Rondo Club using `knvb_id` -> `rondo_club_id` mapping.
 
 ---
 
@@ -476,7 +476,7 @@ Scheduled hourly. Detects field changes in Rondo Club and pushes them back to Sp
 ```mermaid
 graph LR
     ST[Rondo Club WordPress]
-    DET[Change Detection<br>stadion_change_detections table]
+    DET[Change Detection<br>rondo_club_change_detections table]
     SL[Sportlink Browser<br>Playwright automation]
 
     ST -->|Detect field changes| DET
@@ -506,11 +506,11 @@ Four SQLite databases on the server track sync state:
 | Database | Purpose | Key Tables |
 |---|---|---|
 | `laposta-sync.sqlite` | Laposta sync + Sportlink run data | `members`, `laposta_fields`, `sportlink_runs` |
-| `rondo-sync.sqlite` | Rondo Club ID mappings + all Sportlink scraped data | `stadion_members`, `stadion_parents`, `stadion_teams`, `stadion_commissies`, `stadion_work_history`, `stadion_commissie_work_history`, `stadion_important_dates` (deprecated), `sportlink_member_functions`, `sportlink_member_committees`, `sportlink_member_free_fields`, `sportlink_member_invoice_data`, `sportlink_team_members` |
+| `rondo-sync.sqlite` | Rondo Club ID mappings + all Sportlink scraped data | `rondo_club_members`, `rondo_club_parents`, `rondo_club_teams`, `rondo_club_commissies`, `rondo_club_work_history`, `rondo_club_commissie_work_history`, `rondo_club_important_dates` (deprecated), `sportlink_member_functions`, `sportlink_member_committees`, `sportlink_member_free_fields`, `sportlink_member_invoice_data`, `sportlink_team_members` |
 | `nikki-sync.sqlite` | Nikki contribution data | `nikki_contributions` |
 | `freescout-sync.sqlite` | FreeScout customer mappings | `freescout_customers` |
 
-The `stadion_id` mapping (knvb_id -> WordPress post ID) is critical: without it, syncs create duplicate entries instead of updating existing ones. All databases live on the production server only.
+The `rondo_club_id` mapping (knvb_id -> WordPress post ID) is critical: without it, syncs create duplicate entries instead of updating existing ones. All databases live on the production server only.
 
 ---
 

@@ -76,7 +76,7 @@ node steps/prepare-laposta-members.js --verbose         # Prepare Laposta data
 node steps/submit-laposta-list.js --verbose             # Submit to Laposta
 node steps/submit-rondo-club-sync.js --verbose             # Submit to Rondo Club (includes birthdate)
 node steps/download-photos-from-api.js --verbose        # Download photos
-node steps/upload-photos-to-stadion.js --verbose        # Upload photos
+node steps/upload-photos-to-rondo-club.js --verbose        # Upload photos
 ```
 
 ## Database Inspection
@@ -100,19 +100,19 @@ node tools/show-laposta-changes.js --all  # All members with diffs
 
 ```bash
 # Member count
-sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_members"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM rondo_club_members"
 
 # Members needing sync (hash mismatch)
-sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_members WHERE last_synced_hash IS NULL OR last_synced_hash != source_hash"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM rondo_club_members WHERE last_synced_hash IS NULL OR last_synced_hash != source_hash"
 
 # Photo state distribution
-sqlite3 data/rondo-sync.sqlite "SELECT photo_state, COUNT(*) FROM stadion_members GROUP BY photo_state"
+sqlite3 data/rondo-sync.sqlite "SELECT photo_state, COUNT(*) FROM rondo_club_members GROUP BY photo_state"
 
 # Team count
-sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_teams WHERE stadion_id IS NOT NULL"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM rondo_club_teams WHERE rondo_club_id IS NOT NULL"
 
 # Commissie count
-sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM stadion_commissies WHERE stadion_id IS NOT NULL"
+sqlite3 data/rondo-sync.sqlite "SELECT COUNT(*) FROM rondo_club_commissies WHERE rondo_club_id IS NOT NULL"
 
 # Recent Sportlink downloads
 sqlite3 data/laposta-sync.sqlite "SELECT id, created_at FROM sportlink_runs ORDER BY id DESC LIMIT 5"
@@ -140,11 +140,11 @@ Only run `npm install` if dependencies changed (check `package.json` diff).
 
 ### Verify Rondo Club ID Mappings
 
-Checks that all tracked `stadion_id` values still point to valid WordPress posts:
+Checks that all tracked `rondo_club_id` values still point to valid WordPress posts:
 
 ```bash
-node tools/verify-stadion-data.js --verbose     # Report only
-node tools/verify-stadion-data.js --fix --verbose  # Fix invalid IDs
+node tools/verify-rondo-club-data.js --verbose     # Report only
+node tools/verify-rondo-club-data.js --fix --verbose  # Fix invalid IDs
 ```
 
 ### Repopulate Missing Rondo Club IDs

@@ -42,7 +42,7 @@ pipelines/sync-functions.js
 2. Logs into Sportlink Club
 3. Determines which members to process:
    - **Recent mode** (`recentOnly: true`, default): Members with `LastUpdate` within the last N days (default 2), plus VOG-filtered volunteers from Rondo Club API
-   - **Full mode** (`recentOnly: false`, `--all` flag): All tracked members from `stadion_members`
+   - **Full mode** (`recentOnly: false`, `--all` flag): All tracked members from `rondo_club_members`
 4. For each member, scrapes two pages:
    - **`/functions` tab**: Extracts committee memberships and club-level functions
      - Committee name, role, start/end dates, active status
@@ -72,8 +72,8 @@ pipelines/sync-functions.js
 1. Reads unique committee names from `sportlink_member_committees`
 2. Creates a synthetic "Verenigingsbreed" commissie for club-level functions (not tied to a specific committee)
 3. For each commissie where `source_hash != last_synced_hash`:
-   - **No `stadion_id`**: `POST /wp/v2/commissies` (create new)
-   - **Has `stadion_id`**: `PUT /wp/v2/commissies/{stadion_id}` (update)
+   - **No `rondo_club_id`**: `POST /wp/v2/commissies` (create new)
+   - **Has `rondo_club_id`**: `PUT /wp/v2/commissies/{rondo_club_id}` (update)
 4. Detects orphan commissies (in DB but not in current Sportlink data) and removes them
 5. Updates `last_synced_hash` on success
 
@@ -84,16 +84,16 @@ pipelines/sync-functions.js
 **Script:** `steps/submit-rondo-club-commissie-work-history.js`
 **Function:** `runSync({ logger, verbose, force })`
 
-1. Reads committee memberships from `sportlink_member_committees` joined with `stadion_commissies` and `stadion_members`
+1. Reads committee memberships from `sportlink_member_committees` joined with `rondo_club_commissies` and `rondo_club_members`
 2. Also reads club functions from `sportlink_member_functions` (mapped to "Verenigingsbreed" commissie)
-3. Compares against `stadion_commissie_work_history` table
+3. Compares against `rondo_club_commissie_work_history` table
 4. For each member with changes:
    - Fetches current `work_history` ACF repeater from Rondo Club
    - Adds new commissie assignments
    - Ends removed assignments (sets `is_current: false`)
    - Only modifies sync-created entries (manual entries preserved)
-5. Sends `PUT /wp/v2/people/{stadion_id}` with updated `work_history`
-6. Skips members without a `stadion_id`
+5. Sends `PUT /wp/v2/people/{rondo_club_id}` with updated `work_history`
+6. Skips members without a `rondo_club_id`
 
 **Output:** `{ total, synced, created, ended, skipped, errors }`
 
@@ -110,7 +110,7 @@ pipelines/sync-functions.js
 
 | Repeater Field | Source | Notes |
 |---|---|---|
-| `team` | `stadion_commissies.stadion_id` | WordPress post ID of the commissie |
+| `team` | `rondo_club_commissies.rondo_club_id` | WordPress post ID of the commissie |
 | `job_title` | `role_name` or "Lid" (fallback) | Role within committee |
 | `is_current` | `is_active` from Sportlink | Based on `RelationEnd` and `Status` |
 | `start_date` | `relation_start` | Normalized to YYYY-MM-DD |
@@ -135,9 +135,9 @@ Note: `MemberHeader` also returns `Photo.Url` and `Photo.PhotoDate`, which are s
 | `rondo-sync.sqlite` | `sportlink_member_functions` | Club-level functions per member |
 | `rondo-sync.sqlite` | `sportlink_member_committees` | Committee memberships per member |
 | `rondo-sync.sqlite` | `sportlink_member_free_fields` | Free fields (FreeScout ID, VOG, etc.) |
-| `rondo-sync.sqlite` | `stadion_commissies` | Commissie → WordPress ID mapping |
-| `rondo-sync.sqlite` | `stadion_commissie_work_history` | Tracks sync-created work history entries |
-| `rondo-sync.sqlite` | `stadion_members` | KNVB ID → Rondo Club ID lookup |
+| `rondo-sync.sqlite` | `rondo_club_commissies` | Commissie → WordPress ID mapping |
+| `rondo-sync.sqlite` | `rondo_club_commissie_work_history` | Tracks sync-created work history entries |
+| `rondo-sync.sqlite` | `rondo_club_members` | KNVB ID → Rondo Club ID lookup |
 
 ## CLI Flags
 
@@ -153,7 +153,7 @@ Note: `MemberHeader` also returns `Photo.Url` and `Photo.PhotoDate`, which are s
 
 - Individual member scrape failures don't stop the pipeline (error logged, member skipped)
 - Commissie sync failures don't prevent work history sync
-- Members without a `stadion_id` are skipped for work history
+- Members without a `rondo_club_id` are skipped for work history
 - All errors collected in summary report
 
 ## Source Files

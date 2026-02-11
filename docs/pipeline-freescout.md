@@ -31,8 +31,8 @@ Before running, `pipelines/sync-freescout.js` verifies that `FREESCOUT_API_KEY` 
 
 **Script:** `steps/prepare-freescout-customers.js` (called internally by `steps/submit-freescout-sync.js`)
 
-1. Reads member data from `data/rondo-sync.sqlite` → `stadion_members`
-2. Reads team assignments from `data/rondo-sync.sqlite` → `stadion_work_history`
+1. Reads member data from `data/rondo-sync.sqlite` → `rondo_club_members`
+2. Reads team assignments from `data/rondo-sync.sqlite` → `rondo_club_work_history`
 3. Reads contribution data from `data/nikki-sync.sqlite` → `nikki_contributions`
 4. Builds customer records with:
    - Name, email, phone from Rondo Club member data
@@ -66,10 +66,10 @@ Sent to `POST/PUT /api/customers`:
 
 | FreeScout Field | Source | Origin |
 |---|---|---|
-| `firstName` | `acf.first_name` | `stadion_members.data_json` |
-| `lastName` | `acf.last_name` | `stadion_members.data_json` |
-| `emails[].value` | Email from `contact_info` repeater | `stadion_members.data_json` |
-| `phones[].value` | Mobile from `contact_info` repeater | `stadion_members.data_json` |
+| `firstName` | `acf.first_name` | `rondo_club_members.data_json` |
+| `lastName` | `acf.last_name` | `rondo_club_members.data_json` |
+| `emails[].value` | Email from `contact_info` repeater | `rondo_club_members.data_json` |
+| `phones[].value` | Mobile from `contact_info` repeater | `rondo_club_members.data_json` |
 
 ### Custom Fields
 
@@ -77,9 +77,9 @@ Sent to `PUT /api/customers/{id}/customer_fields`:
 
 | FreeScout Custom Field | Field ID | Source | Origin |
 |---|---|---|---|
-| `union_teams` | 1 | All current team names, comma-separated | `stadion_work_history` |
-| `public_person_id` | 4 | KNVB ID | `stadion_members` |
-| `member_since` | 5 | `acf['lid-sinds']` | `stadion_members` |
+| `union_teams` | 1 | All current team names, comma-separated | `rondo_club_work_history` |
+| `public_person_id` | 4 | KNVB ID | `rondo_club_members` |
+| `member_since` | 5 | `acf['lid-sinds']` | `rondo_club_members` |
 | `nikki_saldo` | 7 | Most recent year's outstanding balance | `nikki_contributions` |
 | `nikki_status` | 8 | Most recent year's payment status | `nikki_contributions` |
 
@@ -89,8 +89,8 @@ Field IDs are configurable via `FREESCOUT_FIELD_*` environment variables.
 
 | Database | Table | Usage |
 |---|---|---|
-| `rondo-sync.sqlite` | `stadion_members` | Member data (name, contact, KNVB ID) |
-| `rondo-sync.sqlite` | `stadion_work_history` | Current team assignments |
+| `rondo-sync.sqlite` | `rondo_club_members` | Member data (name, contact, KNVB ID) |
+| `rondo-sync.sqlite` | `rondo_club_work_history` | Current team assignments |
 | `nikki-sync.sqlite` | `nikki_contributions` | Financial contribution data |
 | `freescout-sync.sqlite` | `freescout_customers` | Customer → FreeScout ID mapping + hashes |
 

@@ -89,10 +89,10 @@ LAPOSTA_LIST3=                         # Optional third list
 LAPOSTA_LIST4=                         # Optional fourth list
 
 # Rondo Club WordPress
-STADION_URL=https://your-stadion-site.nl
-STADION_USERNAME=your-wp-username
-STADION_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
-STADION_PERSON_TYPE=person
+RONDO_URL=https://your-rondo-club-site.nl
+RONDO_USERNAME=your-wp-username
+RONDO_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
+RONDO_PERSON_TYPE=person
 
 # Email delivery
 OPERATOR_EMAIL=operator@example.com
@@ -242,7 +242,7 @@ Run `npx playwright install chromium` to install/reinstall the browser.
 
 ### Duplicate entries in Rondo Club
 
-This happens when sync runs from multiple machines (each has its own SQLite database with different `stadion_id` mappings). **Always sync from the production server only.**
+This happens when sync runs from multiple machines (each has its own SQLite database with different `rondo_club_id` mappings). **Always sync from the production server only.**
 
 To clean up duplicates:
 ```bash

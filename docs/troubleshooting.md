@@ -6,7 +6,7 @@ Common issues and their solutions.
 
 **Symptom:** Hundreds of duplicate member posts appear in Rondo Club WordPress.
 
-**Cause:** Sync was run from a local machine. Each machine has its own SQLite database tracking `stadion_id` mappings. The local database doesn't know about entries created by the server, so it creates new ones instead of updating.
+**Cause:** Sync was run from a local machine. Each machine has its own SQLite database tracking `rondo_club_id` mappings. The local database doesn't know about entries created by the server, so it creates new ones instead of updating.
 
 **Fix:**
 ```bash
@@ -105,21 +105,21 @@ rm /home/rondo/.sync-people.lock   # Or whichever sync type
 node tools/show-sportlink-member.js member@example.com
 
 # Check Rondo Club mapping
-sqlite3 data/rondo-sync.sqlite "SELECT knvb_id, stadion_id, last_synced_at FROM stadion_members WHERE email = 'member@example.com'"
+sqlite3 data/rondo-sync.sqlite "SELECT knvb_id, rondo_club_id, last_synced_at FROM rondo_club_members WHERE email = 'member@example.com'"
 ```
 
 **Possible causes:**
-1. **No `stadion_id` yet:** Member was downloaded but sync failed. Run `scripts/sync.sh people` to retry.
-2. **Invalid `stadion_id`:** The WordPress post was deleted. Fix with:
+1. **No `rondo_club_id` yet:** Member was downloaded but sync failed. Run `scripts/sync.sh people` to retry.
+2. **Invalid `rondo_club_id`:** The WordPress post was deleted. Fix with:
    ```bash
-   node tools/verify-stadion-data.js --fix --verbose
+   node tools/verify-rondo-club-data.js --fix --verbose
    ```
    Then re-run sync to recreate the member.
 3. **Member has no email:** Sportlink members without an email address may be skipped.
 
 ---
 
-## Invalid stadion_id Mappings
+## Invalid rondo_club_id Mappings
 
 **Symptom:** Sync fails with 404 errors for specific members, or members appear to "recreate" every run.
 
@@ -128,14 +128,14 @@ sqlite3 data/rondo-sync.sqlite "SELECT knvb_id, stadion_id, last_synced_at FROM 
 **Fix:**
 ```bash
 # Verify which IDs are invalid
-node tools/verify-stadion-data.js --verbose
+node tools/verify-rondo-club-data.js --verbose
 
 # Fix by nullifying invalid IDs (they'll be recreated on next sync)
-node tools/verify-stadion-data.js --fix --verbose
+node tools/verify-rondo-club-data.js --fix --verbose
 
-# Or use validate-stadion-ids for a simpler check
-node tools/validate-stadion-ids.js              # Dry run
-node tools/validate-stadion-ids.js --apply      # Fix invalid IDs
+# Or use validate-rondo-club-ids for a simpler check
+node tools/validate-rondo-club-ids.js              # Dry run
+node tools/validate-rondo-club-ids.js --apply      # Fix invalid IDs
 ```
 
 ---
@@ -147,7 +147,7 @@ node tools/validate-stadion-ids.js --apply      # Fix invalid IDs
 **Diagnosis:**
 ```bash
 # Check photo state distribution
-sqlite3 data/rondo-sync.sqlite "SELECT photo_state, COUNT(*) FROM stadion_members GROUP BY photo_state"
+sqlite3 data/rondo-sync.sqlite "SELECT photo_state, COUNT(*) FROM rondo_club_members GROUP BY photo_state"
 
 # Check consistency between files and database
 node tools/check-photo-consistency.js --verbose
@@ -246,7 +246,7 @@ npm run show-laposta-changes
    scripts/sync.sh all
    ```
 
-   **Warning:** Deleting `data/rondo-sync.sqlite` loses all `stadion_id` mappings. This means the next sync will create new WordPress posts instead of updating existing ones. Use `tools/repopulate-rondo-club-ids.js` afterward to restore mappings:
+   **Warning:** Deleting `data/rondo-sync.sqlite` loses all `rondo_club_id` mappings. This means the next sync will create new WordPress posts instead of updating existing ones. Use `tools/repopulate-rondo-club-ids.js` afterward to restore mappings:
    ```bash
    node tools/repopulate-rondo-club-ids.js --verbose  # Dry run
    node tools/repopulate-rondo-club-ids.js             # Apply

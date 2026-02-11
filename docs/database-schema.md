@@ -19,7 +19,7 @@ Complete schema documentation for all four SQLite databases used by rondo-sync.
 
 The rondo-sync system uses four SQLite databases to track sync state between Sportlink Club (source) and downstream systems (Laposta, Rondo Club WordPress, Nikki, FreeScout).
 
-**Critical:** These databases must only exist on the production server. Running sync from a local machine creates duplicate entries because each machine tracks its own `stadion_id` mappings.
+**Critical:** These databases must only exist on the production server. Running sync from a local machine creates duplicate entries because each machine tracks its own `rondo_club_id` mappings.
 
 ### Database Locations
 
@@ -127,9 +127,9 @@ Central table tracking all members across up to 4 Laposta lists.
 
 **Purpose:** Tracks WordPress Rondo Club synchronization including members, parents, teams, committees, work history, photos, discipline cases, and reverse sync state.
 
-**Module:** `lib/stadion-db.js`
+**Module:** `lib/rondo-club-db.js`
 
-### stadion_members
+### rondo_club_members
 
 Primary member/person records synced to WordPress.
 
@@ -137,7 +137,7 @@ Primary member/person records synced to WordPress.
 |---|---|---|
 | `id` | INTEGER | Primary key (auto-increment) |
 | `knvb_id` | TEXT | KNVB public person ID - UNIQUE |
-| `stadion_id` | INTEGER | WordPress post ID |
+| `rondo_club_id` | INTEGER | WordPress post ID |
 | `email` | TEXT | Member email address |
 | `data_json` | TEXT | Full member data as JSON |
 | `source_hash` | TEXT | SHA-256 hash of knvb_id + data |
@@ -150,27 +150,27 @@ Primary member/person records synced to WordPress.
 | `photo_state_updated_at` | TEXT | When photo state last changed |
 | `photo_url` | TEXT | Photo download URL from MemberHeader API |
 | `photo_date` | TEXT | Photo date from MemberHeader API |
-| `sync_origin` | TEXT | Last edit source: `user_edit`, `sync_sportlink_to_stadion`, `sync_stadion_to_sportlink` |
+| `sync_origin` | TEXT | Last edit source: `user_edit`, `sync_sportlink_to_rondo_club`, `sync_rondo_club_to_sportlink` |
 | `tracked_fields_hash` | TEXT | Hash of reverse-sync tracked fields (for change detection) |
 
 **Reverse sync timestamp columns** (per-field modification tracking):
 
 | Column Pattern | Fields Tracked |
 |---|---|
-| `{field}_stadion_modified` | When the field was last modified in Stadion |
+| `{field}_rondo_club_modified` | When the field was last modified in Rondo Club |
 | `{field}_sportlink_modified` | When the field was last modified in Sportlink |
 
 Tracked fields: `email`, `email2`, `mobile`, `phone`, `datum_vog`, `freescout_id`, `financiele_blokkade`
 
 **Indexes:**
-- `idx_stadion_members_hash` on `(source_hash, last_synced_hash)`
-- `idx_stadion_members_email` on `(email)`
+- `idx_rondo_club_members_hash` on `(source_hash, last_synced_hash)`
+- `idx_rondo_club_members_email` on `(email)`
 
-**Critical:** `stadion_id` maps KNVB ID to WordPress post ID. Without this mapping, sync creates duplicates.
+**Critical:** `rondo_club_id` maps KNVB ID to WordPress post ID. Without this mapping, sync creates duplicates.
 
 ---
 
-### stadion_parents
+### rondo_club_parents
 
 Parent/guardian records (identified by email, no KNVB ID).
 
@@ -178,7 +178,7 @@ Parent/guardian records (identified by email, no KNVB ID).
 |---|---|---|
 | `id` | INTEGER | Primary key (auto-increment) |
 | `email` | TEXT | Parent email - UNIQUE |
-| `stadion_id` | INTEGER | WordPress post ID |
+| `rondo_club_id` | INTEGER | WordPress post ID |
 | `data_json` | TEXT | Parent data + `childKnvbIds` array as JSON |
 | `source_hash` | TEXT | SHA-256 hash of email + data |
 | `last_seen_at` | TEXT | Last time parent appeared in Sportlink data |
@@ -186,11 +186,11 @@ Parent/guardian records (identified by email, no KNVB ID).
 | `last_synced_hash` | TEXT | Hash of last synced data |
 | `created_at` | TEXT | First seen timestamp |
 
-**Indexes:** `idx_stadion_parents_hash` on `(source_hash, last_synced_hash)`
+**Indexes:** `idx_rondo_club_parents_hash` on `(source_hash, last_synced_hash)`
 
 ---
 
-### stadion_important_dates (DEPRECATED - v2.3)
+### rondo_club_important_dates (DEPRECATED - v2.3)
 
 **DEPRECATED:** Birthday sync migrated to `acf.birthdate` on person records. Table retained for backward compatibility.
 
@@ -202,7 +202,7 @@ Birth dates and other important dates synced to Rondo Club.
 | `knvb_id` | TEXT | Member KNVB ID |
 | `date_type` | TEXT | Date type (e.g., "birth_date") |
 | `date_value` | TEXT | Date value (YYYY-MM-DD) |
-| `stadion_date_id` | INTEGER | WordPress important_date post ID |
+| `rondo_club_date_id` | INTEGER | WordPress important_date post ID |
 | `source_hash` | TEXT | SHA-256 hash |
 | `last_synced_hash` | TEXT | Hash of last synced data |
 | `last_synced_at` | TEXT | Last successful sync |
@@ -210,11 +210,11 @@ Birth dates and other important dates synced to Rondo Club.
 
 **Unique Constraint:** `(knvb_id, date_type)`
 
-**Indexes:** `idx_stadion_important_dates_sync` on `(source_hash, last_synced_hash)`
+**Indexes:** `idx_rondo_club_important_dates_sync` on `(source_hash, last_synced_hash)`
 
 ---
 
-### stadion_teams
+### rondo_club_teams
 
 Team records from Sportlink.
 
@@ -224,7 +224,7 @@ Team records from Sportlink.
 | `team_name` | TEXT | Team name (COLLATE NOCASE) |
 | `sportlink_id` | TEXT | Sportlink team ID - UNIQUE |
 | `team_code` | TEXT | Team code |
-| `stadion_id` | INTEGER | WordPress team post ID |
+| `rondo_club_id` | INTEGER | WordPress team post ID |
 | `source_hash` | TEXT | SHA-256 hash |
 | `last_seen_at` | TEXT | Last time team appeared in Sportlink |
 | `last_synced_at` | TEXT | Last successful sync |
@@ -236,14 +236,14 @@ Team records from Sportlink.
 | `staff_count` | INTEGER | Number of staff |
 
 **Indexes:**
-- `idx_stadion_teams_hash` on `(source_hash, last_synced_hash)`
-- `idx_stadion_teams_name` on `(team_name COLLATE NOCASE)`
+- `idx_rondo_club_teams_hash` on `(source_hash, last_synced_hash)`
+- `idx_rondo_club_teams_name` on `(team_name COLLATE NOCASE)`
 
 **Team renames:** Uses `sportlink_id` as conflict key so renamed teams update existing WordPress posts.
 
 ---
 
-### stadion_work_history
+### rondo_club_work_history
 
 Member-team assignments synced to WordPress ACF repeater.
 
@@ -252,7 +252,7 @@ Member-team assignments synced to WordPress ACF repeater.
 | `id` | INTEGER | Primary key (auto-increment) |
 | `knvb_id` | TEXT | Member KNVB ID |
 | `team_name` | TEXT | Team name |
-| `stadion_work_history_id` | INTEGER | WordPress work_history row index |
+| `rondo_club_work_history_id` | INTEGER | WordPress work_history row index |
 | `is_backfill` | INTEGER | 1 if from historical backfill, 0 if current |
 | `source_hash` | TEXT | SHA-256 hash |
 | `last_synced_hash` | TEXT | Hash of last synced data |
@@ -261,7 +261,7 @@ Member-team assignments synced to WordPress ACF repeater.
 
 **Unique Constraint:** `(knvb_id, team_name)`
 
-**Indexes:** `idx_stadion_work_history_member` on `(knvb_id)`
+**Indexes:** `idx_rondo_club_work_history_member` on `(knvb_id)`
 
 ---
 
@@ -287,7 +287,7 @@ Raw team membership data from Sportlink (player/staff roles).
 
 ---
 
-### stadion_commissies
+### rondo_club_commissies
 
 Committee records from Sportlink.
 
@@ -296,7 +296,7 @@ Committee records from Sportlink.
 | `id` | INTEGER | Primary key (auto-increment) |
 | `commissie_name` | TEXT | Committee name - UNIQUE |
 | `sportlink_id` | TEXT | Sportlink committee ID - UNIQUE |
-| `stadion_id` | INTEGER | WordPress commissie post ID |
+| `rondo_club_id` | INTEGER | WordPress commissie post ID |
 | `source_hash` | TEXT | SHA-256 hash |
 | `last_seen_at` | TEXT | Last time committee appeared |
 | `last_synced_at` | TEXT | Last successful sync |
@@ -304,8 +304,8 @@ Committee records from Sportlink.
 | `created_at` | TEXT | First seen timestamp |
 
 **Indexes:**
-- `idx_stadion_commissies_hash` on `(source_hash, last_synced_hash)`
-- `idx_stadion_commissies_name` on `(commissie_name)`
+- `idx_rondo_club_commissies_hash` on `(source_hash, last_synced_hash)`
+- `idx_rondo_club_commissies_name` on `(commissie_name)`
 
 ---
 
@@ -355,7 +355,7 @@ Committee memberships with roles.
 
 ---
 
-### stadion_commissie_work_history
+### rondo_club_commissie_work_history
 
 Committee membership work history synced to WordPress ACF repeater.
 
@@ -365,7 +365,7 @@ Committee membership work history synced to WordPress ACF repeater.
 | `knvb_id` | TEXT | Member KNVB ID |
 | `commissie_name` | TEXT | Committee name |
 | `role_name` | TEXT | Role in committee |
-| `stadion_work_history_id` | INTEGER | WordPress work_history row index |
+| `rondo_club_work_history_id` | INTEGER | WordPress work_history row index |
 | `is_backfill` | INTEGER | 1 if from historical backfill |
 | `source_hash` | TEXT | SHA-256 hash |
 | `last_synced_hash` | TEXT | Hash of last synced data |
@@ -374,7 +374,7 @@ Committee membership work history synced to WordPress ACF repeater.
 
 **Unique Constraint:** `(knvb_id, commissie_name, role_name)`
 
-**Indexes:** `idx_stadion_commissie_work_history_member` on `(knvb_id)`
+**Indexes:** `idx_rondo_club_commissie_work_history_member` on `(knvb_id)`
 
 ---
 
@@ -455,7 +455,7 @@ Discipline (tucht) cases from Sportlink.
 
 ---
 
-### stadion_change_detections
+### rondo_club_change_detections
 
 Tracks field changes detected in Rondo Club for reverse sync.
 
@@ -467,13 +467,13 @@ Tracks field changes detected in Rondo Club for reverse sync.
 | `old_value` | TEXT | Previous value |
 | `new_value` | TEXT | New value |
 | `detected_at` | TEXT | When change was detected |
-| `stadion_modified_gmt` | TEXT | WordPress modification timestamp (GMT) |
+| `rondo_club_modified_gmt` | TEXT | WordPress modification timestamp (GMT) |
 | `detection_run_id` | TEXT | ID of the detection run |
 | `synced_at` | TEXT | When change was synced back to Sportlink |
 
 **Indexes:**
-- `idx_stadion_change_detections_knvb` on `(knvb_id)`
-- `idx_stadion_change_detections_detected` on `(detected_at)`
+- `idx_rondo_club_change_detections_knvb` on `(knvb_id)`
+- `idx_rondo_club_change_detections_detected` on `(detected_at)`
 
 ---
 
@@ -487,9 +487,9 @@ Audit log of conflicts between Rondo Club and Sportlink data during reverse sync
 | `knvb_id` | TEXT | Member KNVB ID |
 | `field_name` | TEXT | Conflicting field |
 | `sportlink_value` | TEXT | Value in Sportlink |
-| `stadion_value` | TEXT | Value in Stadion |
+| `rondo_club_value` | TEXT | Value in Rondo Club |
 | `sportlink_modified` | TEXT | Sportlink modification timestamp |
-| `stadion_modified` | TEXT | Stadion modification timestamp |
+| `rondo_club_modified` | TEXT | Rondo Club modification timestamp |
 | `winning_system` | TEXT | Which system's value was kept |
 | `resolution_reason` | TEXT | Why that system won |
 | `resolved_at` | TEXT | When conflict was resolved |
@@ -572,7 +572,7 @@ FreeScout customer records mapped from Rondo Club members.
 
 ## Photo State Machine
 
-The `stadion_members.photo_state` field implements a state machine for photo synchronization.
+The `rondo_club_members.photo_state` field implements a state machine for photo synchronization.
 
 ### States
 
@@ -625,7 +625,7 @@ Photo changes are detected by comparing `photo_date` (from MemberHeader API):
 SELECT * FROM members WHERE email = 'member@example.com';
 
 -- Rondo Club: get WordPress post ID
-SELECT stadion_id FROM stadion_members WHERE knvb_id = 'KNVB123456';
+SELECT rondo_club_id FROM rondo_club_members WHERE knvb_id = 'KNVB123456';
 
 -- Nikki: get contributions
 SELECT * FROM nikki_contributions WHERE knvb_id = 'KNVB123456' ORDER BY year DESC;
@@ -638,7 +638,7 @@ SELECT freescout_id FROM freescout_customers WHERE knvb_id = 'KNVB123456';
 
 ```sql
 -- Member → Teams (via work history)
-SELECT team_name FROM stadion_work_history WHERE knvb_id = 'KNVB123456';
+SELECT team_name FROM rondo_club_work_history WHERE knvb_id = 'KNVB123456';
 
 -- Member → Committees
 SELECT committee_name, role_name FROM sportlink_member_committees WHERE knvb_id = 'KNVB123456';
@@ -651,7 +651,7 @@ FROM sportlink_team_members WHERE sportlink_team_id = 'TEAM_ID';
 SELECT * FROM discipline_cases WHERE public_person_id = 'KNVB123456';
 
 -- Parent → Children (requires parsing data_json)
-SELECT data_json FROM stadion_parents WHERE email = 'parent@example.com';
+SELECT data_json FROM rondo_club_parents WHERE email = 'parent@example.com';
 ```
 
 ---

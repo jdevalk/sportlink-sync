@@ -16,7 +16,7 @@ node pipelines/sync-nikki.js --verbose    # Direct execution (verbose)
 ```
 pipelines/sync-nikki.js
 ├── Step 1: steps/download-nikki-contributions.js    → data/nikki-sync.sqlite
-└── Step 2: steps/sync-nikki-to-stadion.js           → Rondo Club WordPress API
+└── Step 2: steps/sync-nikki-to-rondo-club.js           → Rondo Club WordPress API
 ```
 
 ## Step-by-Step Details
@@ -43,19 +43,19 @@ pipelines/sync-nikki.js
 
 ### Step 2: Sync to Rondo Club
 
-**Script:** `steps/sync-nikki-to-stadion.js`
-**Function:** `runNikkiStadionSync({ logger, verbose, force })`
+**Script:** `steps/sync-nikki-to-rondo-club.js`
+**Function:** `runNikkiRondoClubSync({ logger, verbose, force })`
 
 1. Groups contributions by `knvb_id` and `year`
 2. For members with multiple lines per year: **sums** `saldo` and `hoofdsom` across all lines
-3. Looks up `stadion_id` from `data/rondo-sync.sqlite` → `stadion_members` (cross-database lookup)
-4. Skips members without a `stadion_id` (not yet synced to Rondo Club)
-5. For each member with changes, sends `PUT /wp/v2/people/{stadion_id}` with:
+3. Looks up `rondo_club_id` from `data/rondo-sync.sqlite` → `rondo_club_members` (cross-database lookup)
+4. Skips members without a `rondo_club_id` (not yet synced to Rondo Club)
+5. For each member with changes, sends `PUT /wp/v2/people/{rondo_club_id}` with:
    - `first_name` and `last_name` (always required by Rondo Club API)
    - Per-year Nikki ACF fields (up to 4 years of history)
 6. Rate limited: 500ms between updates
 
-**Output:** `{ updated, skipped, noStadionId, errors }`
+**Output:** `{ updated, skipped, noRondoClubId, errors }`
 
 **Important:** The PUT request must include `first_name` and `last_name` even when only updating Nikki fields. This requires a GET request first to fetch existing required fields.
 
@@ -93,7 +93,7 @@ Result for Rondo Club:
 | Database | Table | Usage |
 |---|---|---|
 | `nikki-sync.sqlite` | `nikki_contributions` | Contribution records per member per year |
-| `rondo-sync.sqlite` | `stadion_members` | KNVB ID → Rondo Club ID lookup (read-only) |
+| `rondo-sync.sqlite` | `rondo_club_members` | KNVB ID → Rondo Club ID lookup (read-only) |
 
 ## CLI Flags
 
@@ -105,7 +105,7 @@ Result for Rondo Club:
 ## Error Handling
 
 - Download failure is logged but doesn't prevent reporting
-- Members without a `stadion_id` are skipped (counted separately as `noStadionId`)
+- Members without a `rondo_club_id` are skipped (counted separately as `noRondoClubId`)
 - Individual member update failures don't stop the pipeline
 - All errors collected in summary report
 
@@ -115,7 +115,7 @@ Result for Rondo Club:
 |------|---------|
 | `pipelines/sync-nikki.js` | Pipeline orchestrator |
 | `steps/download-nikki-contributions.js` | Nikki web scraping (Playwright) |
-| `steps/sync-nikki-to-stadion.js` | Rondo Club API sync |
+| `steps/sync-nikki-to-rondo-club.js` | Rondo Club API sync |
 | `lib/nikki-db.js` | Nikki SQLite operations |
 | `lib/rondo-club-db.js` | Rondo Club ID lookup |
 | `lib/rondo-club-client.js` | Rondo Club HTTP client |

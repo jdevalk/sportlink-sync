@@ -10,7 +10,7 @@ When enabled: **hourly** via `scripts/sync.sh reverse`.
 
 ```bash
 scripts/sync.sh reverse                      # Production (with locking + email report)
-node tools/detect-stadion-changes.js --verbose     # Detection only (no sync)
+node tools/detect-rondo-club-changes.js --verbose     # Detection only (no sync)
 node pipelines/reverse-sync.js --verbose               # Contact field sync only
 ```
 
@@ -20,10 +20,10 @@ The reverse sync operates in two phases:
 
 ```
 Phase 1: Change Detection (hourly)
-    Rondo Club WordPress API → lib/detect-rondo-club-changes.js → stadion_change_detections table
+    Rondo Club WordPress API → lib/detect-rondo-club-changes.js → rondo_club_change_detections table
 
 Phase 2: Sync to Sportlink (when unsynced changes exist)
-    stadion_change_detections → lib/reverse-sync-sportlink.js → Sportlink Browser (Playwright)
+    rondo_club_change_detections → lib/reverse-sync-sportlink.js → Sportlink Browser (Playwright)
 ```
 
 ## Tracked Fields
@@ -48,25 +48,25 @@ Phase 2: Sync to Sportlink (when unsynced changes exist)
 1. Read `last_detection_at` from `reverse_sync_state` table
 2. Query Rondo Club API for members modified since that timestamp: `GET /wp/v2/people?modified_after=...`
 3. For each modified member:
-   - Look up local record in `stadion_members`
-   - **Skip** if `sync_origin == 'sync_sportlink_to_stadion'` (avoids infinite loops — this change came from forward sync)
+   - Look up local record in `rondo_club_members`
+   - **Skip** if `sync_origin == 'sync_sportlink_to_rondo_club'` (avoids infinite loops — this change came from forward sync)
    - Compute SHA-256 hash of all tracked fields
    - Compare to stored `tracked_fields_hash`
    - If hash differs, compare individual fields to find which ones changed
-   - Log each changed field to `stadion_change_detections` table
+   - Log each changed field to `rondo_club_change_detections` table
 4. Update `last_detection_at` in `reverse_sync_state`
 
 ### Infinite Loop Prevention
 
-The `sync_origin` column on `stadion_members` tracks who last modified the record:
+The `sync_origin` column on `rondo_club_members` tracks who last modified the record:
 
 | Value | Meaning |
 |---|---|
 | `user_edit` | Manual edit in Rondo Club WordPress UI |
-| `sync_sportlink_to_stadion` | Forward sync (Sportlink → Rondo Club) |
-| `sync_stadion_to_sportlink` | Reverse sync (Rondo Club → Sportlink) |
+| `sync_sportlink_to_rondo_club` | Forward sync (Sportlink → Rondo Club) |
+| `sync_rondo_club_to_sportlink` | Reverse sync (Rondo Club → Sportlink) |
 
-Change detection skips members where `sync_origin == 'sync_sportlink_to_stadion'` because those changes came from Sportlink and don't need to be pushed back.
+Change detection skips members where `sync_origin == 'sync_sportlink_to_rondo_club'` because those changes came from Sportlink and don't need to be pushed back.
 
 ## Phase 2: Sync to Sportlink
 
@@ -75,7 +75,7 @@ Change detection skips members where `sync_origin == 'sync_sportlink_to_stadion'
 
 ### How It Works
 
-1. Fetch unsynced changes from `stadion_change_detections` (where `synced_at IS NULL`)
+1. Fetch unsynced changes from `rondo_club_change_detections` (where `synced_at IS NULL`)
 2. Group changes by member and by Sportlink page (general / other / financial)
 3. Launch headless Chromium and log into Sportlink
 4. For each member with changes:
@@ -85,8 +85,8 @@ Change detection skips members where `sync_origin == 'sync_sportlink_to_stadion'
    - Save the form
    - Verify saved values by reading them back
    - Mark changes as synced (`UPDATE ... SET synced_at = ...`)
-   - Update `{field}_sportlink_modified` timestamp in `stadion_members`
-   - Set `sync_origin = 'sync_stadion_to_sportlink'`
+   - Update `{field}_sportlink_modified` timestamp in `rondo_club_members`
+   - Set `sync_origin = 'sync_rondo_club_to_sportlink'`
 5. Wait 1-2 seconds between members (rate limiting with random jitter)
 
 ### Retry Logic
@@ -98,14 +98,14 @@ Change detection skips members where `sync_origin == 'sync_sportlink_to_stadion'
 ## Conflict Resolution
 
 **Script:** `lib/conflict-resolver.js`
-**Function:** `resolveFieldConflicts(member, sportlinkData, stadionData, db, logger)`
+**Function:** `resolveFieldConflicts(member, sportlinkData, rondoClubData, db, logger)`
 
 When both Sportlink and Rondo Club have modified the same field, conflict resolution determines which value wins.
 
 ### Resolution Rules
 
-Each tracked field has two timestamp columns in `stadion_members`:
-- `{field}_stadion_modified` — when forward sync last wrote this field to Rondo Club
+Each tracked field has two timestamp columns in `rondo_club_members`:
+- `{field}_rondo_club_modified` — when forward sync last wrote this field to Rondo Club
 - `{field}_sportlink_modified` — when reverse sync last wrote this field to Sportlink
 
 Resolution logic:
@@ -127,7 +127,7 @@ The 5-second grace period handles minor clock differences between systems.
 All resolutions are logged to the `conflict_resolutions` table:
 
 ```sql
-SELECT knvb_id, field_name, sportlink_value, stadion_value,
+SELECT knvb_id, field_name, sportlink_value, rondo_club_value,
        winning_system, resolution_reason, resolved_at
 FROM conflict_resolutions
 ORDER BY resolved_at DESC;
@@ -135,7 +135,7 @@ ORDER BY resolved_at DESC;
 
 ## Database Tables
 
-### stadion_change_detections
+### rondo_club_change_detections
 
 Audit log of all detected changes.
 
@@ -146,7 +146,7 @@ Audit log of all detected changes.
 | `old_value` | Previous value |
 | `new_value` | New value |
 | `detected_at` | When the change was detected |
-| `stadion_modified_gmt` | WordPress modification timestamp |
+| `rondo_club_modified_gmt` | WordPress modification timestamp |
 | `detection_run_id` | ID of the detection run |
 | `synced_at` | When change was synced to Sportlink (NULL = not yet synced) |
 
@@ -168,18 +168,18 @@ Audit log of conflict resolution decisions.
 |---|---|
 | `knvb_id` | Member KNVB ID |
 | `field_name` | Conflicting field |
-| `sportlink_value` / `stadion_value` | Values from each system |
-| `sportlink_modified` / `stadion_modified` | Timestamps from each system |
+| `sportlink_value` / `rondo_club_value` | Values from each system |
+| `sportlink_modified` / `rondo_club_modified` | Timestamps from each system |
 | `winning_system` | Which system's value was kept |
-| `resolution_reason` | Why (e.g., `stadion_newer`, `grace_period_sportlink_wins`) |
+| `resolution_reason` | Why (e.g., `rondo_club_newer`, `grace_period_sportlink_wins`) |
 
-### stadion_members (reverse sync columns)
+### rondo_club_members (reverse sync columns)
 
 Per-field modification timestamps added to the existing table:
 
 | Column Pattern | Example |
 |---|---|
-| `{field}_stadion_modified` | `email_stadion_modified` |
+| `{field}_rondo_club_modified` | `email_rondo_club_modified` |
 | `{field}_sportlink_modified` | `email_sportlink_modified` |
 | `sync_origin` | Last edit source |
 | `tracked_fields_hash` | Hash for quick change detection |
@@ -192,22 +192,22 @@ Per-field modification timestamps added to the existing table:
 | `lib/reverse-sync-sportlink.js` | Sync to Sportlink (SQLite → Sportlink browser) |
 | `lib/conflict-resolver.js` | Timestamp-based conflict resolution |
 | `lib/sync-origin.js` | Constants and utilities for sync origin tracking |
-| `tools/detect-stadion-changes.js` | CLI for running detection standalone |
+| `tools/detect-rondo-club-changes.js` | CLI for running detection standalone |
 | `pipelines/reverse-sync.js` | CLI for running contact field sync |
 | `steps/reverse-sync-contact-fields.js` | CLI alias for contact field sync |
 
 ## Example Flow
 
-1. **Forward sync** downloads member email from Sportlink, writes to Rondo Club → sets `sync_origin = 'sync_sportlink_to_stadion'`
+1. **Forward sync** downloads member email from Sportlink, writes to Rondo Club → sets `sync_origin = 'sync_sportlink_to_rondo_club'`
 2. **User** edits email in Rondo Club WordPress UI → WordPress updates `modified_gmt`
 3. **Change detection** (hourly): queries Rondo Club API for recently modified members
-   - Finds the member, sees `sync_origin != 'sync_sportlink_to_stadion'` (user edit happened after)
+   - Finds the member, sees `sync_origin != 'sync_sportlink_to_rondo_club'` (user edit happened after)
    - Computes tracked fields hash, detects email changed
-   - Logs to `stadion_change_detections`: email, old value, new value
-4. **Reverse sync**: reads unsynced changes from `stadion_change_detections`
+   - Logs to `rondo_club_change_detections`: email, old value, new value
+4. **Reverse sync**: reads unsynced changes from `rondo_club_change_detections`
    - Opens Chromium, logs into Sportlink
    - Navigates to member's /general page
    - Enters edit mode, fills email field, saves
    - Verifies saved value
-   - Marks change as synced, updates `email_sportlink_modified`, sets `sync_origin = 'sync_stadion_to_sportlink'`
+   - Marks change as synced, updates `email_sportlink_modified`, sets `sync_origin = 'sync_rondo_club_to_sportlink'`
 5. **Next forward sync**: downloads email from Sportlink (now matches Rondo Club value) → no change detected → no API call

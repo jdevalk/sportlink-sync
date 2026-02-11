@@ -20,7 +20,7 @@ pipelines/sync-people.js
 ├── Step 3: steps/submit-laposta-list.js             → Laposta API
 ├── Step 4: steps/submit-rondo-club-sync.js             → Rondo Club WordPress API (members + parents + birthdate)
 ├── Step 5: steps/download-photos-from-api.js        → photos/ directory
-├── Step 6: steps/upload-photos-to-stadion.js        → Rondo Club WordPress API (media)
+├── Step 6: steps/upload-photos-to-rondo-club.js        → Rondo Club WordPress API (media)
 └── Step 7: lib/reverse-sync-sportlink.js      → Sportlink Club (currently disabled)
 ```
 
@@ -37,13 +37,13 @@ pipelines/sync-people.js
 4. Calls Sportlink `SearchMembers` API to get all members
 5. Calls `MemberHeader` API for each member (photo URLs, financial block status)
 6. Stores raw JSON results in `data/laposta-sync.sqlite` → `sportlink_runs` table
-7. Upserts member data into `data/rondo-sync.sqlite` → `stadion_members` table
+7. Upserts member data into `data/rondo-sync.sqlite` → `rondo_club_members` table
 
 **Output:** `{ success, memberCount }`
 
 **Databases written:**
 - `data/laposta-sync.sqlite`: `sportlink_runs` (full JSON dump)
-- `data/rondo-sync.sqlite`: `stadion_members` (per-member data with `source_hash`)
+- `data/rondo-sync.sqlite`: `rondo_club_members` (per-member data with `source_hash`)
 
 ### Step 2: Prepare Laposta Members
 
@@ -90,11 +90,11 @@ pipelines/sync-people.js
 2. Reads free fields from `sportlink_member_free_fields` table (FreeScout ID, VOG date, financial block)
 3. Builds WordPress API payload with ACF fields (see field mappings below)
 4. For each changed member:
-   - **No `stadion_id`**: `POST /wp/v2/people` (create new person)
-   - **Has `stadion_id`**: `PUT /wp/v2/people/{stadion_id}` (update existing)
-5. Stores returned WordPress post ID as `stadion_id`
+   - **No `rondo_club_id`**: `POST /wp/v2/people` (create new person)
+   - **Has `rondo_club_id`**: `PUT /wp/v2/people/{rondo_club_id}` (update existing)
+5. Stores returned WordPress post ID as `rondo_club_id`
 6. Updates `last_synced_hash` on success
-7. Then processes **parent members** (from `stadion_parents` table):
+7. Then processes **parent members** (from `rondo_club_parents` table):
    - Identified by email (no KNVB ID)
    - Linked to children via ACF `relationships` field
    - Deduplicated across multiple children's parent fields
@@ -110,7 +110,7 @@ pipelines/sync-people.js
 **Script:** `steps/download-photos-from-api.js`
 **Function:** `runPhotoDownload({ logger, verbose })`
 
-1. Queries `stadion_members` for members with `photo_state = 'pending_download'`
+1. Queries `rondo_club_members` for members with `photo_state = 'pending_download'`
 2. If none pending, returns early (no browser launched)
 3. Launches headless Chromium via Playwright
 4. Logs into Sportlink Club
@@ -125,11 +125,11 @@ pipelines/sync-people.js
 
 ### Step 6: Photo Upload
 
-**Script:** `steps/upload-photos-to-stadion.js`
+**Script:** `steps/upload-photos-to-rondo-club.js`
 **Function:** `runPhotoSync({ logger, verbose })`
 
-1. Queries `stadion_members` for `photo_state = 'downloaded'` or `'pending_upload'`
-2. Uploads each photo to `POST /wp-json/rondo/v1/people/{stadion_id}/photo` (multipart form-data)
+1. Queries `rondo_club_members` for `photo_state = 'downloaded'` or `'pending_upload'`
+2. Uploads each photo to `POST /wp-json/rondo/v1/people/{rondo_club_id}/photo` (multipart form-data)
 3. Updates `photo_state` to `'synced'` on success
 4. Also handles photo **deletion**: members with `photo_state = 'pending_delete'` get their Rondo Club photo removed
 5. Rate limited: 2s between uploads/deletes
@@ -187,8 +187,8 @@ See `config/field-mapping.json` for the complete mapping. Key fields:
 | `laposta-sync.sqlite` | `sportlink_runs` | Raw download results |
 | `laposta-sync.sqlite` | `members` | Prepared Laposta members with hashes |
 | `laposta-sync.sqlite` | `laposta_fields` | Cached field definitions |
-| `rondo-sync.sqlite` | `stadion_members` | Member → WordPress ID mapping + hashes |
-| `rondo-sync.sqlite` | `stadion_parents` | Parent → WordPress ID mapping |
+| `rondo-sync.sqlite` | `rondo_club_members` | Member → WordPress ID mapping + hashes |
+| `rondo-sync.sqlite` | `rondo_club_parents` | Parent → WordPress ID mapping |
 | `rondo-sync.sqlite` | `sportlink_member_free_fields` | Free fields (read by Step 4) |
 
 ## CLI Flags
@@ -216,9 +216,9 @@ See `config/field-mapping.json` for the complete mapping. Key fields:
 | `steps/submit-laposta-list.js` | Laposta API sync |
 | `steps/submit-rondo-club-sync.js` | Rondo Club WordPress API sync (members + parents + birthdate) |
 | `steps/prepare-rondo-club-members.js` | Rondo Club member data preparation |
-| `steps/prepare-stadion-parents.js` | Parent extraction and dedup |
+| `steps/prepare-rondo-club-parents.js` | Parent extraction and dedup |
 | `steps/download-photos-from-api.js` | Photo download (Playwright) |
-| `steps/upload-photos-to-stadion.js` | Photo upload/delete |
+| `steps/upload-photos-to-rondo-club.js` | Photo upload/delete |
 | `lib/photo-utils.js` | Shared photo helpers (MIME types, download, MemberHeader parsing) |
 | `config/field-mapping.json` | Laposta field mapping config |
 | `lib/laposta-db.js` | Laposta SQLite operations |
