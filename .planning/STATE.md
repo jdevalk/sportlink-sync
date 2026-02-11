@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 
 ## Current Position
 
-Phase: 42 of 43 (Code References) — IN PROGRESS
-Plan: 2 of 3 in current phase (plans 42-01, 42-02 complete)
-Status: Plan 42-02 complete — team/commissie/discipline step files renamed
-Last activity: 2026-02-11 — Plan 42-02 executed (6 step files)
+Phase: 42 of 43 (Code References) — COMPLETE
+Plan: 3 of 3 in current phase (all plans complete)
+Status: Phase complete — all stadion references renamed to rondo_club
+Last activity: 2026-02-11 — Plan 42-03 executed (17 files: pipelines, tools, lib)
 
-Progress: [████████████████████████████████████████░░░░] 95% (41 of 43 phases complete)
+Progress: [████████████████████████████████████████░░░░] 96% (42 of 43 phases complete)
 
 ## Accumulated Context
 
@@ -31,10 +31,11 @@ Recent decisions affecting v3.2:
 - [Phase 41-02]: Migration bugs fixed via Rule 1 auto-fixes (incorrect table references, idempotency check)
 - [Phase 41-03]: Use ALTER TABLE RENAME COLUMN for discipline_cases.stadion_id (safe for single-process discipline pipeline)
 - [Phase 42-02]: Use rondoClub camelCase for function parameters, rondo_club_id for DB columns
+- [Phase 42-03]: Completed codebase-wide stadion→rondo_club rename (17 files: pipelines, tools, lib)
 
 ### Critical Deployment Note
 
-**Phase 41 MUST be deployed atomically with Phase 42.** Migration runs automatically on openDb() and renames all tables. Plans 42-01 and 42-02 complete: all steps/ files now use rondo_club naming. Plan 42-03 remains (pipelines/, tools/, lib/).
+**Phase 41 + 42 MUST be deployed atomically.** Migration runs automatically on openDb() and renames all tables. Phase 42 complete: all code references updated (steps/, pipelines/, tools/, lib/). Only lib/rondo-club-db.js and lib/discipline-db.js retain stadion references (migration code).
 
 ### Pending Todos
 
@@ -61,5 +62,5 @@ Recent decisions affecting v3.2:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 42-02-PLAN.md (team/commissie/discipline step files renamed)
-Resume file: Ready for Phase 42 Plan 03 (pipelines, tools, lib)
+Stopped at: Completed Phase 42 (all 3 plans: stadion→rondo_club rename complete)
+Resume file: Ready for Phase 43 (Final Testing & Deployment)
