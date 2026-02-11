@@ -54,9 +54,9 @@
 **Plans**: 3 plans
 
 Plans:
-- [ ] 41-01-PLAN.md — Migration function + initDb() schema + openDb() integration + sync-origin.js
-- [ ] 41-02-PLAN.md — SQL query updates across all functions in rondo-club-db.js
-- [ ] 41-03-PLAN.md — discipline-db.js + conflict-resolver.js rename + migration
+- [x] 41-01-PLAN.md — Migration function + initDb() schema + openDb() integration + sync-origin.js
+- [x] 41-02-PLAN.md — SQL query updates across all functions in rondo-club-db.js
+- [x] 41-03-PLAN.md — discipline-db.js + conflict-resolver.js rename + migration
 
 #### Phase 42: Code References
 **Goal**: Update all stadion references in codebase to rondo_club
@@ -106,10 +106,10 @@ Phases execute in numeric order: 41 → 42 → 43
 | 38. Email Migration | v3.0 | 1/1 | Complete | 2026-02-09 |
 | 39. Multi-Club Readiness | — | 0/1 | Deferred | - |
 | 40. Former Member Import Tool | v3.1 | 2/2 | Complete | 2026-02-09 |
-| 41. Database Migration | v3.2 | 0/3 | Planned | - |
+| 41. Database Migration | v3.2 | 3/3 | Complete | 2026-02-11 |
 | 42. Code References | v3.2 | 0/TBD | Not started | - |
 | 43. Documentation | v3.2 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-08*
-*Last updated: 2026-02-10 after v3.2 milestone roadmap creation*
+*Last updated: 2026-02-11 after Phase 41 execution complete*

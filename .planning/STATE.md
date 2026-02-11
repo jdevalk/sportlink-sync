@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention
-**Current focus:** Phase 41 - Database Migration
+**Current focus:** Phase 41 complete — ready for Phase 42
 
 ## Current Position
 
-Phase: 41 of 43 (Database Migration)
+Phase: 41 of 43 (Database Migration) — COMPLETE
 Plan: 3 of 3 in current phase (all plans complete)
-Status: Phase 41 complete
-Last activity: 2026-02-11 — Completed 41-02: SQL query layer updates (rondo-club-db, detect-changes)
+Status: Phase complete, verified (human_needed for production deployment)
+Last activity: 2026-02-11 — Phase 41 executed and verified
 
-Progress: [████████████████████████████████████████░░░░] 93% (40 of 43 phases complete, 3 of 3 plans in Phase 41)
+Progress: [████████████████████████████████████████░░░░] 95% (41 of 43 phases complete)
 
 ## Accumulated Context
 
@@ -30,6 +30,10 @@ Recent decisions affecting v3.2:
 - [Phase 41-01]: Migration runs after pragmas but before initDb in openDb() for safety
 - [Phase 41-02]: Migration bugs fixed via Rule 1 auto-fixes (incorrect table references, idempotency check)
 - [Phase 41-03]: Use ALTER TABLE RENAME COLUMN for discipline_cases.stadion_id (safe for single-process discipline pipeline)
+
+### Critical Deployment Note
+
+**Phase 41 MUST be deployed atomically with Phase 42.** Migration runs automatically on openDb() and renames all tables. Steps/, pipelines/, and tools/ files still reference old stadion_* names until Phase 42 is complete.
 
 ### Pending Todos
 
@@ -49,11 +53,6 @@ Recent decisions affecting v3.2:
 
 ### Blockers/Concerns
 
-**Critical for Phase 41:**
-- Migration must use CREATE+INSERT+DROP pattern (NOT ALTER TABLE RENAME) to avoid concurrent access bugs
-- Server runs continuous cron syncs - migration must be non-disruptive
-- Testing on production server required (no local sync allowed)
-
 **Known from PROJECT.md:**
 - INFRA-04 partial: web server runs as root (no sportlink user on server) — accepted for now
 - Phase 39 (Multi-Club Readiness) deferred until second club onboards
@@ -61,5 +60,5 @@ Recent decisions affecting v3.2:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 41-02-PLAN.md: SQL query layer updates (rondo-club-db, detect-changes)
-Resume file: Phase 41 complete (all 3 plans done) - ready for Phase 42 (Code References)
+Stopped at: Phase 41 complete — all 3 plans executed, verified (human_needed for production)
+Resume file: Ready for Phase 42 (Code References) planning
