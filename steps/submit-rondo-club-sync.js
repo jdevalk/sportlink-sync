@@ -676,7 +676,7 @@ async function markFormerMembers(db, currentKnvbIds, options) {
       await rondoClubRequest(
         `wp/v2/people/${member.rondo_club_id}`,
         'PUT',
-        { first_name: firstName, last_name: lastName, acf: { former_member: true } },
+        { acf: { first_name: firstName, last_name: lastName, former_member: true } },
         options
       );
       // Keep member in tracking DB so we can detect if they rejoin,
