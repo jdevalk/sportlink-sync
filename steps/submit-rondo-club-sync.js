@@ -15,7 +15,7 @@ const {
   getParentsNeedingSync,
   updateParentSyncState,
   deleteParent,
-  resetParentStadionIds,
+  resetParentRondoClubIds,
   getParentsNotInList,
   updateVolunteerStatus
 } = require('../lib/rondo-club-db');
@@ -25,7 +25,7 @@ const { extractFieldValue } = require('../lib/detect-rondo-club-changes');
 
 /**
  * Extract tracked field values from member data.
- * Handles both Sportlink format (data object from prepare-stadion-members.js)
+ * Handles both Sportlink format (data object from prepare-rondo-club-members.js)
  * and Rondo Club format (ACF data from WordPress API).
  *
  * @param {Object} data - Member data with ACF fields
@@ -143,7 +143,7 @@ async function logFinancialBlockActivity(rondoClubId, isBlocked, options) {
 
 /**
  * Sync a single member to Rondo Club (create or update)
- * Uses local stadion_id tracking - no API search needed
+ * Uses local rondo_club_id tracking - no API search needed
  * @param {Object} member - Member record from database
  * @param {Object} db - SQLite database connection
  * @param {Object} options - Logger and verbose options
@@ -151,13 +151,13 @@ async function logFinancialBlockActivity(rondoClubId, isBlocked, options) {
  */
 async function syncPerson(member, db, options) {
   const { knvb_id, data, source_hash } = member;
-  let { stadion_id } = member; // Use let so we can clear it on 404
+  let { rondo_club_id } = member; // Use let so we can clear it on 404
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  if (stadion_id) {
+  if (rondo_club_id) {
     // UPDATE existing person (we know the ID from our database)
-    const endpoint = `wp/v2/people/${stadion_id}`;
-    logVerbose(`Updating existing person: ${stadion_id}`);
+    const endpoint = `wp/v2/people/${rondo_club_id}`;
+    logVerbose(`Updating existing person: ${rondo_club_id}`);
     logVerbose(`  PUT ${endpoint}`);
 
     // Get existing person to compare financial block status and resolve conflicts
@@ -166,30 +166,30 @@ async function syncPerson(member, db, options) {
     let conflicts = [];
 
     try {
-      const existing = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+      const existing = await rondoClubRequest(`wp/v2/people/${rondo_club_id}`, 'GET', null, options);
       existingData = existing.body;
       previousBlockStatus = existingData.acf?.['financiele-blokkade'] || false;
     } catch (fetchError) {
       // If we can't fetch, continue with update but skip activity comparison
       if (fetchError.message && fetchError.message.includes('404')) {
         // Person was deleted - reset tracking state and create fresh
-        logVerbose(`Person ${stadion_id} no longer exists (404) - will create fresh`);
-        updateSyncState(db, knvb_id, null, null); // Clear stadion_id and hash
-        stadion_id = null; // Clear local variable to trigger CREATE path
+        logVerbose(`Person ${rondo_club_id} no longer exists (404) - will create fresh`);
+        updateSyncState(db, knvb_id, null, null); // Clear rondo_club_id and hash
+        rondo_club_id = null; // Clear local variable to trigger CREATE path
       } else {
         logVerbose(`  Could not fetch existing person for activity comparison: ${fetchError.message}`);
       }
     }
 
     // Only proceed with update if person still exists (not 404 above)
-    if (stadion_id && existingData) {
+    if (rondo_club_id && existingData) {
       // Resolve conflicts between Sportlink and Rondo Club data
       let updateData = data;
       try {
         const sportlinkData = extractTrackedFieldValues(data);
-        const stadionData = extractTrackedFieldValues(existingData);
+        const rondoClubData = extractTrackedFieldValues(existingData);
 
-        const resolution = resolveFieldConflicts(member, sportlinkData, stadionData, db, options.logger);
+        const resolution = resolveFieldConflicts(member, sportlinkData, rondoClubData, db, options.logger);
         conflicts = resolution.conflicts;
 
         if (conflicts.length > 0) {
@@ -202,12 +202,12 @@ async function syncPerson(member, db, options) {
         if (options.logger) {
           options.logger.error(`Skipping ${knvb_id} due to conflict resolution error: ${conflictError.message}`);
         }
-        return { action: 'skipped', id: stadion_id, conflicts: [], error: conflictError.message };
+        return { action: 'skipped', id: rondo_club_id, conflicts: [], error: conflictError.message };
       }
 
       try {
         const response = await rondoClubRequest(endpoint, 'PUT', updateData, options);
-        updateSyncState(db, knvb_id, source_hash, stadion_id);
+        updateSyncState(db, knvb_id, source_hash, rondo_club_id);
 
         // Capture volunteer status from Rondo Club
         const volunteerStatus = existingData.acf?.['huidig-vrijwilliger'] === '1' ? 1 : 0;
@@ -216,18 +216,18 @@ async function syncPerson(member, db, options) {
         // Compare financial block status and log activity if changed
         const newBlockStatus = updateData.acf?.['financiele-blokkade'] || false;
         if (previousBlockStatus !== newBlockStatus) {
-          await logFinancialBlockActivity(stadion_id, newBlockStatus, options);
+          await logFinancialBlockActivity(rondo_club_id, newBlockStatus, options);
         }
 
-        return { action: 'updated', id: stadion_id, conflicts };
+        return { action: 'updated', id: rondo_club_id, conflicts };
       } catch (error) {
         // Person was deleted from WordPress - reset tracking state and create fresh
         if (error.message && error.message.includes('404')) {
-          logVerbose(`Person ${stadion_id} no longer exists (404) - will create fresh`);
-          updateSyncState(db, knvb_id, null, null); // Clear stadion_id and hash
-          stadion_id = null; // Clear local variable to trigger CREATE path
+          logVerbose(`Person ${rondo_club_id} no longer exists (404) - will create fresh`);
+          updateSyncState(db, knvb_id, null, null); // Clear rondo_club_id and hash
+          rondo_club_id = null; // Clear local variable to trigger CREATE path
         } else {
-          console.error(`API Error updating person "${knvb_id}" (ID: ${stadion_id}):`);
+          console.error(`API Error updating person "${knvb_id}" (ID: ${rondo_club_id}):`);
           console.error(`  Status: ${error.message}`);
           if (error.details) {
             console.error(`  Code: ${error.details.code || 'unknown'}`);
@@ -297,10 +297,10 @@ function hasRelationshipType(relationship, typeId) {
  * Update children's parents relationship field (bidirectional linking)
  * Preserves existing parent links, adds new one
  */
-async function updateChildrenParentLinks(parentId, childStadionIds, options) {
+async function updateChildrenParentLinks(parentId, childRondoClubIds, options) {
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
-  for (const childId of childStadionIds) {
+  for (const childId of childRondoClubIds) {
     // Skip if child is the same as parent (prevent self-referential relationships)
     if (childId === parentId) {
       logVerbose(`Skipping self-referential parent link: ${parentId}`);
@@ -378,51 +378,51 @@ async function findPersonByEmail(email, options) {
  * Checks for existing person by email before creating new
  * @param {Object} parent - Parent record from preparation
  * @param {Object} db - SQLite database connection
- * @param {Map} knvbIdToStadionId - Map of KNVB ID to Rondo Club post ID for children
+ * @param {Map} knvbIdToRondoClubId - Map of KNVB ID to Rondo Club post ID for children
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<{action: string, id: number}>}
  */
-async function syncParent(parent, db, knvbIdToStadionId, options) {
+async function syncParent(parent, db, knvbIdToRondoClubId, options) {
   const { email, childKnvbIds, data, source_hash } = parent;
-  let { stadion_id } = parent;
+  let { rondo_club_id } = parent;
   const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
 
   // Resolve child KNVB IDs to Rondo Club post IDs (deduplicate to prevent duplicate relationships)
-  const childStadionIds = [...new Set(
+  const childRondoClubIds = [...new Set(
     childKnvbIds
-      .map(knvbId => knvbIdToStadionId.get(knvbId))
+      .map(knvbId => knvbIdToRondoClubId.get(knvbId))
       .filter(Boolean)
   )];
 
   // Build relationships array for children
-  const childRelationships = childStadionIds.map(childId => ({
+  const childRelationships = childRondoClubIds.map(childId => ({
     related_person: childId,
     relationship_type: [9], // Child relationship type term ID
     relationship_label: ''
   }));
 
-  // If no stadion_id yet, check if person already exists by email (e.g., they're also a member)
+  // If no rondo_club_id yet, check if person already exists by email (e.g., they're also a member)
   // Check local database first (reliable and fast), then WordPress API as fallback
   // Important: exclude the parent's own children — in youth clubs, parents often share
   // an email with their children in Sportlink, but they're separate people.
-  if (!stadion_id) {
+  if (!rondo_club_id) {
     const childKnvbIdSet = new Set(childKnvbIds);
     const memberMatches = db.prepare(
-      'SELECT knvb_id, stadion_id FROM stadion_members WHERE LOWER(email) = LOWER(?) AND stadion_id IS NOT NULL'
+      'SELECT knvb_id, rondo_club_id FROM rondo_club_members WHERE LOWER(email) = LOWER(?) AND rondo_club_id IS NOT NULL'
     ).all(email);
     const nonChildMatch = memberMatches.find(m => !childKnvbIdSet.has(m.knvb_id));
     if (nonChildMatch) {
-      logVerbose(`Parent ${email} found as member in local DB (person ${nonChildMatch.stadion_id}), will merge`);
-      stadion_id = nonChildMatch.stadion_id;
+      logVerbose(`Parent ${email} found as member in local DB (person ${nonChildMatch.rondo_club_id}), will merge`);
+      rondo_club_id = nonChildMatch.rondo_club_id;
     } else if (memberMatches.length === 0) {
       // No member match at all — check WordPress API as fallback
       const existingId = await findPersonByEmail(email, options);
       if (existingId) {
         // Verify the API match isn't one of our children either
-        const isChild = childStadionIds.includes(existingId);
+        const isChild = childRondoClubIds.includes(existingId);
         if (!isChild) {
           logVerbose(`Parent ${email} already exists as person ${existingId}, will merge`);
-          stadion_id = existingId;
+          rondo_club_id = existingId;
         } else {
           logVerbose(`Parent ${email} found person ${existingId} but it's their own child, will create separate`);
         }
@@ -432,9 +432,9 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     }
   }
 
-  if (stadion_id) {
+  if (rondo_club_id) {
     // UPDATE existing person - only add child relationships, don't overwrite other data
-    logVerbose(`Updating existing person: ${stadion_id}`);
+    logVerbose(`Updating existing person: ${rondo_club_id}`);
 
     // Get existing data to merge relationships
     let existingRelationships = [];
@@ -442,7 +442,7 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     let existingLastName = '';
     let existingKnvbId = null;
     try {
-      const existing = await rondoClubRequest(`wp/v2/people/${stadion_id}`, 'GET', null, options);
+      const existing = await rondoClubRequest(`wp/v2/people/${rondo_club_id}`, 'GET', null, options);
       existingRelationships = existing.body.acf?.relationships || [];
       existingFirstName = existing.body.acf?.first_name || '';
       existingLastName = existing.body.acf?.last_name || '';
@@ -450,22 +450,22 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     } catch (e) {
       // Person was deleted from WordPress - reset tracking state and create fresh
       if (e.message && e.message.includes('404')) {
-        logVerbose(`Person ${stadion_id} no longer exists (404) - will create fresh`);
-        updateParentSyncState(db, email, null, null); // Clear stadion_id and hash
-        stadion_id = null; // Trigger create path below
+        logVerbose(`Person ${rondo_club_id} no longer exists (404) - will create fresh`);
+        updateParentSyncState(db, email, null, null); // Clear rondo_club_id and hash
+        rondo_club_id = null; // Trigger create path below
       } else {
         logVerbose(`Could not fetch existing person: ${e.message}`);
       }
     }
 
-    // Only proceed with update if person still exists (stadion_id not cleared by 404)
-    if (stadion_id) {
+    // Only proceed with update if person still exists (rondo_club_id not cleared by 404)
+    if (rondo_club_id) {
       // Merge: keep all existing relationships, add new child relationships (avoid duplicates and self-references)
       const existingChildIds = existingRelationships
         .filter(r => hasRelationshipType(r, 9)) // 9 = child type
         .map(r => r.related_person);
       const newChildRelationships = childRelationships.filter(r =>
-        r.related_person !== stadion_id && // Prevent self-referential relationships
+        r.related_person !== rondo_club_id && // Prevent self-referential relationships
         !existingChildIds.includes(r.related_person)
       );
       const mergedRelationships = [...existingRelationships, ...newChildRelationships];
@@ -490,21 +490,21 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
       };
 
       await rondoClubRequest(
-        `wp/v2/people/${stadion_id}`,
+        `wp/v2/people/${rondo_club_id}`,
         'PUT',
         updateData,
         options
       );
-      updateParentSyncState(db, email, source_hash, stadion_id);
+      updateParentSyncState(db, email, source_hash, rondo_club_id);
 
       // Update children's parent relationship (bidirectional)
-      await updateChildrenParentLinks(stadion_id, childStadionIds, options);
+      await updateChildrenParentLinks(rondo_club_id, childRondoClubIds, options);
 
-      return { action: 'updated', id: stadion_id };
+      return { action: 'updated', id: rondo_club_id };
     }
   }
 
-  if (!stadion_id) {
+  if (!rondo_club_id) {
     // CREATE new parent (either never synced or was deleted from WordPress)
     logVerbose(`Creating new parent: ${email}`);
     const createData = {
@@ -525,7 +525,7 @@ async function syncParent(parent, db, knvbIdToStadionId, options) {
     updateParentSyncState(db, email, source_hash, newId);
 
     // Update children's parent relationship (bidirectional)
-    await updateChildrenParentLinks(newId, childStadionIds, options);
+    await updateChildrenParentLinks(newId, childRondoClubIds, options);
 
     return { action: 'created', id: newId };
   }
@@ -542,7 +542,7 @@ async function deleteOrphanParents(db, currentParentEmails, options) {
   const toDelete = getParentsNotInList(db, currentParentEmails);
 
   for (const parent of toDelete) {
-    if (!parent.stadion_id) {
+    if (!parent.rondo_club_id) {
       deleteParent(db, parent.email);
       continue;
     }
@@ -550,19 +550,19 @@ async function deleteOrphanParents(db, currentParentEmails, options) {
     logVerbose(`Deleting orphan parent: ${parent.email}`);
     try {
       await rondoClubRequest(
-        `wp/v2/people/${parent.stadion_id}`,
+        `wp/v2/people/${parent.rondo_club_id}`,
         'DELETE',
         null,
         options
       );
       deleteParent(db, parent.email);
-      deleted.push({ email: parent.email, stadion_id: parent.stadion_id });
+      deleted.push({ email: parent.email, rondo_club_id: parent.rondo_club_id });
     } catch (error) {
       // Ignore 404 errors - person already deleted from WordPress
       if (error.details?.data?.status === 404) {
         logVerbose(`  Already deleted from WordPress (404)`);
         deleteParent(db, parent.email);
-        deleted.push({ email: parent.email, stadion_id: parent.stadion_id });
+        deleted.push({ email: parent.email, rondo_club_id: parent.rondo_club_id });
       } else {
         errors.push({ email: parent.email, message: error.message });
       }
@@ -575,11 +575,11 @@ async function deleteOrphanParents(db, currentParentEmails, options) {
 /**
  * Sync parents to Rondo Club
  * @param {Object} db - SQLite database connection
- * @param {Map} knvbIdToStadionId - Map of member KNVB ID to Rondo Club post ID
+ * @param {Map} knvbIdToRondoClubId - Map of member KNVB ID to Rondo Club post ID
  * @param {Object} options - Logger, verbose, force options
  * @returns {Promise<Object>} - Parent sync result
  */
-async function syncParents(db, knvbIdToStadionId, options = {}) {
+async function syncParents(db, knvbIdToRondoClubId, options = {}) {
   const { logger, verbose = false, force = false } = options;
   const logVerbose = logger?.verbose.bind(logger) || (verbose ? console.log : () => {});
 
@@ -606,7 +606,7 @@ async function syncParents(db, knvbIdToStadionId, options = {}) {
   // Upsert to tracking database
   upsertParents(db, parents);
 
-  // Get parents needing sync (includes stadion_id from database)
+  // Get parents needing sync (includes rondo_club_id from database)
   const needsSync = getParentsNeedingSync(db, force);
   result.skipped = result.total - needsSync.length;
 
@@ -618,7 +618,7 @@ async function syncParents(db, knvbIdToStadionId, options = {}) {
     logVerbose(`Syncing parent ${i + 1}/${needsSync.length}: ${parent.email}`);
 
     try {
-      const syncResult = await syncParent(parent, db, knvbIdToStadionId, options);
+      const syncResult = await syncParent(parent, db, knvbIdToRondoClubId, options);
       result.synced++;
       if (syncResult.action === 'created') result.created++;
       if (syncResult.action === 'updated') result.updated++;
@@ -656,7 +656,7 @@ async function markFormerMembers(db, currentKnvbIds, options) {
   const toMark = getMembersNotInList(db, currentKnvbIds);
 
   for (const member of toMark) {
-    if (!member.stadion_id) {
+    if (!member.rondo_club_id) {
       // Never synced to Rondo Club, just remove from tracking
       deleteMember(db, member.knvb_id);
       continue;
@@ -671,24 +671,24 @@ async function markFormerMembers(db, currentKnvbIds, options) {
       lastName = data.acf?.last_name || '';
     } catch (e) { /* ignore parse errors */ }
 
-    logVerbose(`Marking as former member: ${member.knvb_id} (${firstName} ${lastName}, Rondo Club ID: ${member.stadion_id})`);
+    logVerbose(`Marking as former member: ${member.knvb_id} (${firstName} ${lastName}, Rondo Club ID: ${member.rondo_club_id})`);
     try {
       await rondoClubRequest(
-        `wp/v2/people/${member.stadion_id}`,
+        `wp/v2/people/${member.rondo_club_id}`,
         'PUT',
         { first_name: firstName, last_name: lastName, acf: { former_member: true } },
         options
       );
       // Keep member in tracking DB so we can detect if they rejoin,
       // but clear data_json so they're excluded from active-only queries
-      db.prepare('UPDATE stadion_members SET data_json = ? WHERE knvb_id = ?').run('{}', member.knvb_id);
-      marked.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
+      db.prepare('UPDATE rondo_club_members SET data_json = ? WHERE knvb_id = ?').run('{}', member.knvb_id);
+      marked.push({ knvb_id: member.knvb_id, rondo_club_id: member.rondo_club_id });
     } catch (error) {
       // Handle 404 - person was deleted from WordPress, remove from tracking
       if (error.details?.data?.status === 404) {
         logVerbose(`  Person no longer exists in WordPress (404) - removing from tracking`);
         deleteMember(db, member.knvb_id);
-        marked.push({ knvb_id: member.knvb_id, stadion_id: member.stadion_id });
+        marked.push({ knvb_id: member.knvb_id, rondo_club_id: member.rondo_club_id });
       } else {
         errors.push({ knvb_id: member.knvb_id, message: error.message });
       }
@@ -745,7 +745,7 @@ async function runSync(options = {}) {
         upsertMembers(db, members);
 
         // Step 3: Get members needing sync (hash changed or force)
-        // This now includes stadion_id from database for each member
+        // This now includes rondo_club_id from database for each member
         const needsSync = getMembersNeedingSync(db, force);
         result.skipped = result.total - needsSync.length;
 
@@ -797,16 +797,16 @@ async function runSync(options = {}) {
       // Parents sync
       if (includeParents) {
         // Build KNVB ID to Rondo Club ID mapping from ALL tracked members
-        const knvbIdToStadionId = new Map();
+        const knvbIdToRondoClubId = new Map();
         const allMembers = getAllTrackedMembers(db);
         allMembers.forEach(m => {
-          if (m.knvb_id && m.stadion_id) {
-            knvbIdToStadionId.set(m.knvb_id, m.stadion_id);
+          if (m.knvb_id && m.rondo_club_id) {
+            knvbIdToRondoClubId.set(m.knvb_id, m.rondo_club_id);
           }
         });
 
         logVerbose('Starting parent sync...');
-        const parentResult = await syncParents(db, knvbIdToStadionId, options);
+        const parentResult = await syncParents(db, knvbIdToRondoClubId, options);
         result.parents = parentResult;
       }
 
@@ -838,7 +838,7 @@ if (require.main === module) {
   // Handle --reset-parents: clear parent tracking so they'll be re-discovered by email
   if (resetParents) {
     const db = openDb();
-    const count = resetParentStadionIds(db);
+    const count = resetParentRondoClubIds(db);
     db.close();
     console.log(`Reset ${count} parent tracking record(s). They will be re-discovered by email on next sync.`);
     if (!parentsOnly && !process.argv.includes('--sync')) {

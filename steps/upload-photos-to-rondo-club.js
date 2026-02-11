@@ -64,7 +64,7 @@ async function findPhotoFile(knvbId, photosDir) {
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<void>}
  */
-function uploadPhotoToStadion(rondoClubId, photoPath, options = {}) {
+function uploadPhotoToRondoClub(rondoClubId, photoPath, options = {}) {
   return new Promise(async (resolve, reject) => {
     try {
       validateCredentials();
@@ -152,7 +152,7 @@ function uploadPhotoToStadion(rondoClubId, photoPath, options = {}) {
  * @param {Object} options - Logger and verbose options
  * @returns {Promise<void>}
  */
-function deletePhotoFromStadion(rondoClubId, options = {}) {
+function deletePhotoFromRondoClub(rondoClubId, options = {}) {
   return new Promise((resolve, reject) => {
     try {
       validateCredentials();
@@ -293,9 +293,9 @@ async function runPhotoSync(options = {}) {
         const member = membersToUpload[i];
         logger.verbose(`Uploading photo ${i + 1}/${membersToUpload.length}: ${member.knvb_id}`);
 
-        // Check if member has stadion_id
-        if (!member.stadion_id) {
-          const errorMsg = 'Member has no stadion_id - cannot upload photo';
+        // Check if member has rondo_club_id
+        if (!member.rondo_club_id) {
+          const errorMsg = 'Member has no rondo_club_id - cannot upload photo';
           result.upload.errors.push({ knvb_id: member.knvb_id, message: errorMsg });
           result.upload.skipped++;
           logger.verbose(`  Skipped: ${errorMsg}`);
@@ -314,14 +314,14 @@ async function runPhotoSync(options = {}) {
 
         // Upload to Rondo Club
         try {
-          await uploadPhotoToStadion(member.stadion_id, photoFile.path, options);
+          await uploadPhotoToRondoClub(member.rondo_club_id, photoFile.path, options);
           updatePhotoState(db, member.knvb_id, 'synced');
           result.upload.synced++;
           logger.verbose(`  Uploaded successfully`);
         } catch (error) {
           result.upload.errors.push({
             knvb_id: member.knvb_id,
-            stadion_id: member.stadion_id,
+            rondo_club_id: member.rondo_club_id,
             message: error.message
           });
           logger.verbose(`  Upload failed: ${error.message}`);
@@ -359,7 +359,7 @@ async function runPhotoSync(options = {}) {
         logger.verbose(`Deleting photo ${i + 1}/${membersToDelete.length}: ${member.knvb_id}`);
 
         let localDeleted = false;
-        let stadionDeleted = false;
+        let rondoClubDeleted = false;
         let deleteError = null;
 
         // Delete from local storage
@@ -375,16 +375,16 @@ async function runPhotoSync(options = {}) {
           // Continue - try Rondo Club deletion anyway
         }
 
-        // Delete from Rondo Club if member has stadion_id
-        if (member.stadion_id) {
+        // Delete from Rondo Club if member has rondo_club_id
+        if (member.rondo_club_id) {
           try {
-            await deletePhotoFromStadion(member.stadion_id, options);
-            stadionDeleted = true;
+            await deletePhotoFromRondoClub(member.rondo_club_id, options);
+            rondoClubDeleted = true;
             logger.verbose(`  Deleted from Rondo Club`);
           } catch (error) {
             // 404 means no photo exists on Rondo Club - that's the desired state
             if (error.message.includes('404')) {
-              stadionDeleted = true;
+              rondoClubDeleted = true;
               logger.verbose(`  No photo on Rondo Club (404) - already clean`);
             } else {
               deleteError = error.message;
@@ -393,7 +393,7 @@ async function runPhotoSync(options = {}) {
             // Continue - clear state anyway
           }
         } else {
-          logger.verbose(`  No stadion_id - skipping Rondo Club deletion`);
+          logger.verbose(`  No rondo_club_id - skipping Rondo Club deletion`);
         }
 
         // Clear photo state (marks as no_photo and clears person_image_date)
@@ -404,7 +404,7 @@ async function runPhotoSync(options = {}) {
         if (deleteError) {
           result.delete.errors.push({
             knvb_id: member.knvb_id,
-            stadion_id: member.stadion_id,
+            rondo_club_id: member.rondo_club_id,
             message: deleteError
           });
         }
