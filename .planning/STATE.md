@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 Phase: 43 of 43 — all milestones through v3.2 complete
 Status: Between milestones
-Last activity: 2026-02-11 — v3.2 Stadion-to-Rondo Rename milestone archived
+Last activity: 2026-02-11 - Completed quick task 24: Update FreeScout sync to set website fields (Sportlink + Rondo Club URLs)
 
 Progress: [████████████████████████████████████████████] 100% (v3.2 shipped)
 
@@ -41,6 +41,12 @@ Full decision log in PROJECT.md Key Decisions table.
 **Known from PROJECT.md:**
 - INFRA-04 partial: web server runs as root (no sportlink user on server) — accepted for now
 - Phase 39 (Multi-Club Readiness) deferred until second club onboards
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 24 | Update FreeScout sync to set website fields (Sportlink + Rondo Club URLs) | 2026-02-11 | 73adc3e | [24-update-freescout-sync-to-set-website-fie](./quick/24-update-freescout-sync-to-set-website-fie/) |
 
 ## Session Continuity
 
