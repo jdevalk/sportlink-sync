@@ -1,5 +1,33 @@
 # Project Milestones: Rondo Sync
 
+## v3.2 Stadion-to-Rondo Rename (Shipped: 2026-02-11)
+
+**Delivered:** Renamed all "stadion" references to "rondo_club" across the entire codebase — database tables, columns, SQL queries, variables, function names, and documentation — with safe live migration.
+
+**Phases completed:** 41-43 (8 plans total)
+
+**Key accomplishments:**
+
+- Idempotent stadion-to-rondo_club migration using CREATE+INSERT+DROP for 8 SQLite tables with safe live migration
+- Updated 80+ SQL query functions and all variable/function names in database layer
+- Renamed all stadion references across 17 code files (pipelines, tools, lib)
+- Renamed 200+ stadion references across 15 internal docs, CLAUDE.md, and package.json
+- Renamed 184 stadion references across 13 developer docs site files
+- Zero stadion references remain outside migration code (verified codebase-wide)
+
+**Stats:**
+
+- 67 files modified (+4,336 / -1,012)
+- 25,064 lines total JavaScript (project)
+- 3 phases, 8 plans
+- Same day development (2026-02-11)
+
+**Git range:** `fc5feb5` → `a80eacf`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v3.1 Fetch Former Members (Shipped: 2026-02-09)
 
 **Delivered:** One-time import tool that fetches inactive members from Sportlink via browser automation and syncs them to Rondo Club as former member records with photos.
@@ -361,4 +389,5 @@
 **What's next:** To be determined in next milestone planning.
 
 ---
+
 

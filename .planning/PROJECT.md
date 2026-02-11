@@ -8,39 +8,38 @@ A sync system with web dashboard that synchronizes member data bidirectionally b
 
 Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention — now bidirectionally, with web-based monitoring.
 
-## Current State (v3.1 Shipped)
+## Current State (v3.2 Shipped)
 
-**Shipped:** 2026-02-09
+**Shipped:** 2026-02-11
+
+Everything from v3.1 plus complete stadion-to-rondo_club rename:
+- All database tables use `rondo_club_*` naming (8 tables migrated via CREATE+INSERT+DROP)
+- All column names use `rondo_club_id`, `*_rondo_club_modified` convention
+- All code references (80+ SQL functions, variables, function names) use rondo_club naming
+- All documentation (internal docs, developer docs site, CLAUDE.md) updated
+- Only migration code in rondo-club-db.js and discipline-db.js retains stadion references (by design)
+
+<details>
+<summary>Previous: v3.1 Fetch Former Members (2026-02-09)</summary>
 
 Everything from v3.0 plus a one-time former member import tool:
-- All SQLite databases use WAL mode with busy_timeout for concurrent cron + web server access
-- Dashboard database (dashboard.sqlite) stores structured run data: timing, per-step counts, individual errors
-- RunTracker class instruments all 7 pipelines with safety-wrapped methods (tracking failures never crash pipelines)
-- Fastify web server at https://sync.rondo.club with Argon2id auth, SQLite sessions, nginx/TLS, systemd
-- Pipeline overview page with traffic-light status (green/yellow/red) and overdue detection
-- Run history with paginated list, run detail with per-step breakdown
-- Error browser with filtering by pipeline/date and drill-down to individual member failures with stack traces
-- Error-only email alerts replace always-send reports; periodic overdue checks with 4-hour cooldown
-- Server-rendered HTML (EJS templates), responsive layout, no build step
 - One-time import tool fetches inactive members from Sportlink and syncs to Rondo Club as former members with photos
+- 3-strategy fallback status filter toggle for Sportlink UI resilience
+- Cached download results for resume-after-failure workflow
+
+</details>
 
 <details>
 <summary>Previous: v3.0 Web Dashboard (2026-02-09)</summary>
 
 Full bidirectional sync pipeline operational with web monitoring dashboard:
-- Member data downloads from Sportlink via browser automation
-- Members sync to Laposta email lists with hash-based change detection
-- Members and parents sync to Rondo Club WordPress with relationship linking
-- Birthdate syncs as `acf.birthdate` field on person records
-- Financial block status syncs bidirectionally with activity audit trail
-- Photos download via HTTP (from MemberHeader API URLs) and upload to Rondo Club hourly
-- Teams extract from Sportlink and sync to Rondo Club with work history
-- FreeScout customer sync from Rondo Club and Nikki databases
-- Reverse sync pushes contact field corrections from Rondo Club to Sportlink
-- Nikki contributions sync with CSV download, per-year ACF fields, and 4-year retention
-- Discipline cases download from Sportlink and sync to Rondo Club with season-based organization
-- Six automated pipelines (people 4x daily, nikki daily, teams/functions weekly, reverse sync every 15 minutes, discipline weekly Monday 11:30 PM)
-- Dashboard with pipeline overview, run history, error browser at https://sync.rondo.club
+- All SQLite databases use WAL mode with busy_timeout for concurrent cron + web server access
+- Dashboard database (dashboard.sqlite) stores structured run data
+- RunTracker class instruments all 7 pipelines with safety-wrapped methods
+- Fastify web server at https://sync.rondo.club with Argon2id auth, SQLite sessions, nginx/TLS, systemd
+- Pipeline overview, run history, run detail, error browser
+- Error-only email alerts with 4-hour cooldown
+- Server-rendered HTML (EJS templates), responsive layout, no build step
 
 </details>
 
@@ -81,19 +80,14 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 - ✓ Download former member data (name, contact, address, photo, KNVB ID) — v3.1
 - ✓ Sync former members to Rondo Club with `acf.former_member = true` — v3.1
 - ✓ One-time onboarding tool (not a scheduled pipeline) — v3.1
+- ✓ All stadion_* tables renamed to rondo_club_* with safe live migration — v3.2
+- ✓ All stadion_id columns renamed to rondo_club_id — v3.2
+- ✓ All code references (SQL, variables, functions) updated to rondo_club naming — v3.2
+- ✓ All documentation updated to rondo_club naming — v3.2
 
 ### Active
 
-## Current Milestone: v3.2 Stadion-to-Rondo Rename
-
-**Goal:** Rename all "stadion" references to "rondo_club" across the entire codebase — database tables, columns, file references, variable names, and documentation.
-
-**Target features:**
-- SQLite table migration (stadion_* → rondo_club_*)
-- Column rename (stadion_id → rondo_club_id, *_stadion_modified → *_rondo_club_modified)
-- Code reference updates across all steps, pipelines, libs, and tools
-- Documentation updates
-- Safe live migration (server runs cron syncs continuously)
+(None — next milestone not yet planned)
 
 ### Out of Scope
 
@@ -114,7 +108,7 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 ## Context
 
 **Codebase:**
-- ~23,100 lines of JavaScript + shell
+- ~25,100 lines of JavaScript + shell
 - Node.js 22 with Playwright for browser automation
 - SQLite for state tracking (6 databases: Laposta, Rondo Club, FreeScout, Nikki, Discipline, Dashboard)
 - Fastify v5 web server with EJS templates
@@ -162,6 +156,10 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 | Dry-run-by-default import tool | Safe-by-default; --import flag required to execute | ✓ Good |
 | Cached download results | Resume-after-failure without re-downloading from Sportlink | ✓ Good |
 | Photo steps in import tool | Atomic operation; photo failures don't block member sync | ✓ Good |
+| CREATE+INSERT+DROP for table migration | Avoids ALTER TABLE RENAME bugs seen in dashboard-db migration | ✓ Good |
+| Migration in openDb() after pragmas | WAL mode set before migration, migration before initDb | ✓ Good |
+| ALTER TABLE RENAME COLUMN for discipline | Safe for single-process weekly pipeline (unlike concurrent rondo-club-db) | ✓ Good |
+| rondoClub camelCase / rondo_club_id snake_case | JavaScript conventions for code, SQL conventions for DB columns | ✓ Good |
 
 ---
-*Last updated: 2026-02-10 after v3.2 milestone start*
+*Last updated: 2026-02-11 after v3.2 milestone*
