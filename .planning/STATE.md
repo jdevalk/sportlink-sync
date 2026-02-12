@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 Phase: 43 of 43 — all milestones through v3.2 complete
 Status: Between milestones
-Last activity: 2026-02-11 - Completed quick task 24: Update FreeScout sync to set website fields (Sportlink + Rondo Club URLs)
+Last activity: 2026-02-12 - Completed quick task 25: Replace varlock with dotenv for .env loading
 
 Progress: [████████████████████████████████████████████] 100% (v3.2 shipped)
 
@@ -46,10 +46,11 @@ Full decision log in PROJECT.md Key Decisions table.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 25 | Replace varlock with dotenv for .env loading | 2026-02-12 | 662fa98, 2d90a60 | [25-replace-varlock-with-dotenv-for-env-load](./quick/25-replace-varlock-with-dotenv-for-env-load/) |
 | 24 | Update FreeScout sync to set website fields (Sportlink + Rondo Club URLs) | 2026-02-11 | 73adc3e | [24-update-freescout-sync-to-set-website-fie](./quick/24-update-freescout-sync-to-set-website-fie/) |
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: v3.2 milestone archived, ready for next milestone
+Last session: 2026-02-12
+Stopped at: Completed quick task 25: Replace varlock with dotenv for .env loading
 Resume file: Run /gsd:new-milestone when ready
