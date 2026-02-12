@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const RONDO_URL = process.env.RONDO_URL;
 const RONDO_USERNAME = process.env.RONDO_USERNAME;

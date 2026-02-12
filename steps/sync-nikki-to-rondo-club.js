@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { rondoClubRequestWithRetry } = require('../lib/rondo-club-client');
 const { openDb: openNikkiDb, getContributionsGroupedByMember } = require('../lib/nikki-db');

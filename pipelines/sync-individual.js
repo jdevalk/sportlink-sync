@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { chromium } = require('playwright');
 const { openDb: openLapostaDb, getLatestSportlinkResults } = require('../lib/laposta-db');

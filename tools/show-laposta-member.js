@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { openDb, getMembersByEmail } = require('../lib/laposta-db');
 

@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { requireProductionServer } = require('../lib/server-check');
 const { createSyncLogger } = require('../lib/logger');

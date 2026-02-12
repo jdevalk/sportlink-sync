@@ -10,7 +10,7 @@
  *   node scripts/delete-duplicates.js              # Actually delete duplicates
  */
 
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { rondoClubRequest } = require('../lib/rondo-club-client');
 

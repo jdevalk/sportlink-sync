@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { openDb, getMembersNeedingSyncWithPrevious } = require('../lib/laposta-db');
 const { stableStringify, parseCliArgs } = require('../lib/utils');

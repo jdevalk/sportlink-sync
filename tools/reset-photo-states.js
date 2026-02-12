@@ -15,7 +15,7 @@
  *   node scripts/reset-photo-states.js [--dry-run]
  */
 
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { openDb } = require('../lib/rondo-club-db');
 

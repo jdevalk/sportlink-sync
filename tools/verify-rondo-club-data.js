@@ -15,7 +15,7 @@
  *   --verbose  Show detailed output
  */
 
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { rondoClubRequest } = require('../lib/rondo-club-client');
 const { openDb } = require('../lib/rondo-club-db');

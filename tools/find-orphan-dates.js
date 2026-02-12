@@ -9,7 +9,7 @@
  *   node scripts/find-orphan-dates.js          # List orphaned dates
  *   node scripts/find-orphan-dates.js --delete # Delete orphaned dates
  */
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { rondoClubRequest } = require('../lib/rondo-club-client');
 

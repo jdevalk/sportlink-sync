@@ -7,7 +7,7 @@
  * - Self-referential relationships (pointing to themselves)
  */
 
-require('varlock/auto-load');
+require('dotenv/config');
 const { rondoClubRequest } = require('../lib/rondo-club-client');
 
 async function cleanupAllRelationships() {

@@ -1,5 +1,5 @@
 // TEST SCRIPT - Download CSV and examine structure WITHOUT writing to database
-require('varlock/auto-load');
+require('dotenv/config');
 
 const crypto = require('crypto');
 const fs = require('fs/promises');

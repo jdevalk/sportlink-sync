@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { rondoClubRequest } = require('../lib/rondo-club-client');
 const { openDb, updateSyncState, getAllTrackedMembers } = require('../lib/rondo-club-db');

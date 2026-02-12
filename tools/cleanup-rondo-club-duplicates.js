@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { openDb, getLatestSportlinkResults } = require('../lib/laposta-db');
 

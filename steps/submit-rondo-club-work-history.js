@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { rondoClubRequest } = require('../lib/rondo-club-client');
 const { openDb: openLapostaDb, getLatestSportlinkResults } = require('../lib/laposta-db');

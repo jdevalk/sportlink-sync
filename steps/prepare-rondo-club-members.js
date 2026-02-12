@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { openDb, getLatestSportlinkResults } = require('../lib/laposta-db');
 const { openDb: openRondoClubDb, getMemberFreeFieldsByKnvbId, getMemberInvoiceDataByKnvbId } = require('../lib/rondo-club-db');

@@ -1,9 +1,10 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp } = require('../lib/utils');
 const { RunTracker } = require('../lib/run-tracker');
 const { runSubmit: runFreescoutSubmit } = require('../steps/submit-freescout-sync');
+const { runSyncFreescoutIdsToRondoClub } = require('../steps/sync-freescout-ids-to-rondo-club');
 const { checkCredentials: checkFreescoutCredentials } = require('../lib/freescout-client');
 
 /**
@@ -38,6 +39,9 @@ function printSummary(logger, stats) {
   if (stats.deleted > 0) {
     logger.log(`  Deleted: ${stats.deleted}`);
   }
+  if (stats.rondoClubSynced > 0) {
+    logger.log(`FreeScout IDs synced to Rondo Club: ${stats.rondoClubSynced}`);
+  }
   if (stats.errors.length > 0) {
     logger.log(`Errors: ${stats.errors.length}`);
   }
@@ -68,6 +72,7 @@ async function runFreescoutSync(options = {}) {
     updated: 0,
     skipped: 0,
     deleted: 0,
+    rondoClubSynced: 0,
     errors: []
   };
 
@@ -119,6 +124,40 @@ async function runFreescoutSync(options = {}) {
       tracker.recordError({
         stepName: 'freescout-sync',
         stepId: freescoutStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
+    }
+
+    // Sync FreeScout IDs back to Rondo Club
+    logger.log('Syncing FreeScout IDs to Rondo Club');
+    const rondoClubStepId = tracker.startStep('sync-freescout-ids-to-rondo-club');
+    try {
+      const rcResult = await runSyncFreescoutIdsToRondoClub({ logger, verbose });
+      stats.rondoClubSynced = rcResult.synced || 0;
+      const rcErrors = (rcResult.errors || []).map(e => ({
+        knvb_id: e.knvb_id,
+        message: e.message,
+        system: 'rondo-club'
+      }));
+      stats.errors.push(...rcErrors);
+      tracker.endStep(rondoClubStepId, {
+        outcome: 'success',
+        updated: rcResult.synced,
+        skipped: rcResult.skipped,
+        failed: rcErrors.length
+      });
+      tracker.recordErrors('sync-freescout-ids-to-rondo-club', rondoClubStepId, rcErrors);
+    } catch (err) {
+      logger.error(`FreeScout ID sync to Rondo Club failed: ${err.message}`);
+      stats.errors.push({
+        message: `FreeScout ID sync to Rondo Club failed: ${err.message}`,
+        system: 'rondo-club'
+      });
+      tracker.endStep(rondoClubStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'sync-freescout-ids-to-rondo-club',
+        stepId: rondoClubStepId,
         errorMessage: err.message,
         errorStack: err.stack
       });

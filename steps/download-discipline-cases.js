@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { chromium } = require('playwright');
 const { openDb, upsertCases, getCaseCount } = require('../lib/discipline-db');

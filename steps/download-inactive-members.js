@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { chromium } = require('playwright');
 const { loginToSportlink } = require('../lib/sportlink-login');

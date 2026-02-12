@@ -1,4 +1,4 @@
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { createSyncLogger } = require('../lib/logger');
 const { formatDuration, formatTimestamp } = require('../lib/utils');
@@ -182,14 +182,9 @@ async function runFunctionsSync(options = {}) {
     logger.verbose('Syncing commissies to Rondo Club...');
     const commissieStepId = tracker.startStep('commissie-sync');
     try {
-      // Get current commissie names for orphan detection
-      const { openDb, getAllCommissies } = require('../lib/rondo-club-db');
-      const db = openDb();
-      const allCommissies = getAllCommissies(db);
-      const currentCommissieNames = allCommissies.map(c => c.commissie_name);
-      db.close();
-
-      const commissieResult = await runCommissiesSync({ logger, verbose, force, currentCommissieNames });
+      // Pass enableOrphanDetection flag instead of stale currentCommissieNames
+      // The sync function will get fresh commissie names AFTER updating tracking table
+      const commissieResult = await runCommissiesSync({ logger, verbose, force, enableOrphanDetection: true });
       stats.commissies.total = commissieResult.total;
       stats.commissies.synced = commissieResult.synced;
       stats.commissies.created = commissieResult.created;

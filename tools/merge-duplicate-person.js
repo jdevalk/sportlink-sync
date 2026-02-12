@@ -5,7 +5,7 @@
  *
  * Usage: node scripts/merge-duplicate-person.js --parent=10987 --member=3893
  */
-require('varlock/auto-load');
+require('dotenv/config');
 
 const { rondoClubRequest } = require('../lib/rondo-club-client');
 const { openDb } = require('../lib/rondo-club-db');
