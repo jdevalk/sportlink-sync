@@ -10,6 +10,7 @@
 #   sync.sh invoice  # Monthly: functions + invoice data from /financial tab
 #   sync.sh nikki    # Daily: nikki contributions download + Rondo Club sync
 #   sync.sh freescout # Daily: FreeScout customer sync
+#   sync.sh conversations # Daily: FreeScout conversations as activities
 #   sync.sh former-members  # Manual: import former members from Sportlink
 #   sync.sh reverse  # Every 15 min: reverse sync (Rondo Club -> Sportlink)
 #   sync.sh all      # Full sync (all steps)
@@ -57,8 +58,9 @@ if [ -z "$1" ]; then
     echo "  8) invoice          Functions + invoice data"
     echo "  9) former-members  Import former members from Sportlink"
     echo " 10) all              Run all pipelines sequentially"
+    echo " 11) conversations    FreeScout conversations as activities"
     echo ""
-    printf "Choice [1-10]: "
+    printf "Choice [1-11]: "
     read -r CHOICE
 
     case "$CHOICE" in
@@ -72,6 +74,7 @@ if [ -z "$1" ]; then
         8) set -- "invoice" ;;
         9) set -- "former-members" ;;
         10) set -- "all" ;;
+        11) set -- "conversations" ;;
         *)
             echo "Invalid choice." >&2
             exit 1
@@ -93,7 +96,7 @@ EXTRA_FLAGS="$*"
 
 # Validate sync type
 case "$SYNC_TYPE" in
-    people|photos|teams|functions|invoice|nikki|freescout|reverse|discipline|former-members|all)
+    people|photos|teams|functions|invoice|nikki|freescout|reverse|discipline|former-members|conversations|all)
         ;;
     *)
         echo "Unknown sync type: $SYNC_TYPE" >&2
@@ -158,6 +161,9 @@ case "$SYNC_TYPE" in
         ;;
     freescout)
         SYNC_SCRIPT="sync-freescout.js"
+        ;;
+    conversations)
+        SYNC_SCRIPT="sync-freescout-conversations.js"
         ;;
     reverse)
         SYNC_SCRIPT="reverse-sync.js"

@@ -18,6 +18,7 @@ const { runSync: runCommissieSync } = require('../steps/submit-rondo-club-commis
 const { runSync: runCommissieWorkHistorySync } = require('../steps/submit-rondo-club-commissie-work-history');
 const { runSubmit: runFreescoutSubmit } = require('../steps/submit-freescout-sync');
 const { checkCredentials: checkFreescoutCredentials } = require('../lib/freescout-client');
+const { runFreescoutConversationsSync } = require('./sync-freescout-conversations');
 const { runDisciplineSync: runDisciplinePipelineSync } = require('./sync-discipline');
 const { openDb } = require('../lib/rondo-club-db');
 
@@ -207,6 +208,21 @@ function printSummary(logger, stats) {
   }
   logger.log('');
 
+  logger.log('FREESCOUT CONVERSATIONS');
+  logger.log(minorDivider);
+  if (stats.freescoutConversations.total > 0 || stats.freescoutConversations.created > 0) {
+    logger.log(`Activities created: ${stats.freescoutConversations.created}`);
+    if (stats.freescoutConversations.skipped > 0) {
+      logger.log(`  Skipped: ${stats.freescoutConversations.skipped}`);
+    }
+    if (stats.freescoutConversations.failed > 0) {
+      logger.log(`  Failed: ${stats.freescoutConversations.failed}`);
+    }
+  } else {
+    logger.log('Conversations synced: 0 changes');
+  }
+  logger.log('');
+
   logger.log('DISCIPLINE SYNC');
   logger.log(minorDivider);
   if (stats.discipline.total > 0) {
@@ -243,7 +259,8 @@ function printSummary(logger, stats) {
     ...stats.photos.download.errors,
     ...stats.photos.upload.errors,
     ...stats.photos.delete.errors,
-...stats.freescout.errors,
+    ...stats.freescout.errors,
+    ...stats.freescoutConversations.errors,
     ...stats.discipline.errors
   ];
   if (allErrors.length > 0) {
@@ -367,6 +384,13 @@ async function runSyncAll(options = {}) {
       updated: 0,
       skipped: 0,
       deleted: 0,
+      errors: []
+    },
+    freescoutConversations: {
+      total: 0,
+      created: 0,
+      skipped: 0,
+      failed: 0,
       errors: []
     },
     discipline: {
@@ -746,6 +770,30 @@ async function runSyncAll(options = {}) {
           system: 'freescout'
         });
       }
+
+      // Step 7b: FreeScout Conversations Sync (NON-CRITICAL)
+      logger.verbose('Syncing FreeScout conversations to Rondo Club activities...');
+      try {
+        const convResult = await runFreescoutConversationsSync({ verbose, force });
+        if (convResult.stats) {
+          stats.freescoutConversations = {
+            total: convResult.stats.submit.total,
+            created: convResult.stats.submit.created,
+            skipped: convResult.stats.submit.skipped,
+            failed: convResult.stats.submit.failed,
+            errors: (convResult.stats.submit.errors || []).map(e => ({
+              message: e.message,
+              system: 'freescout-conversations'
+            }))
+          };
+        }
+      } catch (err) {
+        logger.error(`FreeScout conversations sync failed: ${err.message}`);
+        stats.freescoutConversations.errors.push({
+          message: `FreeScout conversations sync failed: ${err.message}`,
+          system: 'freescout-conversations'
+        });
+      }
     } else {
       logger.verbose('FreeScout sync skipped (credentials not configured)');
     }
@@ -792,6 +840,7 @@ async function runSyncAll(options = {}) {
       stats.photos.upload.errors,
       stats.photos.delete.errors,
       stats.freescout.errors,
+      stats.freescoutConversations.errors,
       stats.discipline.errors
     ];
     const totalErrors = allErrorArrays.reduce((sum, arr) => sum + arr.length, 0);
