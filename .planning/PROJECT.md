@@ -8,25 +8,28 @@ A sync system with web dashboard that synchronizes member data bidirectionally b
 
 Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention — now bidirectionally, with web-based monitoring.
 
-## Current Milestone: v3.3 FreeScout Integration
+## Current State (v3.3 Shipped)
 
-**Goal:** Deepen the FreeScout ↔ Rondo Club integration with email activity visibility, photo sync, and additional field mapping.
+**Shipped:** 2026-02-12
 
-**Target features:**
-- FreeScout email conversations appear as activities on Rondo Club person records
-- Member photos from Rondo Club display as FreeScout customer avatars
-- Sportlink RelationEnd date syncs to FreeScout "Lid tot" custom field (ID 9)
+Everything from v3.2 plus deep FreeScout integration:
+- Sportlink RelationEnd (lid-tot) date syncs to FreeScout "Lid tot" custom field (ID 9) with multi-format date normalization
+- Member photos from Rondo Club display as FreeScout customer avatars via WordPress REST API ?_embed
+- FreeScout conversations download with incremental sync, pagination, and per-customer error handling
+- Conversations transform to Rondo Club email activities with HTML content and FreeScout deep links
+- Complete conversations pipeline (download → prepare → submit) with RunTracker, defensive deduplication, and CLI/sync-all integration
+- Separate SQLite database (freescout-conversations.sqlite) for conversation tracking
 
-## Current State (v3.2 Shipped)
-
-**Shipped:** 2026-02-11
+<details>
+<summary>Previous: v3.2 Stadion-to-Rondo Rename (2026-02-11)</summary>
 
 Everything from v3.1 plus complete stadion-to-rondo_club rename:
 - All database tables use `rondo_club_*` naming (8 tables migrated via CREATE+INSERT+DROP)
 - All column names use `rondo_club_id`, `*_rondo_club_modified` convention
 - All code references (80+ SQL functions, variables, function names) use rondo_club naming
 - All documentation (internal docs, developer docs site, CLAUDE.md) updated
-- Only migration code in rondo-club-db.js and discipline-db.js retains stadion references (by design)
+
+</details>
 
 <details>
 <summary>Previous: v3.1 Fetch Former Members (2026-02-09)</summary>
@@ -93,12 +96,13 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 - ✓ All stadion_id columns renamed to rondo_club_id — v3.2
 - ✓ All code references (SQL, variables, functions) updated to rondo_club naming — v3.2
 - ✓ All documentation updated to rondo_club naming — v3.2
+- ✓ FreeScout email conversations visible as activities on Rondo Club person records — v3.3
+- ✓ Member photos from Rondo Club sync to FreeScout as customer avatars — v3.3
+- ✓ Sportlink RelationEnd syncs to FreeScout "Lid tot" custom field (ID 9) — v3.3
 
 ### Active
 
-- [ ] FreeScout email conversations visible as activities on Rondo Club person records
-- [ ] Member photos from Rondo Club sync to FreeScout as customer avatars
-- [ ] Sportlink RelationEnd syncs to FreeScout "Lid tot" custom field (ID 9)
+(None — next milestone requirements TBD)
 
 ### Out of Scope
 
@@ -121,7 +125,7 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 **Codebase:**
 - ~25,100 lines of JavaScript + shell
 - Node.js 22 with Playwright for browser automation
-- SQLite for state tracking (6 databases: Laposta, Rondo Club, FreeScout, Nikki, Discipline, Dashboard)
+- SQLite for state tracking (7 databases: Laposta, Rondo Club, FreeScout Customers, FreeScout Conversations, Nikki, Discipline, Dashboard)
 - Fastify v5 web server with EJS templates
 - Shell scripts for cron automation
 
@@ -171,6 +175,11 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 | Migration in openDb() after pragmas | WAL mode set before migration, migration before initDb | ✓ Good |
 | ALTER TABLE RENAME COLUMN for discipline | Safe for single-process weekly pipeline (unlike concurrent rondo-club-db) | ✓ Good |
 | rondoClub camelCase / rondo_club_id snake_case | JavaScript conventions for code, SQL conventions for DB columns | ✓ Good |
+| Separate SQLite DB for conversations | Different concern from customer sync; independent lifecycle | ✓ Good |
+| Incremental sync via createdSince | Only fetch new conversations; full re-sync with --force flag | ✓ Good |
+| Defensive deduplication before POST | Two-layer defense: SQLite tracking + pre-POST check | ✓ Good |
+| Conversations as Step 7b in sync-all | Non-critical; follows discipline pattern for graceful failures | ✓ Good |
+| Date normalization utility | Multi-format date handling (YYYYMMDD, YYYY-MM-DD, ISO 8601) | ✓ Good |
 
 ---
-*Last updated: 2026-02-12 after v3.3 milestone started*
+*Last updated: 2026-02-12 after v3.3 milestone*

@@ -1,5 +1,32 @@
 # Project Milestones: Rondo Sync
 
+## v3.3 FreeScout Integration (Shipped: 2026-02-12)
+
+**Delivered:** Deepened the FreeScout integration with email activity visibility, member photo sync, and membership expiration date mapping — FreeScout conversations now appear as activities on Rondo Club person records.
+
+**Phases completed:** 44-46 (4 plans total, 8 tasks)
+
+**Key accomplishments:**
+
+- Sportlink RelationEnd (lid-tot) date syncs to FreeScout "Lid tot" custom field (ID 9) with multi-format date normalization
+- Member photos from Rondo Club display as FreeScout customer avatars via WordPress REST API ?_embed
+- FreeScout conversations download with incremental sync, pagination, and per-customer error handling
+- Conversations transform to Rondo Club activities with HTML content and FreeScout deep links
+- Complete conversations pipeline with RunTracker, defensive deduplication, and CLI/sync-all integration
+
+**Stats:**
+
+- 24 files modified (+4,073 / -93)
+- 3 phases, 4 plans, 8 tasks
+- Same day development (2026-02-12)
+- 19 commits
+
+**Git range:** `c4de2cc` → `f95e8e8`
+
+**What's next:** To be determined in next milestone planning.
+
+---
+
 ## v3.2 Stadion-to-Rondo Rename (Shipped: 2026-02-11)
 
 **Delivered:** Renamed all "stadion" references to "rondo_club" across the entire codebase — database tables, columns, SQL queries, variables, function names, and documentation — with safe live migration.
@@ -389,5 +416,6 @@
 **What's next:** To be determined in next milestone planning.
 
 ---
+
 
 
