@@ -23,8 +23,7 @@ Full decision log in PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-2 pending (see /gsd:check-todos for full list):
-- improve-freescout-integration-with-rondo-club
+1 pending (see /gsd:check-todos for full list):
 - build-interface-for-syncing-individuals-to-club
 
 ### Active Debug Sessions
