@@ -376,20 +376,21 @@ async function runSync(options = {}) {
       const members = Array.isArray(sportlinkData.Members) ? sportlinkData.Members : [];
       logVerbose(`Found ${members.length} Sportlink members`);
 
-      // Load team mapping: team_code/team_name/name_variants -> rondo_club_id
+      // Load team mapping: team_code/team_name -> rondo_club_id
       // SearchMembers returns a mix of team codes (e.g. "JO17-1") and full team names (e.g. "AWC")
       const teams = getAllTeams(rondoClubDb);
       const teamMap = new Map();
+      // Track team_codes that appear more than once (ambiguous - don't use for lookup)
+      const codeCount = new Map();
       for (const t of teams) {
-        if (t.team_code) teamMap.set(t.team_code, t.rondo_club_id);
-        if (t.team_name) teamMap.set(t.team_name, t.rondo_club_id);
-        // Add variant names from deduplication
-        if (t.name_variants) {
-          try {
-            const variants = JSON.parse(t.name_variants);
-            for (const v of variants) teamMap.set(v, t.rondo_club_id);
-          } catch { /* ignore invalid JSON */ }
+        if (t.team_code) codeCount.set(t.team_code, (codeCount.get(t.team_code) || 0) + 1);
+      }
+      for (const t of teams) {
+        // Only use team_code for lookup if it's unambiguous (one team per code)
+        if (t.team_code && codeCount.get(t.team_code) === 1) {
+          teamMap.set(t.team_code, t.rondo_club_id);
         }
+        if (t.team_name) teamMap.set(t.team_name, t.rondo_club_id);
       }
       logVerbose(`Loaded ${teams.length} teams from Rondo Club (${teamMap.size} lookup entries)`);
 
