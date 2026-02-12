@@ -104,10 +104,11 @@ Plans:
 4. Each conversation syncs only once (no duplicate timeline entries on re-sync)
 5. Incremental sync only fetches new conversations since last run (not all conversations every time)
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 46-01: TBD
+- [ ] 46-01-PLAN.md — Database tracking, download, and prepare steps for FreeScout conversations
+- [ ] 46-02-PLAN.md — Submit step, pipeline orchestrator, and sync.sh/sync-all.js integration
 
 ### Deferred
 
@@ -121,7 +122,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 44. RelationEnd Field Mapping | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
 | 45. Photo URL Sync | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
-| 46. Conversations as Activities | v3.3 | 0/TBD | Not started | - |
+| 46. Conversations as Activities | v3.3 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-08*
