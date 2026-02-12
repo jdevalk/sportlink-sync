@@ -6,6 +6,7 @@ const { RunTracker } = require('../lib/run-tracker');
 const { runFunctionsDownload } = require('../steps/download-functions-from-sportlink');
 const { runSync: runCommissiesSync } = require('../steps/submit-rondo-club-commissies');
 const { runSync: runCommissieWorkHistorySync } = require('../steps/submit-rondo-club-commissie-work-history');
+const { runSyncFreeFieldsToRondoClub } = require('../steps/sync-free-fields-to-rondo-club');
 
 /**
  * Print summary report for functions sync
@@ -69,10 +70,24 @@ function printSummary(logger, stats) {
   }
   logger.log('');
 
+  logger.log('FREE FIELDS SYNC (VOG, FREESCOUT ID, FINANCIAL BLOCK)');
+  logger.log(minorDivider);
+  if (stats.freeFields.total > 0) {
+    logger.log(`Members processed: ${stats.freeFields.total}`);
+    logger.log(`  Synced: ${stats.freeFields.synced}`);
+    if (stats.freeFields.skipped > 0) {
+      logger.log(`  Skipped: ${stats.freeFields.skipped} (unchanged)`);
+    }
+  } else {
+    logger.log('Free fields synced: 0 changes');
+  }
+  logger.log('');
+
   const allErrors = [
     ...stats.download.errors,
     ...stats.commissies.errors,
-    ...stats.workHistory.errors
+    ...stats.workHistory.errors,
+    ...stats.freeFields.errors
   ];
   if (allErrors.length > 0) {
     logger.log(`ERRORS (${allErrors.length})`);
@@ -129,6 +144,12 @@ async function runFunctionsSync(options = {}) {
       synced: 0,
       created: 0,
       ended: 0,
+      skipped: 0,
+      errors: []
+    },
+    freeFields: {
+      total: 0,
+      synced: 0,
       skipped: 0,
       errors: []
     }
@@ -261,11 +282,48 @@ async function runFunctionsSync(options = {}) {
       });
     }
 
+    // Step 4: Sync free fields (VOG, FreeScout ID, financial block) to person records
+    logger.verbose('Syncing free fields to Rondo Club person records...');
+    const freeFieldsStepId = tracker.startStep('free-fields-sync');
+    try {
+      const freeFieldsResult = await runSyncFreeFieldsToRondoClub({ logger, verbose, force });
+      stats.freeFields.total = freeFieldsResult.total;
+      stats.freeFields.synced = freeFieldsResult.synced;
+      stats.freeFields.skipped = freeFieldsResult.skipped;
+      if (freeFieldsResult.errors?.length > 0) {
+        stats.freeFields.errors = freeFieldsResult.errors.map(e => ({
+          knvb_id: e.knvb_id,
+          message: e.message,
+          system: 'free-fields-sync'
+        }));
+      }
+      tracker.endStep(freeFieldsStepId, {
+        outcome: 'success',
+        updated: stats.freeFields.synced,
+        skipped: stats.freeFields.skipped,
+        failed: stats.freeFields.errors.length
+      });
+      tracker.recordErrors('free-fields-sync', freeFieldsStepId, stats.freeFields.errors);
+    } catch (err) {
+      logger.error(`Free fields sync failed: ${err.message}`);
+      stats.freeFields.errors.push({
+        message: `Free fields sync failed: ${err.message}`,
+        system: 'free-fields-sync'
+      });
+      tracker.endStep(freeFieldsStepId, { outcome: 'failure' });
+      tracker.recordError({
+        stepName: 'free-fields-sync',
+        stepId: freeFieldsStepId,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
+    }
+
     // Complete
     stats.completedAt = formatTimestamp();
     stats.duration = formatDuration(Date.now() - startTime);
 
-    const totalErrors = stats.download.errors.length + stats.commissies.errors.length + stats.workHistory.errors.length;
+    const totalErrors = stats.download.errors.length + stats.commissies.errors.length + stats.workHistory.errors.length + stats.freeFields.errors.length;
     const success = totalErrors === 0;
     const outcome = totalErrors === 0 ? 'success' : 'partial';
 
