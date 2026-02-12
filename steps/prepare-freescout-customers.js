@@ -6,6 +6,7 @@ const { openDb: openRondoClubDb, getMemberFreeFieldsByKnvbId, getMemberWorkHisto
 const { openDb: openFreescoutDb, getCustomerByKnvbId } = require('../lib/freescout-db');
 const { createLoggerAdapter } = require('../lib/log-adapters');
 const { readEnv, normalizeDateToYYYYMMDD } = require('../lib/utils');
+const { rondoClubRequest } = require('../lib/rondo-club-client');
 
 // Nikki DB is optional - will be null if not available
 let openNikkiDb = null;
@@ -56,20 +57,46 @@ function getExistingFreescoutId(freescoutDb, rondoClubDb, knvbId) {
 /**
  * Get photo URL for a member (only if photo is synced to Rondo Club)
  * @param {Object} member - Member record from rondo_club_members
- * @returns {string|null} - Photo URL or null
+ * @param {Object} options - Options with logger and verbose
+ * @returns {Promise<string|null>} - Photo URL or null
  */
-function getPhotoUrl(member) {
+async function getPhotoUrl(member, options = {}) {
+  const logVerbose = options.logger?.verbose.bind(options.logger) || (options.verbose ? console.log : () => {});
+
   // Only include photo URL if photo_state is 'synced'
   if (member.photo_state !== 'synced') {
     return null;
   }
 
-  // Construct Rondo Club photo URL
-  // The photo is attached to the person post in WordPress
-  // Format: RONDO_URL/wp-json/wp/v2/media?parent={rondo_club_id}
-  // But for FreeScout, we just need the featured image URL which requires another API call
-  // For now, we'll skip photo URLs - FreeScout can fetch from Rondo Club if needed
-  return null;
+  // Check if member has a WordPress post
+  if (!member.rondo_club_id) {
+    return null;
+  }
+
+  try {
+    // Fetch person post with embedded media
+    const response = await rondoClubRequest(
+      `wp/v2/people/${member.rondo_club_id}?_embed`,
+      'GET',
+      null,
+      { logger: options.logger, verbose: options.verbose }
+    );
+
+    // Extract photo URL from embedded media
+    const photoUrl = response.body?._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+
+    // Validate URL starts with https://
+    if (photoUrl && photoUrl.startsWith('https://')) {
+      logVerbose(`  Photo URL found for ${member.knvb_id}: ${photoUrl}`);
+      return photoUrl;
+    }
+
+    return null;
+  } catch (error) {
+    // Graceful degradation - log error but don't fail
+    logVerbose(`  Photo URL fetch failed for ${member.knvb_id}: ${error.message}`);
+    return null;
+  }
 }
 
 /**
@@ -126,9 +153,10 @@ function getMostRecentNikkiData(nikkiDb, knvbId) {
  * @param {Object} freescoutDb - FreeScout database connection
  * @param {Object} rondoClubDb - Rondo Club database connection
  * @param {Object|null} nikkiDb - Nikki database connection (may be null)
- * @returns {Object|null} - FreeScout customer object or null if no email
+ * @param {Object} options - Options with logger and verbose
+ * @returns {Promise<Object|null>} - FreeScout customer object or null if no email
  */
-function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
+async function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb, options = {}) {
   const data = member.data || {};
   const acf = data.acf || {};
 
@@ -212,6 +240,9 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
     });
   }
 
+  // Get photo URL asynchronously
+  const photoUrl = await getPhotoUrl(member, options);
+
   return {
     knvb_id: member.knvb_id,
     email: email.toLowerCase(),
@@ -220,7 +251,7 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
       firstName,
       lastName,
       phones: phones,
-      photoUrl: getPhotoUrl(member),
+      ...(photoUrl ? { photoUrl } : {}),
       websites: websites
     },
     customFields: {
@@ -295,7 +326,7 @@ async function runPrepare(options = {}) {
         data: JSON.parse(row.data_json)
       };
 
-      const customer = prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb);
+      const customer = await prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb, { logger, verbose });
       if (customer) {
         customers.push(customer);
       } else {
