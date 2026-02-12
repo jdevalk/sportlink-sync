@@ -65,10 +65,10 @@
 3. Support agents can see membership expiration dates in FreeScout without switching to Sportlink
 4. Null/invalid dates are handled gracefully (field left empty, no API errors)
 
-**Plans:** TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 44-01: TBD
+- [ ] 44-01-PLAN.md — Add RelationEnd date normalization and FreeScout field mapping
 
 #### Phase 45: Photo URL Sync to FreeScout
 
@@ -119,7 +119,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 44. RelationEnd Field Mapping | v3.3 | 0/TBD | Not started | - |
+| 44. RelationEnd Field Mapping | v3.3 | 0/1 | Planned | - |
 | 45. Photo URL Sync | v3.3 | 0/TBD | Not started | - |
 | 46. Conversations as Activities | v3.3 | 0/TBD | Not started | - |
 
