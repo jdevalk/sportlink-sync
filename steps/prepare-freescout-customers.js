@@ -5,7 +5,7 @@ const fs = require('fs');
 const { openDb: openRondoClubDb, getMemberFreeFieldsByKnvbId, getMemberWorkHistory, getAllTrackedMembers } = require('../lib/rondo-club-db');
 const { openDb: openFreescoutDb, getCustomerByKnvbId } = require('../lib/freescout-db');
 const { createLoggerAdapter } = require('../lib/log-adapters');
-const { readEnv } = require('../lib/utils');
+const { readEnv, normalizeDateToYYYYMMDD } = require('../lib/utils');
 
 // Nikki DB is optional - will be null if not available
 let openNikkiDb = null;
@@ -192,6 +192,10 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
   // Get Nikki data
   const nikkiData = getMostRecentNikkiData(nikkiDb, member.knvb_id);
 
+  // Get RelationEnd date
+  const relationEndRaw = acf['lid-tot'] || null;
+  const relationEnd = normalizeDateToYYYYMMDD(relationEndRaw);
+
   // Build websites array
   const websites = [];
 
@@ -224,7 +228,8 @@ function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
       public_person_id: member.knvb_id,
       member_since: acf['lid-sinds'] || null,
       nikki_saldo: nikkiData.saldo,
-      nikki_status: nikkiData.status
+      nikki_status: nikkiData.status,
+      relation_end: relationEnd
     }
   };
 }
