@@ -16,7 +16,7 @@
 - ✅ **v3.0 Web Dashboard** — Phases 34-38 (shipped 2026-02-09)
 - ✅ **v3.1 Fetch Former Members** — Phase 40 (shipped 2026-02-09)
 - ✅ **v3.2 Stadion-to-Rondo Rename** — Phases 41-43 (shipped 2026-02-11)
-- 🚧 **v3.3 FreeScout Integration** — Phases 44-46 (in progress)
+- ✅ **v3.3 FreeScout Integration** — Phases 44-46 (shipped 2026-02-12)
 
 ## Phases
 
@@ -47,68 +47,14 @@
 
 </details>
 
-### 🚧 v3.3 FreeScout Integration (In Progress)
+<details>
+<summary>✅ v3.3 FreeScout Integration (Phases 44-46) — SHIPPED 2026-02-12</summary>
 
-**Milestone Goal:** Deepen FreeScout ↔ Rondo Club integration with email activity visibility, photo sync, and additional field mapping.
+- [x] Phase 44: RelationEnd Field Mapping (1/1 plan) — completed 2026-02-12
+- [x] Phase 45: Photo URL Sync to FreeScout (1/1 plan) — completed 2026-02-12
+- [x] Phase 46: FreeScout Conversations as Activities (2/2 plans) — completed 2026-02-12
 
-#### Phase 44: RelationEnd Field Mapping
-
-**Goal:** Sportlink RelationEnd date syncs to FreeScout custom field for membership expiration visibility
-
-**Depends on:** Phase 43 (v3.2 complete)
-
-**Requirements:** FIELD-01, FIELD-02
-
-**Success Criteria** (what must be TRUE):
-1. RelationEnd date from Sportlink appears in FreeScout custom field ID 9 ("Lid tot")
-2. Date format is normalized to YYYY-MM-DD regardless of source format
-3. Support agents can see membership expiration dates in FreeScout without switching to Sportlink
-4. Null/invalid dates are handled gracefully (field left empty, no API errors)
-
-**Plans:** 1 plan
-
-Plans:
-- [x] 44-01-PLAN.md — Add RelationEnd date normalization and FreeScout field mapping — completed 2026-02-12
-
-#### Phase 45: Photo URL Sync to FreeScout
-
-**Goal:** Member photos from Rondo Club automatically appear as FreeScout customer avatars
-
-**Depends on:** Phase 44
-
-**Requirements:** PHOTO-01, PHOTO-02, PHOTO-03
-
-**Success Criteria** (what must be TRUE):
-1. Member photos from Sportlink appear as FreeScout customer avatars in ticket view
-2. Photo changes in Sportlink propagate to FreeScout on next sync (no stale avatars)
-3. Customers without photos in Rondo Club are skipped (no broken image URLs in FreeScout)
-4. Photo sync uses hash-based change detection (unchanged photos not re-uploaded)
-
-**Plans:** 1 plan
-
-Plans:
-- [x] 45-01-PLAN.md — Implement photo URL fetching from Rondo Club API and FreeScout payload inclusion — completed 2026-02-12
-
-#### Phase 46: FreeScout Conversations as Activities
-
-**Goal:** FreeScout email conversations visible as activities on Rondo Club person timeline
-
-**Depends on:** Phase 45
-
-**Requirements:** CONV-01, CONV-02, CONV-03, CONV-04, CONV-05
-
-**Success Criteria** (what must be TRUE):
-1. FreeScout email conversations appear in Rondo Club person activity timeline
-2. Support agents working in Rondo Club can see conversation history without tab switching
-3. Conversation sync handles customers with 50+ conversations (pagination works correctly)
-4. Each conversation syncs only once (no duplicate timeline entries on re-sync)
-5. Incremental sync only fetches new conversations since last run (not all conversations every time)
-
-**Plans:** 2 plans
-
-Plans:
-- [ ] 46-01-PLAN.md — Database tracking, download, and prepare steps for FreeScout conversations
-- [ ] 46-02-PLAN.md — Submit step, pipeline orchestrator, and sync.sh/sync-all.js integration
+</details>
 
 ### Deferred
 
@@ -122,8 +68,8 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 44. RelationEnd Field Mapping | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
 | 45. Photo URL Sync | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
-| 46. Conversations as Activities | v3.3 | 0/2 | Not started | - |
+| 46. Conversations as Activities | v3.3 | 2/2 | ✓ Complete | 2026-02-12 |
 
 ---
 *Roadmap created: 2026-02-08*
-*Last updated: 2026-02-12 after phase 45 completed*
+*Last updated: 2026-02-12 after phase 46 completed — v3.3 milestone shipped*
