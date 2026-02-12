@@ -125,6 +125,11 @@ async function createCustomer(customer, options) {
     payload.phones = customer.data.phones;
   }
 
+  // Add photoUrl if available
+  if (customer.data.photoUrl) {
+    payload.photoUrl = customer.data.photoUrl;
+  }
+
   // Add websites if available
   if (customer.data.websites && customer.data.websites.length > 0) {
     payload.websites = customer.data.websites;
@@ -153,6 +158,11 @@ async function updateCustomer(freescoutId, customer, options) {
   // Add phones if available
   if (customer.data.phones && customer.data.phones.length > 0) {
     payload.phones = customer.data.phones;
+  }
+
+  // Add photoUrl if available
+  if (customer.data.photoUrl) {
+    payload.photoUrl = customer.data.photoUrl;
   }
 
   // Add websites if available
