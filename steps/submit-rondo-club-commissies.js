@@ -122,11 +122,11 @@ async function syncCommissie(commissie, db, options) {
  * @param {Object} [options.logger] - Logger instance
  * @param {boolean} [options.verbose=false] - Verbose mode
  * @param {boolean} [options.force=false] - Force sync all commissies
- * @param {Array<string>} [options.currentCommissieNames] - Current commissie names for orphan detection
+ * @param {boolean} [options.enableOrphanDetection=false] - Enable orphan commissie detection and deletion
  * @returns {Promise<Object>} - Sync result
  */
 async function runSync(options = {}) {
-  const { logger, verbose = false, force = false, currentCommissieNames = null } = options;
+  const { logger, verbose = false, force = false, enableOrphanDetection = false } = options;
   const logVerbose = logger?.verbose.bind(logger) || (verbose ? console.log : () => {});
   const logError = logger?.error.bind(logger) || console.error;
 
@@ -185,8 +185,12 @@ async function runSync(options = {}) {
         }
       }
 
-      // Handle orphan commissies (if we have current names list)
-      if (currentCommissieNames) {
+      // Handle orphan commissies (if enabled)
+      if (enableOrphanDetection) {
+        // Get FRESH commissie names from Sportlink data (after tracking table has been updated)
+        const allCommissies = getAllCommissies(db);
+        const currentCommissieNames = allCommissies.map(c => c.commissie_name);
+
         const orphanCommissies = getOrphanCommissies(db, currentCommissieNames);
         if (orphanCommissies.length > 0) {
           logVerbose(`Found ${orphanCommissies.length} orphan commissies to delete`);
@@ -223,11 +227,14 @@ async function runSync(options = {}) {
       // Delete untracked WordPress commissies
       logVerbose('Checking for untracked commissies in WordPress...');
       const wordPressCommissies = await fetchAllWordPressCommissies(options);
-      const allCommissies = getAllCommissies(db);
-      const trackedRondoClubIds = new Set(allCommissies.filter(c => c.rondo_club_id).map(c => c.rondo_club_id));
+      const trackedCommissies = getAllCommissies(db);
+      const trackedRondoClubIds = new Set(trackedCommissies.filter(c => c.rondo_club_id).map(c => c.rondo_club_id));
 
       const untrackedCommissies = wordPressCommissies.filter(c => !trackedRondoClubIds.has(c.id));
-      if (untrackedCommissies.length > 0) {
+
+      // Safety: if ALL WordPress commissies are "untracked", the tracking DB is likely
+      // empty or corrupt — deleting everything would be destructive, so skip.
+      if (untrackedCommissies.length > 0 && untrackedCommissies.length < wordPressCommissies.length) {
         logVerbose(`Found ${untrackedCommissies.length} untracked commissies in WordPress to delete`);
 
         for (const commissie of untrackedCommissies) {
@@ -248,6 +255,8 @@ async function runSync(options = {}) {
             }
           }
         }
+      } else if (untrackedCommissies.length === wordPressCommissies.length && wordPressCommissies.length > 0) {
+        logVerbose(`Safety: ALL ${wordPressCommissies.length} WordPress commissies are untracked — skipping deletion (likely tracking DB issue)`);
       } else {
         logVerbose('No untracked commissies found in WordPress');
       }
