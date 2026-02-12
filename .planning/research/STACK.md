@@ -1,319 +1,403 @@
 # Technology Stack
 
-**Project:** Rondo Sync Web Dashboard
-**Researched:** 2026-02-08
-**Focus:** Stack additions for adding a web dashboard to the existing Node.js CLI sync tool
+**Project:** Rondo Sync v3.3 - FreeScout Enhanced Integration
+**Researched:** 2026-02-12
+
+## Overview
+
+This document covers stack additions/changes needed for three NEW FreeScout integration features. The existing Node.js 22, Playwright, SQLite, Fastify, and FreeScout API client stack remains unchanged — this research focuses ONLY on what's needed for:
+
+1. Fetching FreeScout conversations and creating activities in Rondo Club
+2. Pushing member photos to FreeScout customers
+3. Syncing Sportlink RelationEnd to FreeScout custom field ID 9
+
+**Confidence:** HIGH (verified with official FreeScout API docs, existing codebase patterns)
 
 ---
 
-## Prerequisite: Node.js Upgrade
+## NEW Capabilities Required
 
-**Before anything else, upgrade Node.js from 18 to 22.**
+### 1. FreeScout Conversations → Rondo Club Activities
 
-Node.js 18 reached end-of-life on April 30, 2025. It receives no security patches. Node.js 22 is the current Active LTS (supported until April 2027) and is the correct upgrade target -- skip Node.js 20 to avoid another upgrade cycle in 18 months.
+| Component | Technology | Version | Why |
+|-----------|-----------|---------|-----|
+| **API Client** | Existing `lib/freescout-client.js` | N/A | Already handles authenticated FreeScout API requests with retry logic |
+| **HTTP Client** | Node.js `https` module (built-in) | Node.js 22 | No additional library needed — `freescoutRequest()` uses existing `lib/http-client.js` |
+| **Rondo Club API** | Existing `lib/rondo-club-client.js` | N/A | Already handles WordPress REST API requests — will need activity creation endpoint |
+| **Database** | Existing `lib/freescout-db.js` (better-sqlite3) | Current | Track last synced conversation ID per customer to avoid duplicate activities |
 
-| Current | Target | Why Skip 20 |
-|---------|--------|-------------|
-| Node.js 18 (EOL) | Node.js 22 LTS | 20 enters maintenance soon; 22 has active LTS until April 2027 |
+**What NOT to add:**
+- ❌ No GraphQL client needed (FreeScout REST API is sufficient)
+- ❌ No polling/webhook server (batch sync via cron fits existing patterns)
+- ❌ No message queue (volumes don't justify complexity)
 
-**Impact on existing code:** The existing dependencies (better-sqlite3, Playwright, otplib, postmark, varlock) all support Node.js 22. No breaking changes expected -- better-sqlite3 uses native addons that rebuild on install. The upgrade is a prerequisite because the recommended web framework (Fastify v5) requires Node.js 20+.
+**New FreeScout API Endpoint Usage:**
 
-**Confidence:** HIGH (verified via Node.js official EOL schedule and Fastify docs)
+```javascript
+// GET /api/conversations?customerId={id}&page=1&pageSize=50
+// Returns: { _embedded: { conversations: [...] } }
+//
+// Each conversation object includes:
+// - id, number, subject, status, state, type
+// - createdAt (ISO 8601 UTC)
+// - customer { id, firstName, lastName, email }
+// - threads (if embed=threads parameter used)
+```
 
----
+**Integration Pattern:**
 
-## Recommended Stack
+1. Iterate `freescout_customers` table (existing)
+2. For each customer with `freescout_id`, fetch conversations via GET `/api/conversations?customerId={id}`
+3. Track last synced conversation ID in new `last_conversation_id` column in `freescout_customers`
+4. For new conversations, POST to Rondo Club activity endpoint (TBD in Rondo Club research)
+5. Store activity relationship in new `freescout_activities` tracking table
 
-### Web Framework: Fastify v5
+**Database Extension:**
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| fastify | 5.7.x | HTTP server, routing, plugin architecture | Best performance/DX ratio for Node.js; plugin system fits the existing modular codebase; built-in schema validation; 2-3x faster than Express |
+```sql
+-- Add to lib/freescout-db.js initDb()
+ALTER TABLE freescout_customers ADD COLUMN last_conversation_id INTEGER;
 
-**Why Fastify over Express:**
-
-1. **Plugin architecture matches the codebase.** Rondo Sync already uses a modular pattern: `lib/` for shared code, `pipelines/` for orchestration, `steps/` for units of work. Fastify's encapsulated plugin system maps naturally to this. Each dashboard feature (auth, pipeline status, error browsing) becomes a self-contained plugin.
-
-2. **Performance is meaningful here.** The dashboard will query SQLite databases (4 databases, 21 tables) for run history and error drill-down. Fastify's faster JSON serialization and lower overhead mean snappier responses even on the single VPS (46.202.155.16) that also runs sync pipelines.
-
-3. **Built-in schema validation (Ajv).** Useful for validating query parameters on error-browsing endpoints (date ranges, pipeline filters, pagination) without adding a separate validation library.
-
-4. **Active maintenance and OpenJS Foundation backing.** Fastify v5 was released to GA in late 2024 and is actively maintained (v5.7.4 released February 2026). Express 5 works but has historically had slow release cadence.
-
-**Why not Express:** Express 5 (v5.2.1) is a viable alternative that supports Node.js 18+. However, its middleware-chain architecture is less structured than Fastify's plugin system, leading to more ad-hoc organization in a growing codebase. Express would also work -- it is the safe fallback if Fastify's learning curve is a concern. But for a new addition to the project, Fastify is the better long-term investment.
-
-**Why not Hono:** Hono excels at edge/serverless and tiny bundles. This dashboard runs on a dedicated VPS -- Hono's strengths are irrelevant, and its ecosystem is smaller for server-side rendering use cases.
-
-**Confidence:** HIGH (verified via npm, Fastify docs, GitHub releases)
-
----
-
-### Template Engine: EJS v4
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| ejs | 4.0.x | Server-side HTML rendering | Actively maintained (v4.0.1 published Jan 2026); syntax is plain HTML + JS; zero learning curve for anyone who knows JavaScript |
-
-**Why EJS over Nunjucks:**
-
-- Nunjucks (v3.2.4) has not been updated in 3 years. While it still works, relying on unmaintained software for new features is a poor trade.
-- EJS v4 was released in January 2026 with active maintenance.
-- EJS syntax is just JavaScript inside `<%= %>` tags -- no new template language to learn. The existing codebase is 100% JavaScript, and the team does not need Nunjucks' Jinja2-style features (macros, complex inheritance).
-- EJS is natively supported by `@fastify/view` (the official Fastify template plugin).
-
-**Why not Eta:** Eta is faster in benchmarks (20ms vs 68ms per render), but for a dashboard serving a handful of concurrent users, this difference is irrelevant. EJS has 50x the npm usage (15,000+ dependents vs ~300 for Eta), meaning better community support, more examples, and easier debugging.
-
-**Why not a React/Vite SPA:** Rondo Club (the WordPress theme) already uses React/Vite for its front-end. However, adding a full SPA build pipeline to a CLI tool is massive overhead for what is essentially a read-only dashboard with tables, filters, and drill-down links. Server-rendered HTML with htmx for interactivity is dramatically simpler: no build step, no client-side state management, no API layer to design.
-
-**Confidence:** HIGH (verified via npm publication dates)
+CREATE TABLE IF NOT EXISTS freescout_activities (
+  id INTEGER PRIMARY KEY,
+  knvb_id TEXT NOT NULL,
+  freescout_conversation_id INTEGER NOT NULL,
+  rondo_club_activity_id INTEGER,
+  conversation_subject TEXT,
+  conversation_created_at TEXT NOT NULL,
+  synced_at TEXT,
+  UNIQUE(knvb_id, freescout_conversation_id)
+);
+```
 
 ---
 
-### Interactivity: htmx v2
+### 2. Member Photos → FreeScout Customers
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| htmx.org | 2.0.x | AJAX interactions without JavaScript | Enables partial page updates (filter tables, load error details, poll for running pipeline status) with HTML attributes instead of client-side JS |
+| Component | Technology | Version | Why |
+|-----------|-----------|---------|-----|
+| **Photo Storage** | Existing `photos/` directory | N/A | Photos already downloaded from Sportlink via `download-photos-from-api.js` |
+| **FreeScout API** | `photoUrl` field on customer PUT | N/A | FreeScout accepts external photo URLs (max 200 chars) — does NOT support file upload |
+| **Photo Hosting** | Rondo Club WordPress `/wp-content/uploads/` | N/A | Photos uploaded to WordPress are publicly accessible via permalink |
+| **URL Extraction** | Rondo Club API response | N/A | After photo upload, WordPress returns attachment URL |
 
-**Why htmx:**
+**What NOT to add:**
+- ❌ No image CDN needed (WordPress handles photo serving)
+- ❌ No image processing library (Sportlink photos already optimized, WordPress handles resizing)
+- ❌ No separate file upload to FreeScout (API uses URL reference, not multipart upload)
 
-1. **No build step.** Include via CDN or vendor the 14KB minified file. The existing project has zero front-end build tooling and should keep it that way.
-2. **Server-rendered architecture.** The dashboard is fundamentally a data viewer: tables of pipeline runs, lists of errors, member detail pages. htmx lets you add interactivity (filtering, pagination, live status polling) by returning HTML fragments from the server -- which Fastify + EJS already produce.
-3. **Tiny footprint.** 14KB gzipped, no dependencies. Compare to React (45KB+) or even Alpine.js (15KB but adds a JS framework).
+**FreeScout API Pattern:**
 
-**Use cases in this dashboard:**
-- `hx-get` for paginated error tables and drill-down
-- `hx-trigger="every 5s"` for polling pipeline run status
-- `hx-swap="innerHTML"` for filter changes without full page reload
+```javascript
+// PUT /api/customers/{freescoutId}
+{
+  "photoUrl": "https://rondo.svawc.nl/wp-content/uploads/2026/02/12345678.jpg"
+}
+```
 
-**Delivery:** Vendor the file into `public/vendor/htmx.min.js` rather than using a CDN. The server is on a VPS with no CDN in front of it, so self-hosting is more reliable.
+**Integration Points:**
 
-**Confidence:** HIGH (htmx 2.0.8 verified via npm)
+1. **Existing:** Photo downloaded from Sportlink → saved to `photos/{knvb_id}.jpg` (done by `download-photos-from-api.js`)
+2. **Existing:** Photo uploaded to Rondo Club → WordPress attachment ID returned (done by `upload-photos-to-rondo-club.js`)
+3. **NEW:** After upload, GET person record from Rondo Club API to retrieve photo URL (or extract from upload response)
+4. **NEW:** Store photo URL in `freescout_customers.photo_url` column
+5. **NEW:** During customer sync, include `photoUrl` in FreeScout PUT request
 
----
+**Database Extension:**
 
-### CSS Framework: None (custom minimal CSS)
+```sql
+-- Add to lib/freescout-db.js initDb()
+ALTER TABLE freescout_customers ADD COLUMN photo_url TEXT;
+```
 
-**Recommendation: Do not add a CSS framework.**
-
-The dashboard is an internal tool used by a small number of club administrators. A simple, hand-written CSS file (~200-300 lines) using modern CSS features (grid, custom properties, container queries) is sufficient and avoids adding Tailwind's build step, Bootstrap's 200KB payload, or any other dependency.
-
-If a CSS framework is desired later, the easiest addition would be **Simple.css** or **Pico CSS** -- classless CSS frameworks that style semantic HTML with zero configuration and no build step.
-
-**Confidence:** HIGH (opinion based on project constraints)
-
----
-
-### Authentication: Custom session-based auth with Fastify plugins
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| @fastify/session | 11.1.x | Server-side session management | Official Fastify plugin; works with cookie-based sessions |
-| @fastify/cookie | 11.0.x | Cookie parsing/setting | Required by @fastify/session |
-| argon2 | 0.44.x | Password hashing (Argon2id) | NIST-recommended; superior to bcrypt against GPU/ASIC attacks |
-| fastify-session-better-sqlite3-store | 2.1.x | Session storage in SQLite | Reuses the existing better-sqlite3 dependency; no new database server needed |
-
-**Authentication architecture:**
-
-This is a small internal dashboard (3-10 users). A full auth framework (Passport, Better Auth, Auth.js) is overkill. Instead:
-
-1. **Users table** in a new `dashboard.sqlite` database (keeps dashboard state separate from sync state).
-2. **Login form** that verifies password against Argon2id hash.
-3. **Session cookie** stored in SQLite via `fastify-session-better-sqlite3-store`.
-4. **Fastify preHandler hook** that checks session on protected routes.
-5. **Multi-club readiness:** The users table includes a `club_id` column from day one, even if there is only one club initially. This avoids a schema migration later.
-
-**Why not JWT:** JWTs are for stateless distributed systems. This is a single-server dashboard with SQLite -- server-side sessions are simpler, revocable, and more secure (no token exposure in localStorage).
-
-**Why not Passport:** Passport adds unnecessary abstraction for a single auth strategy (local username/password). The entire auth implementation is ~50 lines of code without Passport.
-
-**Why Argon2 over bcrypt:** Argon2id is the NIST-recommended algorithm as of 2025. bcrypt's fixed 4KB memory makes it increasingly vulnerable to FPGA attacks. Both work, but for new code, use the better algorithm.
-
-**Confidence:** MEDIUM (session store package is community-maintained, not official Fastify; version 2.1.2 published 3 months ago -- reasonably active but needs validation during implementation)
+**Dependency on Rondo Club:** Requires Rondo Club WordPress to return photo permalink after upload. Verify `/wp-json/rondo/v1/people/{id}/photo` POST response includes attachment URL, or fetch via GET `/wp-json/wp/v2/media/{attachment_id}`.
 
 ---
 
-### Fastify Plugin Ecosystem
+### 3. Sportlink RelationEnd → FreeScout Custom Field ID 9
 
-| Plugin | Version | Purpose |
-|--------|---------|---------|
-| @fastify/view | 11.1.x | Template rendering (EJS integration) |
-| @fastify/static | 9.0.x | Serve CSS, JS, and image files from `public/` |
-| @fastify/formbody | 8.0.x | Parse `application/x-www-form-urlencoded` (login forms) |
-| @fastify/cookie | 11.0.x | Cookie support (required by session plugin) |
-| @fastify/session | 11.1.x | Session management |
+| Component | Technology | Version | Why |
+|-----------|-----------|---------|-----|
+| **Data Source** | Existing Sportlink scraper | N/A | `RelationEnd` already captured in `download-functions-from-sportlink.js` |
+| **Database** | Existing `rondo_club_members` table | N/A | `relation_end` column already exists (stores Sportlink RelationEnd date) |
+| **FreeScout API** | Custom Fields PUT endpoint | N/A | Existing `updateCustomerFields()` in `submit-freescout-sync.js` handles array of `{id, value}` |
 
-All plugins are part of the official Fastify organization and are actively maintained.
+**What NOT to add:**
+- ❌ No date parsing library (Node.js `Date` handles ISO 8601 from Sportlink)
+- ❌ No field mapping config (field ID 9 is hardcoded requirement per spec)
+- ❌ No validation library (FreeScout API returns errors for invalid values)
 
-**Confidence:** HIGH (verified via npm and Fastify ecosystem page)
+**FreeScout API Pattern (existing code):**
 
----
+```javascript
+// PUT /api/customers/{freescoutId}/customer_fields
+{
+  "customerFields": [
+    { "id": 1, "value": "Team1, Team2" },       // existing: union_teams
+    { "id": 4, "value": "123456" },             // existing: public_person_id
+    { "id": 5, "value": "2020-01-15" },         // existing: member_since
+    { "id": 7, "value": "€45.50" },             // existing: nikki_saldo
+    { "id": 8, "value": "Active" },             // existing: nikki_status
+    { "id": 9, "value": "2025-12-31" }          // NEW: relation_end
+  ]
+}
+```
 
-### Database: SQLite (existing, extended)
+**Integration Points:**
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| better-sqlite3 | latest | Database driver (already in use) | No new dependency; synchronous API is simple for dashboard queries |
+1. **Existing:** `RelationEnd` downloaded from Sportlink in `download-functions-from-sportlink.js` → stored in `member_functions.relation_end`
+2. **Existing:** Field mapping in `getCustomFieldIds()` in `submit-freescout-sync.js` (currently maps IDs 1, 4, 5, 7, 8)
+3. **NEW:** Add `relation_end: parseInt(process.env.FREESCOUT_FIELD_RELATION_END || '9', 10)` to field mapping
+4. **NEW:** Add RelationEnd to `prepare-freescout-customers.js` customer data preparation
+5. **NEW:** Add `{ id: fieldIds.relation_end, value: customFields.relation_end || '' }` to `buildCustomFieldsPayload()`
 
-**Dashboard database strategy:**
+**Environment Variable:**
 
-Add a new SQLite database: `data/dashboard.sqlite`
+```bash
+# Add to .env (with default fallback to 9 in code)
+FREESCOUT_FIELD_RELATION_END=9
+```
 
-This database holds:
-- **users** -- Dashboard login accounts (email, argon2 hash, club_id, role)
-- **pipeline_runs** -- Structured run data (pipeline name, started_at, finished_at, status, step results as JSON)
-- **sync_errors** -- Individual errors from runs (run_id, step, member identifier, error type, error message, raw data)
+**Data Flow:**
 
-**Why a separate database:** The four existing databases (`laposta-sync.sqlite`, `rondo-sync.sqlite`, `nikki-sync.sqlite`, `freescout-sync.sqlite`) track sync state and should not be polluted with dashboard concerns. The dashboard database is a consumer: it reads from the sync databases for current state and stores its own operational data (users, structured run history).
+```
+Sportlink MemberFunctions API (RelationEnd)
+  ↓ download-functions-from-sportlink.js
+member_functions table (relation_end column)
+  ↓ prepare-freescout-customers.js
+customFields.relation_end
+  ↓ buildCustomFieldsPayload()
+FreeScout API PUT /api/customers/{id}/customer_fields
+```
 
-**Why not PostgreSQL/MySQL:** The project already uses better-sqlite3 everywhere. SQLite handles the expected load (a handful of concurrent dashboard users) without any issue. Adding a separate database server for an internal tool would be pure overhead.
-
-**Structured run data:** The existing `sportlink_runs` table in `laposta-sync.sqlite` stores raw JSON results. The new `pipeline_runs` table adds structure: status enum, duration, step-level breakdown. Pipeline orchestrators (`pipelines/*.js`) need to be modified to write structured results here in addition to (or replacing) the current log-file-based reporting.
-
-**Confidence:** HIGH (better-sqlite3 is already the proven database layer in this project)
-
----
-
-### Email Reporting: Postmark (existing, modified)
-
-| Technology | Version | Purpose | Change |
-|------------|---------|---------|--------|
-| postmark | 4.0.x | Email delivery (already in use) | Switch from "always email" to "email only on errors" |
-
-No new dependency needed. The existing `scripts/send-email.js` and Postmark integration remain. The change is behavioral: pipeline orchestrators check run status and only send email when errors occur. The dashboard becomes the primary reporting interface; email becomes the exception-notification channel.
-
-**Confidence:** HIGH (no technology change, only behavioral change)
-
----
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Web framework | Fastify v5 | Express v5 | Less structured plugin system; slower; but viable fallback |
-| Web framework | Fastify v5 | Hono v4 | Optimized for edge/serverless, not server-side rendering on VPS |
-| Template engine | EJS v4 | Nunjucks v3 | Unmaintained (3 years without update) |
-| Template engine | EJS v4 | Eta v3 | Lower adoption, smaller community |
-| Interactivity | htmx v2 | React SPA | Massive overhead for a read-only dashboard; requires build pipeline |
-| Interactivity | htmx v2 | Alpine.js | htmx is more appropriate for server-rendered partial updates |
-| Auth | Custom sessions | Passport.js | Unnecessary abstraction for single-strategy auth |
-| Auth | Custom sessions | JWT tokens | Wrong tool for single-server dashboard with SQLite |
-| Password hash | Argon2id | bcrypt | bcrypt works but Argon2id is NIST-recommended for new projects |
-| Database | SQLite | PostgreSQL | Overkill; SQLite already handles all sync databases fine |
-| CSS | Minimal custom | Tailwind | Requires build step; overkill for internal tool |
-| CSS | Minimal custom | Bootstrap | 200KB payload; class soup; not needed for simple tables |
+**Date Format:** Sportlink provides dates in various formats. The existing code in `download-functions-from-sportlink.js` line 48 stores `RelationEnd` as-is. FreeScout custom fields accept string values. If FreeScout field is configured as date type, it may require YYYY-MM-DD format — test with actual field configuration.
 
 ---
 
 ## Installation
 
+**No new dependencies required.** All capabilities use existing libraries:
+
 ```bash
-# Prerequisite: upgrade Node.js to v22 LTS on the server
-# (method depends on how Node.js was installed -- nvm, nodesource, etc.)
-
-# Core web framework
-npm install fastify@^5.7 @fastify/view@^11.1 @fastify/static@^9.0 @fastify/formbody@^8.0
-
-# Session management
-npm install @fastify/cookie@^11.0 @fastify/session@^11.1 fastify-session-better-sqlite3-store@^2.1
-
-# Template engine
-npm install ejs@^4.0
-
-# Authentication
-npm install argon2@^0.44
-
-# Interactivity (vendor, not npm)
-# Download htmx.min.js to public/vendor/htmx.min.js
-curl -o public/vendor/htmx.min.js https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js
+# Current dependencies (no changes)
+npm install better-sqlite3 playwright form-data
 ```
 
-**Total new dependencies:** 9 npm packages + 1 vendored JS file
+**Environment variables to ADD:**
 
-**No new devDependencies.** The project has no build step and should keep it that way.
+```bash
+# .env additions
+FREESCOUT_FIELD_RELATION_END=9  # Optional - defaults to 9 if not set
+```
+
+**Database migrations:**
+
+All migrations handled in-code via `initDb()` pattern (existing approach):
+
+```javascript
+// lib/freescout-db.js initDb() additions
+const cols = db.prepare('PRAGMA table_info(freescout_customers)').all();
+
+if (!cols.some(c => c.name === 'last_conversation_id')) {
+  db.exec('ALTER TABLE freescout_customers ADD COLUMN last_conversation_id INTEGER');
+}
+
+if (!cols.some(c => c.name === 'photo_url')) {
+  db.exec('ALTER TABLE freescout_customers ADD COLUMN photo_url TEXT');
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS freescout_activities (
+    id INTEGER PRIMARY KEY,
+    knvb_id TEXT NOT NULL,
+    freescout_conversation_id INTEGER NOT NULL,
+    rondo_club_activity_id INTEGER,
+    conversation_subject TEXT,
+    conversation_created_at TEXT NOT NULL,
+    synced_at TEXT,
+    UNIQUE(knvb_id, freescout_conversation_id)
+  )
+`);
+```
 
 ---
 
-## Integration with Existing Stack
+## Code Patterns
 
-### What stays the same
+### Pattern 1: Conversation Fetching (NEW)
 
-| Component | Status |
-|-----------|--------|
-| better-sqlite3 | Stays; shared with dashboard database |
-| Playwright | Stays; sync pipelines unchanged |
-| Postmark | Stays; email behavior changes from "always" to "errors only" |
-| otplib | Stays; Sportlink TOTP unchanged |
-| varlock | Stays; .env loading unchanged |
-| lib/ modules | Stay; dashboard reads from existing DB modules |
+**File:** `steps/fetch-freescout-conversations.js` (new file)
 
-### What changes
+```javascript
+const { freescoutRequest } = require('../lib/freescout-client');
+const { openDb, getCustomersNeedingConversationSync } = require('../lib/freescout-db');
 
-| Component | Change |
-|-----------|--------|
-| `pipelines/*.js` | Modified to write structured run data to `dashboard.sqlite` |
-| `lib/logger.js` | Extended with a log-adapter that writes structured entries for dashboard consumption |
-| `scripts/sync.sh` | Unchanged (still runs pipelines via cron) |
-| `scripts/send-email.js` | Modified to only send on errors |
+async function fetchConversations(freescoutId, lastConversationId, options) {
+  const endpoint = `/api/conversations?customerId=${freescoutId}&sortField=createdAt&sortOrder=desc&pageSize=50`;
+  const response = await freescoutRequest(endpoint, 'GET', null, options);
 
-### New directory structure
+  const conversations = response.body?._embedded?.conversations || [];
 
-```
-server/                  # New: dashboard web server
-  server.js              # Fastify instance, plugin registration
-  plugins/               # Fastify plugins (auth, db, etc.)
-  routes/                # Route handlers
-  views/                 # EJS templates
-  public/                # Static files (CSS, vendored htmx)
+  // Filter to only new conversations (ID > lastConversationId)
+  if (lastConversationId) {
+    return conversations.filter(c => c.id > lastConversationId);
+  }
+
+  return conversations;
+}
 ```
 
-The dashboard server is a **separate process** from the sync pipelines. It runs alongside cron-triggered syncs on the same server, reading from the same SQLite databases.
+**Integration:** Similar to existing `submit-freescout-sync.js` pattern — iterate customers, fetch data, update tracking DB, POST to Rondo Club.
 
----
+### Pattern 2: Photo URL Sync (extension of existing)
 
-## Multi-Club Architecture Considerations
+**File:** `steps/sync-freescout-photos.js` (new file) OR extend `steps/sync-freescout-ids-to-rondo-club.js`
 
-The requirement is "structured so multi-club support can be added later." The stack supports this through:
+```javascript
+// After photo upload to Rondo Club, extract URL
+const photoUrl = await getRondoClubPhotoUrl(rondoClubId);
 
-1. **`club_id` on users and pipeline_runs tables** from day one. Queries filter by club_id.
-2. **Database-per-club pattern** for sync databases (each club gets its own set of 4 sync SQLite files). The dashboard database remains shared (it stores user accounts and references to per-club data).
-3. **Fastify's encapsulation** means club-scoping can be added as a plugin/hook without refactoring routes.
+// Update FreeScout customer
+await freescoutRequest(`/api/customers/${freescoutId}`, 'PUT', {
+  photoUrl: photoUrl
+}, options);
 
-This is a schema/data design concern, not a stack concern. The recommended stack does not block multi-club support.
+// Track in database
+updatePhotoUrl(db, knvbId, photoUrl);
+```
 
----
+**Integration:** Extend existing photo sync pipeline (`pipelines/sync-people.js`) with new step after `upload-photos-to-rondo-club.js`.
 
-## What NOT to Add
+### Pattern 3: RelationEnd Field (modification of existing)
 
-| Technology | Why Not |
-|------------|---------|
-| TypeScript | The codebase is ~20k lines of CommonJS JavaScript. Adding TS to a subset (dashboard) creates a split codebase. The benefit is minimal for an internal tool. |
-| Webpack/Vite/esbuild | No client-side JS compilation is needed. EJS templates + vendored htmx need no build step. |
-| Docker | Single-server deployment via git pull. Docker adds orchestration complexity with no benefit. |
-| Redis | Session store and caching are well-served by SQLite for this scale. |
-| WebSocket library | htmx's polling (`hx-trigger="every 5s"`) is simpler than WebSockets for near-real-time status. If real-time is needed later, Fastify has `@fastify/websocket`. |
-| ORM (Knex, Prisma, etc.) | better-sqlite3's synchronous API with raw SQL is simpler and faster. The team already writes SQL everywhere. |
+**File:** `steps/submit-freescout-sync.js` (modify existing function)
+
+**Change 1 - Field mapping:**
+```javascript
+function getCustomFieldIds() {
+  return {
+    union_teams: parseInt(process.env.FREESCOUT_FIELD_UNION_TEAMS || '1', 10),
+    public_person_id: parseInt(process.env.FREESCOUT_FIELD_PUBLIC_PERSON_ID || '4', 10),
+    member_since: parseInt(process.env.FREESCOUT_FIELD_MEMBER_SINCE || '5', 10),
+    nikki_saldo: parseInt(process.env.FREESCOUT_FIELD_NIKKI_SALDO || '7', 10),
+    nikki_status: parseInt(process.env.FREESCOUT_FIELD_NIKKI_STATUS || '8', 10),
+    relation_end: parseInt(process.env.FREESCOUT_FIELD_RELATION_END || '9', 10)  // NEW
+  };
+}
+```
+
+**Change 2 - Payload builder:**
+```javascript
+function buildCustomFieldsPayload(customFields) {
+  const fieldIds = getCustomFieldIds();
+  return [
+    { id: fieldIds.union_teams, value: customFields.union_teams || '' },
+    { id: fieldIds.public_person_id, value: customFields.public_person_id || '' },
+    { id: fieldIds.member_since, value: customFields.member_since || '' },
+    { id: fieldIds.nikki_saldo, value: customFields.nikki_saldo !== null ? String(customFields.nikki_saldo) : '' },
+    { id: fieldIds.nikki_status, value: customFields.nikki_status || '' },
+    { id: fieldIds.relation_end, value: customFields.relation_end || '' }  // NEW
+  ];
+}
+```
+
+**Change 3 - Data preparation in `prepare-freescout-customers.js`:**
+```javascript
+// Fetch relation_end from member_functions table (most recent RelationEnd for member)
+const relationEndStmt = db.prepare(`
+  SELECT relation_end
+  FROM member_functions
+  WHERE knvb_id = ?
+  ORDER BY relation_end DESC
+  LIMIT 1
+`);
+const relationEndRow = relationEndStmt.get(member.knvb_id);
+
+customFields.relation_end = relationEndRow?.relation_end || null;
+```
 
 ---
 
 ## Sources
 
-### Official / Verified (HIGH confidence)
-- [Fastify v5 npm](https://www.npmjs.com/package/fastify) -- v5.7.4, published Feb 2026
-- [Fastify v5 requires Node.js 20+](https://fastify.dev/docs/latest/Reference/LTS/)
-- [Node.js 18 EOL announcement](https://nodejs.org/en/blog/announcements/node-18-eol-support) -- EOL April 30, 2025
-- [Express 5 npm](https://www.npmjs.com/package/express) -- v5.2.1, supports Node.js 18+
-- [EJS npm](https://www.npmjs.com/package/ejs) -- v4.0.1, published Jan 2026
-- [htmx npm](https://www.npmjs.com/package/htmx.org) -- v2.0.8
-- [@fastify/view npm](https://www.npmjs.com/package/@fastify/view) -- v11.1.1
-- [@fastify/static npm](https://www.npmjs.com/package/@fastify/static) -- v9.0.0
-- [@fastify/session npm](https://www.npmjs.com/package/@fastify/session) -- v11.1.1
-- [argon2 npm](https://www.npmjs.com/package/argon2) -- v0.44.0
-- [Fastify database guide](https://fastify.dev/docs/latest/Guides/Database/) -- plugin pattern for custom DB
+### Official Documentation
 
-### Community / Cross-Referenced (MEDIUM confidence)
-- [fastify-session-better-sqlite3-store npm](https://www.npmjs.com/package/fastify-session-better-sqlite3-store) -- v2.1.2, community package
-- [Nunjucks npm](https://www.npmjs.com/package/nunjucks) -- v3.2.4, last published 3 years ago
-- [Fastify vs Express comparison](https://betterstack.com/community/guides/scaling-nodejs/fastify-express/)
-- [Argon2 vs bcrypt comparison](https://guptadeepak.com/the-complete-guide-to-password-hashing-argon2-vs-bcrypt-vs-scrypt-vs-pbkdf2-2026/)
-- [htmx SSR best practices](https://htmx.org/essays/10-tips-for-ssr-hda-apps/)
+- [FreeScout API Reference](https://api-docs.freescout.net/) - Official API documentation (HIGH confidence)
+- [FreeScout API & Webhooks Module](https://freescout.net/module/api-webhooks/) - Module overview
+
+### Verified Capabilities
+
+1. **Conversations API:** GET `/api/conversations` supports `customerId`, `customerEmail`, pagination, sorting, and optional `embed=threads` parameter (verified via official docs)
+2. **Custom Fields API:** PUT `/api/customers/{id}/customer_fields` accepts array of `{id, value}` objects (existing code in `submit-freescout-sync.js` line 176)
+3. **Photo URL Field:** `photoUrl` field on customer PUT accepts external URLs (max 200 chars) — verified via official docs, does NOT support file upload
+4. **RelationEnd Data:** Already captured in `download-functions-from-sportlink.js` line 48, stored in `member_functions.relation_end` column
+
+### Existing Codebase Patterns
+
+- FreeScout API client: `/Users/joostdevalk/Code/rondo/rondo-sync/lib/freescout-client.js`
+- FreeScout DB layer: `/Users/joostdevalk/Code/rondo/rondo-sync/lib/freescout-db.js`
+- Photo download: `/Users/joostdevalk/Code/rondo/rondo-sync/steps/download-photos-from-api.js`
+- Photo upload: `/Users/joostdevalk/Code/rondo/rondo-sync/steps/upload-photos-to-rondo-club.js`
+- Custom field sync: `/Users/joostdevalk/Code/rondo/rondo-sync/steps/submit-freescout-sync.js` lines 18-42, 172-181
+
+---
+
+## Risk Assessment
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| **Rondo Club activity endpoint doesn't exist yet** | High | Requires parallel Rondo Club development — coordinate with WordPress theme research |
+| **Photo URL extraction unclear** | Medium | Test Rondo Club photo upload response format — may need GET `/wp-json/wp/v2/media/{id}` |
+| **FreeScout custom field 9 date format** | Low | Test with actual FreeScout configuration — may need date normalization |
+| **Conversation pagination limits** | Low | Handle pagination if customer has >50 conversations (rare for sports club) |
+| **Photo URL 200 char limit** | Very Low | WordPress URLs typically <100 chars for uploads |
+
+---
+
+## Dependencies on Rondo Club (WordPress)
+
+**CRITICAL:** Feature 1 (conversations → activities) requires NEW Rondo Club WordPress API endpoint:
+
+```
+POST /wp-json/rondo/v1/people/{id}/activities
+{
+  "title": "FreeScout: {conversation subject}",
+  "source": "freescout",
+  "source_id": "{conversation_id}",
+  "activity_date": "{conversation createdAt}",
+  "activity_type": "email",
+  "meta": {
+    "conversation_number": "{number}",
+    "conversation_status": "{status}",
+    "conversation_url": "https://freescout.example.com/conversation/{id}"
+  }
+}
+```
+
+This endpoint does NOT exist yet — must be implemented in Rondo Club theme research/development phase.
+
+**Photo URL:** Existing `/wp-json/rondo/v1/people/{id}/photo` POST endpoint must return photo URL in response (verify or add GET endpoint to retrieve URL after upload).
+
+---
+
+## Summary
+
+**Zero new npm packages required.** All three features use existing infrastructure:
+
+1. **Conversations → Activities:** FreeScout API client + Rondo Club API client + SQLite tracking (all existing). Requires NEW Rondo Club WordPress activity endpoint.
+2. **Photos → FreeScout:** Existing photo download/upload pipeline + FreeScout `photoUrl` field. Requires photo URL extraction from Rondo Club.
+3. **RelationEnd → Field 9:** Existing Sportlink scraper + existing FreeScout custom fields sync. Add one field to mapping.
+
+**Codebase changes:**
+- Extend `lib/freescout-db.js` with 2 new columns + 1 new table (SQLite migrations)
+- New step: `steps/fetch-freescout-conversations.js`
+- New step: `steps/sync-freescout-photos.js` OR extend `steps/sync-freescout-ids-to-rondo-club.js`
+- Modify: `steps/submit-freescout-sync.js` (add RelationEnd field mapping)
+- Modify: `steps/prepare-freescout-customers.js` (add RelationEnd data extraction)
+
+**Environment:**
+- Add `FREESCOUT_FIELD_RELATION_END=9` (optional, defaults to 9)
+
+**Blockers:**
+- Rondo Club WordPress must provide activity creation endpoint (Feature 1)
+- Rondo Club WordPress must return photo URL after upload (Feature 2)

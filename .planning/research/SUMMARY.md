@@ -1,190 +1,225 @@
 # Project Research Summary
 
-**Project:** Rondo Sync Web Dashboard (v3.0)
-**Domain:** Operations monitoring dashboard for an existing Node.js CLI/cron sync tool
-**Researched:** 2026-02-08
+**Project:** Rondo Sync v3.3 - FreeScout Enhanced Integration
+**Domain:** Helpdesk/CRM bi-directional data synchronization
+**Researched:** 2026-02-12
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Rondo Sync is a Node.js CLI tool that synchronizes sports club member data from Sportlink to four downstream systems (WordPress/Rondo Club, Laposta, FreeScout, Nikki) via 6 cron-scheduled pipelines. The system currently reports via email and log files. The dashboard adds visual, at-a-glance monitoring with error drill-down, replacing the "check your email or SSH in" workflow with a browser-based operations view.
+This research evaluates three enhancements to the existing FreeScout integration: (1) syncing FreeScout email conversations as activities in Rondo Club, (2) pushing member photos to FreeScout customer avatars, and (3) mapping Sportlink RelationEnd date to FreeScout custom field ID 9. All three features fit cleanly into the existing rondo-sync architecture with minimal new infrastructure.
 
-The most important architectural insight is that **the data the dashboard needs already exists**. Every pipeline already computes structured `stats` objects with per-step counts and error arrays -- they just serialize them to text and discard them. The primary engineering challenge is not building a dashboard UI, but building a thin instrumentation layer (`run-tracker`) that intercepts these stats objects and persists them to a new `dashboard.sqlite` database. Once structured data is captured, the dashboard itself is straightforward server-rendered HTML. The recommended stack -- Fastify v5, EJS templates, htmx for interactivity -- requires no build tooling, no frontend framework, and adds only 9 npm packages. This is appropriate for a read-only internal tool serving 3-10 users.
+The recommended approach leverages existing patterns: hash-based change detection for photos and conversations, the established pipeline step model (download/prepare/submit), and the proven FreeScout API client with retry logic. No new npm dependencies are required. The most complex feature (conversations → activities) requires approximately 380 new lines of code across 2 new step files and database layer enhancements. The simpler features (photos and RelationEnd) are pure modifications to existing steps totaling ~40 lines.
 
-The key risks are infrastructure-level, not application-level. The existing SQLite databases use default rollback journal mode with no WAL and no busy_timeout -- adding a persistent web server reader alongside cron-triggered writers will cause `SQLITE_BUSY` errors without a WAL migration. The server currently has no open HTTP ports and runs everything as root; exposing it via HTTP requires a reverse proxy with TLS, a non-root web server user, and credential separation (the web server needs read-only database access, not Sportlink/Laposta API keys). These infrastructure changes must happen before any dashboard code is deployed.
+Critical risks center on cross-repository dependencies. The activities API endpoint already exists in Rondo Club (confirmed via developer docs), removing the primary blocker identified during research. However, photo URL extraction requires coordination on whether to use WordPress media API calls or ACF field storage. Implementation should follow a phased approach: start with low-risk RelationEnd field mapping and photo sync, then tackle conversation sync once the Rondo Club integration pattern is validated.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack stays close to the existing codebase: Node.js (upgraded from 18 to 22 LTS), SQLite via better-sqlite3, no build tooling. The web layer is a Fastify server rendering EJS templates with htmx for interactive elements (filtering, pagination, polling). Authentication uses server-side sessions with Argon2id password hashing, stored in SQLite.
+No new technology stack required. All three features use existing infrastructure: Node.js 22, Playwright, better-sqlite3, the FreeScout API client (`lib/freescout-client.js`), the Rondo Club API client (`lib/rondo-club-client.js`), and the hash-based change detection pattern established in `lib/freescout-db.js`.
 
-**Core technologies:**
-- **Node.js 22 LTS**: Prerequisite upgrade -- Node.js 18 is EOL (April 2025); Fastify v5 requires Node.js 20+
-- **Fastify v5**: Web framework -- plugin architecture matches the existing modular codebase; 2-3x faster than Express; built-in schema validation
-- **EJS v4**: Template engine -- actively maintained (Jan 2026), zero learning curve, native Fastify support via @fastify/view
-- **htmx v2**: Interactivity -- 14KB vendored file for partial page updates, no build step, no client-side state
-- **Argon2id + @fastify/session**: Auth -- server-side sessions in SQLite; NIST-recommended password hashing; session store reuses better-sqlite3
-- **Custom minimal CSS**: No framework -- internal tool for a handful of users; ~200-300 lines of hand-written CSS is sufficient
+**Core technologies (existing):**
+- **better-sqlite3**: Conversation tracking table, photo hash storage — proven reliable for member sync tracking
+- **FreeScout API client**: Conversations endpoint (`/api/conversations`), photoUrl field, custom fields API — already handles authenticated requests with exponential backoff retry logic
+- **Rondo Club API client**: Activities POST endpoint (verified to exist), WordPress media API for photo URLs — existing infrastructure handles authentication
+- **Hash-based change detection**: Prevents duplicate uploads/creates, enables incremental sync — established pattern from customer sync
 
-**What NOT to add:** TypeScript (split codebase), Webpack/Vite (no build step needed), Docker (single-server deployment), Redis (SQLite handles the scale), React SPA (massive overhead for read-only dashboard), ORM (existing raw SQL patterns work).
+**Critical environment variable:**
+- `FREESCOUT_FIELD_RELATION_END=9` (optional, defaults to 9) — enables different field IDs across demo/production environments
+
+**Database migrations (in-code via initDb()):**
+- `freescout_customers` table: Add `photo_hash`, `photo_synced_hash` columns
+- New `freescout_conversations` table: Track conversation sync state with hash-based change detection
 
 ### Expected Features
 
+Research identified standard CRM/helpdesk integration patterns that users expect, competitive differentiators for Rondo Sync's unique use case, and anti-features to explicitly avoid.
+
 **Must have (table stakes):**
-- Pipeline overview page -- traffic-light status for all 6 pipelines at a glance
-- Run history per pipeline -- when, how long, success/fail, record counts
-- Run detail view -- per-step breakdown (same data currently in email reports)
-- Error list with drill-down -- browse errors by pipeline, member, system
-- Overdue pipeline detection -- flag pipelines that missed their cron schedule
-- Per-user authentication -- individual accounts, not shared password
-- Responsive layout -- operator checks status from phone
+- Email conversation visibility in CRM — Industry standard. CRMs display support ticket history on customer records. Rondo Club users work in WordPress, not FreeScout, so conversation visibility is essential for context.
+- Customer photos/avatars in helpdesk — Visual identification speeds up support. Expected in modern helpdesk systems (HelpScout, Zendesk, Intercom).
+- Custom field sync for membership data — Helpdesk agents need context like membership end date. Custom fields are standard for CRM/helpdesk integrations.
 
-**Should have (differentiators):**
-- Duration trend chart -- spot performance degradation over time
-- Per-member error history -- all errors for a specific member across runs
-- Database statistics page -- record counts from all 4 sync databases
-- Log file viewer -- read log files from dashboard instead of SSH
-- Scheduled overview -- visual cron schedule timeline
+**Should have (competitive differentiators):**
+- Real-time activity feed in WordPress — Agents work in Rondo Club, not FreeScout. Inline conversation display eliminates tab switching. Creates single source of truth.
+- Bi-directional photo sync — Sportlink → Rondo Club → FreeScout creates single pipeline. Manual photo management across systems is error-prone.
+- Automated membership status indicators — "Lid tot" (RelationEnd) date in FreeScout enables proactive support (renewal reminders, post-membership inquiries).
 
-**Defer to post-MVP:**
-- Manual trigger button -- significant security implications (web server triggering Playwright)
-- Live run progress -- requires WebSocket/SSE infrastructure
-- Run diff view -- comparing two runs' outputs
-- Complex role-based permissions -- start with single role, add roles when user base grows
-
-**Anti-features (do not build):**
-- Real-time auto-refresh at 5-second intervals (pipelines run 4x/day max; 60-second polling is sufficient)
-- Full log streaming via WebSocket
-- CRUD for member data (that is WordPress/Sportlink's job)
-- Pipeline configuration UI (too dangerous; SSH for config changes)
-- GraphQL API (dashboard is the only consumer)
+**Defer (v2+):**
+- Real-time webhooks — Polling inefficiency doesn't justify webhook complexity for sports club volumes. Cached conversation display (nightly sync) is sufficient.
+- Two-way custom field sync — FreeScout is not authoritative for membership data. One-way sync maintains Sportlink as canonical source.
+- Inline photo editing in FreeScout — Photos originate from Sportlink. Editing in FreeScout bypasses source of truth and complicates sync logic.
 
 ### Architecture Approach
 
-The architecture adds three new components to the existing system without modifying the cron/CLI flow. A **run tracker** (`lib/run-tracker.js`) captures pipeline stats into a new `dashboard.sqlite` database. A **Fastify web server** (`server/`) reads from that database and serves the dashboard UI. The two processes (web server and cron-triggered pipelines) are completely separate, sharing only database files via SQLite WAL mode. Pipeline modifications are minimal: 3-4 lines per pipeline to call `tracker.startRun()` and `tracker.completeRun()`.
+All three features follow the established rondo-sync pipeline pattern: download → prepare → submit. The architecture extends existing components rather than introducing new patterns.
 
 **Major components:**
-1. **Run Tracker** (`lib/run-tracker.js`) -- intercepts pipeline stats objects and persists them to dashboard.sqlite with structured run/step/error records
-2. **Dashboard Database** (`data/dashboard.sqlite`) -- new database with `runs`, `run_steps`, and `run_errors` tables; includes `club_slug` column for future multi-club support
-3. **Fastify Web Server** (`server/`) -- long-running process managed by systemd; serves HTML dashboard and reads from all SQLite databases (read-only)
-4. **Nginx Reverse Proxy** -- TLS termination, rate limiting; Node.js binds to localhost:3000 only
 
-**Multi-club readiness:** Database-per-club isolation model. Each club gets its own directory with its own set of SQLite files and `.env`. The dashboard database includes a `club_slug` column from day one. Code is shared; data is isolated. This is an additive change later -- not built now, but the schema and directory design accommodate it.
+1. **Photo sync (Feature 2)** — Modify `prepare-freescout-customers.js` to extract photo URL from Rondo Club (via WordPress media API or ACF field). Modify `submit-freescout-sync.js` to include `photoUrl` in customer payload. Add photo hash columns to `freescout_customers` table for change detection. Pure enhancement to existing steps, no new files.
+
+2. **RelationEnd sync (Feature 3)** — Modify `prepare-freescout-customers.js` to extract RelationEnd from member data (verify source: ACF field vs raw Sportlink data in `data_json`). Modify `submit-freescout-sync.js` to add field ID 9 to custom fields payload. Add one environment variable. Simplest feature, approximately 10 lines of code changes.
+
+3. **Conversation sync (Feature 1)** — New step `download-conversations-from-freescout.js` fetches conversations by customer from FreeScout API with pagination handling. New `freescout_conversations` tracking table with hash-based change detection. New step `sync-conversations-to-rondo-club.js` posts activities to Rondo Club `/rondo/v1/people/{id}/activities` endpoint. Wire into `pipelines/sync-freescout.js`. Approximately 380 new lines across 2 files plus database enhancements.
+
+**Data flow:**
+```
+FreeScout conversations API → download step → SQLite tracking → submit step → Rondo Club activities API
+Rondo Club photo URL → prepare step → submit step → FreeScout customer photoUrl field
+Sportlink RelationEnd → prepare step → submit step → FreeScout custom field ID 9
+```
+
+**File impact:** 2 new step files, 5 modified files, approximately 610 total lines of new code.
 
 ### Critical Pitfalls
 
-1. **SQLite SQLITE_BUSY errors** -- All 5 existing `openDb()` functions use default rollback journal mode with no WAL and no busy_timeout. A web server reader alongside sync writers will cause lock conflicts. **Fix:** Enable `PRAGMA journal_mode = WAL` and `PRAGMA busy_timeout = 5000` on all databases before deploying the web server. This is a non-breaking, backward-compatible change.
+Research identified 15 pitfalls across critical/moderate/minor severity. Top 5 critical pitfalls that could cause data corruption or require full rewrites:
 
-2. **Credential exposure via HTTP** -- The server holds credentials for 6 external systems in `.env` and currently has no open HTTP ports. **Fix:** Nginx reverse proxy with TLS, bind Node.js to localhost only, run web server as non-root user, create separate `.env.web` with only the variables the dashboard needs (session secret, no API keys).
+1. **Photo upload without hash-based change detection** — Re-uploading unchanged photos daily wastes bandwidth and risks API limits. Sync time increases linearly with member count. **Prevention:** Extend `freescout_customers` with `photo_hash` and `photo_synced_hash` columns. Skip upload if hash unchanged. Use existing `computeHash()` from `lib/utils.js`.
 
-3. **Web server process management** -- No process manager exists on the server; cron is the only scheduler. A web server that crashes or the server reboots leaves the dashboard down silently. **Fix:** systemd service with `Restart=always`, `MemoryMax=512M`, and a health check endpoint.
+2. **FreeScout conversation pagination without total count verification** — Fetching page 1 only syncs 50 most recent emails per customer. Older conversations never appear. Silent data loss. **Prevention:** Check `page.totalPages` metadata, iterate all pages with rate limiting (200ms between pages), log total vs fetched counts for verification.
 
-4. **Authentication bolt-on syndrome** -- Rushing weak auth (basic auth over HTTP, shared password, JWT in localStorage) is worse than SSH-only access. **Fix:** Server-side sessions with HttpOnly/Secure/SameSite cookies, Argon2id-hashed passwords in a users table, rate-limited login endpoint, HTTPS required.
+3. **RelationEnd custom field date format mismatch** — FreeScout expects `YYYY-MM-DD`, but ACF may return `d/m/Y` or ISO 8601 timestamp. Wrong format stored as string "Invalid date", breaking FreeScout UI. **Prevention:** Normalize dates using regex patterns (handle YYYYMMDD, ISO 8601, and YYYY-MM-DD formats). Validate before API submission.
 
-5. **Monolith coupling** -- Bolting dashboard routes directly into the sync codebase pulls in Playwright and sync dependencies. **Fix:** Separate `server/` directory; only `lib/*-db.js` modules are shared between sync and dashboard.
+4. **WordPress activity relationship without orphan cleanup** — FreeScout conversations deleted (GDPR, customer left) but activity posts remain in WordPress, pointing to non-existent conversation IDs. ACF relationship breaks. **Prevention:** Track conversation → activity mapping in `freescout_conversations` table. Cascade delete activities when customer deleted. Add weekly orphan cleanup cron.
+
+5. **FreeScout photoUrl vs photo blob upload API ambiguity** — `photoUrl` parameter works on hosted FreeScout but self-hosted instances may not fetch remote URLs (security, firewall, missing module). Photos don't appear despite sync success. **Prevention:** Test both URL-based and multipart upload methods during implementation. Verify photos appear in FreeScout UI after test sync. Implement fallback if URL method fails verification.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+Based on research, the recommended phase structure follows a risk-based ordering: start with low-complexity, high-value features to validate the integration pattern, then tackle the more complex conversation sync.
 
-### Phase 1: Infrastructure Foundation
-**Rationale:** Every subsequent phase depends on WAL mode, Node.js 22, and correct database paths. These are prerequisites, not features. Doing them first means every later phase builds on stable ground.
-**Delivers:** Node.js 22 upgrade, WAL mode on all databases, dashboard.sqlite schema, absolute database paths, server memory profiling
-**Addresses:** No user-facing features (pure foundation)
-**Avoids:** Pitfall 1 (SQLITE_BUSY), Pitfall 13 (database path differences)
+### Phase 1: RelationEnd Field Mapping
+**Rationale:** Lowest complexity (10 lines of code), immediate value (membership expiration visibility for support agents), zero cross-repo dependencies. Validates FreeScout custom fields API pattern before more complex features.
 
-### Phase 2: Run Tracking
-**Rationale:** Without structured run data in the database, there is nothing to display. The pipelines already compute the data -- this phase just persists it. Start with one pipeline (people) as proof of concept, then extend to all 6.
-**Delivers:** `lib/run-tracker.js`, all 6 pipelines instrumented, `sync_runs` and `sync_run_errors` populated after each cron run
-**Addresses:** Data capture (FEATURES.md critical path item 1 and 2)
-**Avoids:** Pitfall 10 (monolith coupling -- run-tracker is a clean lib/ module)
+**Delivers:** Sportlink RelationEnd date visible in FreeScout custom field ID 9, enabling support agents to see membership expiration dates without switching to Sportlink.
 
-### Phase 3: Web Server and Authentication
-**Rationale:** The web server and auth must exist before any UI is accessible. Auth before deployment, not after. This phase also sets up nginx, TLS, systemd, and the non-root user.
-**Delivers:** Fastify server, nginx reverse proxy with TLS, systemd service, login system with individual user accounts, session management
-**Addresses:** Authentication (table stakes), process management
-**Avoids:** Pitfall 2 (credential exposure), Pitfall 3 (process dies unnoticed), Pitfall 5 (weak auth)
-**Uses:** Fastify v5, @fastify/session, @fastify/cookie, argon2, fastify-session-better-sqlite3-store
+**Addresses:**
+- Table stakes: Custom field sync for membership data
+- Differentiator: Automated membership status indicators
 
-### Phase 4: Dashboard UI
-**Rationale:** With data flowing and auth in place, build the actual dashboard views. Server-rendered HTML with htmx -- no build step, fast iteration.
-**Delivers:** Pipeline overview page, run history page, run detail page, error browser with drill-down, overdue detection
-**Addresses:** All table-stakes features from FEATURES.md
-**Avoids:** Pitfall 7 (stale data -- show sync-in-progress banner via lock file detection), Pitfall 11 (overengineering -- server-rendered HTML, not React SPA)
-**Uses:** EJS v4, htmx v2, @fastify/view, @fastify/static
+**Avoids:**
+- Pitfall 3: Date format mismatch via normalization to YYYY-MM-DD
+- Pitfall 10: Custom field ID hardcoding via environment variable
 
-### Phase 5: Email Migration and Polish
-**Rationale:** Once the dashboard is validated by actual usage, switch email from "always send" to "errors only." Add the differentiator features that make the dashboard a complete operations tool.
-**Delivers:** Error-only email reports, duration trend charts, database statistics page, log file viewer, deployment script
-**Addresses:** Email report toggle, differentiator features from FEATURES.md
-**Avoids:** Pitfall 9 (deploy breaks running sync -- deployment script checks for running processes)
+**Implementation:**
+- Modify `prepare-freescout-customers.js`: Extract RelationEnd from member data (verify source in `rondo_club_members.data_json`)
+- Modify `submit-freescout-sync.js`: Add field ID 9 to `getCustomFieldIds()` and `buildCustomFieldsPayload()`
+- Add `FREESCOUT_FIELD_RELATION_END=9` to `.env` and `.env.example`
 
-### Phase 6: Multi-Club Readiness (Future)
-**Rationale:** Only build when a second club is onboarded. The schema is ready (club_slug column exists from Phase 1); this phase adds the directory structure, per-club config, and dashboard filtering.
-**Delivers:** Database-per-club directory layout, club config registry, `sync.sh --club` flag, dashboard club filter
-**Avoids:** Pitfall 4 (tenant isolation failure -- physical database separation, not shared tables)
+**Research needed:** None — standard pattern.
+
+### Phase 2: Photo URL Sync to FreeScout
+**Rationale:** Low complexity (40 lines), high visual recognition benefit. Requires coordination with Rondo Club team on photo URL approach (ACF field vs WordPress media API), but no new step files. Validates photoUrl API pattern before conversation sync.
+
+**Delivers:** Member photos from Sportlink automatically appear as FreeScout customer avatars, enabling visual identification in support tickets.
+
+**Addresses:**
+- Table stakes: Customer photos/avatars in helpdesk
+- Differentiator: Bi-directional photo sync (Sportlink → Rondo Club → FreeScout pipeline)
+
+**Avoids:**
+- Pitfall 1: Hash-based change detection prevents re-uploading unchanged photos
+- Pitfall 5: Test both photoUrl and multipart upload methods
+- Pitfall 11: Hash file content, not filename/extension
+
+**Implementation:**
+- Coordinate with Rondo Club: Decide approach (ACF `photo_url` field vs WordPress media API GET)
+- Extend `freescout_customers` table: Add `photo_hash`, `photo_synced_hash`, `photo_synced_at` columns
+- Modify `prepare-freescout-customers.js`: Implement `getPhotoUrl()` based on chosen approach
+- Modify `submit-freescout-sync.js`: Add `photoUrl` to customer payload if available
+
+**Research needed:** Coordinate photo URL extraction approach with Rondo Club team.
+
+### Phase 3: FreeScout Conversations as Rondo Club Activities
+**Rationale:** Highest complexity (380 new lines, 2 new files), but highest impact for users who work primarily in Rondo Club. Depends on Rondo Club activities API endpoint (confirmed to exist via developer docs). Builds on patterns validated in Phases 1 and 2.
+
+**Delivers:** FreeScout email conversations visible as activities in Rondo Club person timeline, eliminating tab switching for support agents working in WordPress.
+
+**Addresses:**
+- Table stakes: Email conversation visibility in CRM
+- Differentiator: Real-time activity feed in WordPress (cached approach)
+
+**Avoids:**
+- Pitfall 2: Pagination handling for customers with 50+ conversations
+- Pitfall 4: Orphan cleanup via conversation tracking table
+- Pitfall 8: Timezone conversion (UTC → Europe/Amsterdam)
+- Pitfall 9: Duplicate prevention via tracking table
+
+**Implementation:**
+- Extend `lib/freescout-db.js`: Add `freescout_conversations` table with hash-based change detection
+- New step: `download-conversations-from-freescout.js` (fetch via `/api/conversations?customerId={id}&embed=threads`, handle pagination)
+- New step: `sync-conversations-to-rondo-club.js` (POST to `/rondo/v1/people/{id}/activities`)
+- Modify `pipelines/sync-freescout.js`: Wire conversation steps after customer sync
+- Add cleanup: Cascade delete activities when customer deleted, weekly orphan scan
+
+**Research needed:** Validate Rondo Club activities API contract (payload structure, deduplication handling).
 
 ### Phase Ordering Rationale
 
-- **Infrastructure before code** because WAL mode and Node.js 22 are prerequisites that affect everything downstream. Deploying a web server on Node.js 18 with default journal mode will cause failures immediately.
-- **Run tracking before UI** because the dashboard has nothing to display without persisted run data. Starting tracking early also accumulates historical data that makes the dashboard useful from day one.
-- **Auth before UI** because the dashboard exposes operational data about club members. No route should be accessible without authentication.
-- **UI as a single phase** because all dashboard views share the same templates, CSS, and htmx patterns. Building them together ensures consistent design.
-- **Email migration after validation** because operators need to trust the dashboard before losing their email reports.
-- **Multi-club deferred** because it is zero-value until a second club exists. The schema is ready; the implementation can wait.
+- **Dependencies:** Phase 1 and 2 have no cross-phase dependencies and can be built in parallel. Phase 3 depends on validating the FreeScout API patterns (pagination, custom fields) established in Phases 1-2.
+- **Risk reduction:** Starting with simple features (RelationEnd, photos) validates the integration approach before committing to the complex conversation sync. If FreeScout API quirks surface, they're discovered early.
+- **Value delivery:** Phase 1 ships immediately (10 lines of code), providing value to support agents within days. Phase 2 follows within a week. Phase 3 delivers the flagship feature after patterns are proven.
+- **Pitfall avoidance:** Hash-based change detection tested in Phase 2 (photos) before applying to Phase 3 (conversations). Date normalization tested in Phase 1 before handling conversation timestamps in Phase 3.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 3 (Web Server + Auth):** Nginx configuration on this specific server, TLS/Let's Encrypt setup, systemd service configuration alongside existing crontab, and whether the server firewall needs adjustment for port 443. Also: validate that `fastify-session-better-sqlite3-store` works correctly with Fastify v5 (community package, MEDIUM confidence).
-- **Phase 6 (Multi-Club):** Environment isolation strategy (separate processes per club vs. AsyncLocalStorage), cron management for multiple clubs, and how `process.env` globals interact with per-club credentials.
+**Phases with standard patterns (skip research-phase):**
+- **Phase 1 (RelationEnd):** Well-documented FreeScout custom fields API. Existing pattern from `submit-freescout-sync.js` lines 18-42. Date normalization pattern established in Sportlink sync.
+- **Phase 2 (Photos):** FreeScout photoUrl parameter verified in official docs. Hash-based change detection pattern exists in `freescout-db.js`. WordPress media API standard.
 
-Phases with standard patterns (skip phase research):
-- **Phase 1 (Infrastructure):** Node.js upgrade and SQLite WAL mode are well-documented, straightforward operations.
-- **Phase 2 (Run Tracking):** Inserting records into SQLite after pipeline completion is a trivial extension of existing patterns.
-- **Phase 4 (Dashboard UI):** Fastify + EJS + htmx for server-rendered dashboards is a well-established pattern with extensive documentation and examples.
-- **Phase 5 (Polish):** Conditional email sending and static statistics pages are simple modifications to existing code.
+**Phases likely needing coordination during planning:**
+- **Phase 2 (Photos):** Coordinate with Rondo Club team on photo URL extraction approach (ACF field vs media API). Decision impacts implementation complexity (0 API calls vs N+1 query risk).
+- **Phase 3 (Conversations):** Validate Rondo Club activities API deduplication handling. Test with real FreeScout data to verify pagination behavior and `updatedAt` reliability for incremental sync.
+
+**Recommended validation tests:**
+- **Phase 1:** Test RelationEnd with null, empty string, "0000-00-00", future dates, past dates. Verify FreeScout UI date picker works.
+- **Phase 2:** Test both photoUrl and multipart upload methods on actual FreeScout instance. Verify photos appear in UI. Test with customers lacking photos (null handling).
+- **Phase 3:** Test with customer having 100+ conversations (pagination). Test with deleted conversations (orphan cleanup). Test timezone conversion during DST transition.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All packages verified on npm with recent publication dates. Fastify v5, EJS v4, htmx v2 are actively maintained. Only MEDIUM-confidence item is the community session store package. |
-| Features | HIGH | Feature landscape derived from direct codebase analysis of all 6 pipeline stats objects. Every data point the dashboard needs already exists in code. |
-| Architecture | HIGH | Run-tracker pattern verified against existing pipeline return values. WAL mode concurrent access is well-documented SQLite behavior. Two-process model is standard. |
-| Pitfalls | HIGH | All critical pitfalls verified against actual codebase: inspected all 5 `openDb()` functions (no WAL), confirmed server runs as root, confirmed no process manager exists. |
+| Stack | HIGH | Zero new dependencies. All features use existing infrastructure (better-sqlite3, FreeScout/Rondo Club API clients, hash-based change detection). Verified in codebase. |
+| Features | HIGH | FreeScout API endpoints verified in official docs. CRM/helpdesk integration patterns validated via industry research (HelpScout, Zendesk, Intercom). Activities API confirmed in Rondo Club developer docs. |
+| Architecture | HIGH | All features follow established rondo-sync patterns (download/prepare/submit steps, hash-based change detection, pipeline orchestration). Existing code inspection confirms compatibility. |
+| Pitfalls | MEDIUM | Critical pitfalls verified (pagination, hash detection, date formats) via official docs and codebase analysis. FreeScout self-hosted quirks (photoUrl method, custom field IDs) flagged for testing. Conversation `updatedAt` reliability needs validation. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Server firewall rules:** Unknown whether port 443 is currently open or blocked. Needs verification on the server before Phase 3.
-- **Server RAM:** Unknown total RAM and current usage during peak sync. Memory profiling needed in Phase 1 to set appropriate systemd MemoryMax.
-- **Nginx availability:** Unknown whether nginx is already installed on the server or needs installation. Check in Phase 3.
-- **Session store compatibility:** The `fastify-session-better-sqlite3-store` package (v2.1.2) is community-maintained. Needs a quick integration test during Phase 3 to confirm it works with Fastify v5 and the project's better-sqlite3 version.
-- **Domain/DNS for TLS:** A hostname (e.g., `dashboard.rondoclub.nl`) is needed for Let's Encrypt TLS certificates. Alternatively, use IP-based access with a self-signed cert, but this causes browser warnings.
+Research identified 5 gaps requiring validation during implementation:
+
+1. **Photo URL extraction approach:** Does Rondo Club expose photo URL in ACF field, or must rondo-sync query WordPress media API? ACF field approach is simpler (0 API calls), but requires Rondo Club code change. Media API approach works today but risks N+1 queries. **Resolution:** Coordinate with Rondo Club team in Phase 2 planning. Recommend ACF field if feasible.
+
+2. **RelationEnd data location:** Is RelationEnd synced to Rondo Club ACF field `relation-end`, or only available in raw Sportlink data (`rondo_club_members.data_json`)? Code inspection of `prepare-rondo-club-members.js` suggests it's in Sportlink data, but needs verification. **Resolution:** Query `rondo_club_members` table during Phase 1 implementation. Implement fallback to check both ACF and raw Sportlink data.
+
+3. **FreeScout conversation `updatedAt` reliability:** Does `updatedAt` timestamp change when new threads added to conversation? Critical for incremental sync optimization. **Resolution:** Test with real FreeScout data in Phase 3. If unreliable, fall back to full conversation fetch (slower but safe).
+
+4. **FreeScout photoUrl vs multipart upload:** Self-hosted FreeScout instances may not fetch remote URLs (security, firewall, missing module). `photoUrl` parameter accepted but photos don't appear. **Resolution:** Test both methods during Phase 2 implementation. Implement verification check (fetch photo URL after upload, verify 200 OK with image MIME type). Add fallback to multipart if URL method fails.
+
+5. **Rondo Club activities deduplication:** How does `/rondo/v1/people/{id}/activities` POST endpoint handle duplicate submissions? Does it check for existing activity by conversation ID? Critical for preventing duplicate timeline entries on re-sync. **Resolution:** Review Rondo Club activities API implementation during Phase 3 planning. Implement client-side duplicate check via `freescout_conversations` tracking table if server-side deduplication unavailable.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct codebase analysis of all pipeline files, database modules, sync.sh, logger, and send-email.js
-- [Fastify v5 documentation](https://fastify.dev/) -- framework capabilities, plugin ecosystem, Node.js 20+ requirement
-- [SQLite WAL mode documentation](https://sqlite.org/wal.html) -- concurrent read/write guarantees
-- [Node.js 18 EOL announcement](https://nodejs.org/en/blog/announcements/node-18-eol-support) -- EOL April 30, 2025
-- npm registry -- verified publication dates and versions for all recommended packages
-- Existing project documentation: `docs/database-schema.md`, `docs/sync-architecture.md`, `docs/operations.md`
+- [FreeScout API Reference](https://api-docs.freescout.net/) — Conversations endpoint, pagination metadata, custom fields API, photoUrl parameter
+- [Rondo Club Activities API](~/Code/rondo/developer/src/content/docs/api/activities.md) — POST endpoint contract, activity types, required parameters
+- Existing codebase patterns: `lib/freescout-client.js`, `lib/freescout-db.js`, `steps/prepare-freescout-customers.js`, `steps/submit-freescout-sync.js`
 
 ### Secondary (MEDIUM confidence)
-- [Fastify vs Express comparison (Better Stack)](https://betterstack.com/community/guides/scaling-nodejs/fastify-express/) -- performance and feature comparison
-- [htmx SSR best practices](https://htmx.org/essays/10-tips-for-ssr-hda-apps/) -- server-rendered HTML patterns
-- [Argon2 vs bcrypt comparison](https://guptadeepak.com/the-complete-guide-to-password-hashing-argon2-vs-bcrypt-vs-scrypt-vs-pbkdf2-2026/) -- password hashing algorithm selection
-- [Database-per-Tenant SQLite pattern](https://medium.com/@dmitry.s.mamonov/database-per-tenant-consider-sqlite-9239113c936c) -- multi-club isolation model
-- Pipeline monitoring best practices from Prefect, Cronitor, Azure Data Factory, and Google Cloud documentation
+- [CRM Integration Guide 2026 - Shopify](https://www.shopify.com/blog/crm-integration) — Industry patterns for CRM/helpdesk sync
+- [Helpdesk Integration Best Practices - Deskpro](https://www.deskpro.com/product/crm) — Custom field sync standards
+- [Laravel Timezone Handling](https://ggomez.dev/blog/best-practices-for-storing-timestamps-in-laravel) — UTC storage, timezone conversion patterns
+- [ACF WP REST API Integration](https://www.advancedcustomfields.com/resources/wp-rest-api-integration/) — WordPress media API patterns
 
 ### Tertiary (LOW confidence)
-- [fastify-session-better-sqlite3-store](https://www.npmjs.com/package/fastify-session-better-sqlite3-store) -- community package, v2.1.2, needs integration validation
+- [FreeScout API Issues (GitHub)](https://github.com/freescout-help-desk/freescout/issues/2103) — Known API quirks (rate limits not documented, self-hosted variations)
+- Project memory: Parent/member duplicate bug (hash-based change detection critical), SQLite migration corruption (avoid concurrent access), WordPress PUT requirements (first_name/last_name always required)
 
 ---
-*Research completed: 2026-02-08*
+*Research completed: 2026-02-12*
 *Ready for roadmap: yes*

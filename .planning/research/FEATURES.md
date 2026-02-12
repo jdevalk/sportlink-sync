@@ -1,307 +1,192 @@
-# Feature Landscape: Sync Monitoring Dashboard
+# Feature Landscape
 
-**Domain:** Pipeline monitoring / operations dashboard for a Node.js sync tool
-**Researched:** 2026-02-08
-**Confidence:** HIGH (based on analysis of existing codebase data structures + industry patterns from Prefect, Cronitor, Azure Data Factory, and similar tools)
-
-## Executive Summary
-
-The Rondo Sync tool currently runs 6 pipelines on cron, each producing structured stats objects (counts for created/updated/skipped/errors) and plain-text log files. The operator monitors the system via email reports sent after each run. A dashboard adds visual, at-a-glance monitoring with drill-down capability -- replacing "check your email" with "open the dashboard."
-
-The core challenge is not visualization but **data capture**: the system currently writes stats to stdout/log files but does not persist structured run data to a database. The first requirement is a `sync_runs` table that captures what each pipeline already computes. Everything else builds on that.
+**Domain:** Helpdesk/CRM integration with WordPress (FreeScout + Rondo Club)
+**Researched:** 2026-02-12
 
 ## Table Stakes
 
-Features users expect from any sync/pipeline monitoring dashboard. Missing any of these makes the dashboard feel incomplete -- the operator would still need to check emails or SSH into the server.
+Features users expect. Missing = product feels incomplete.
 
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|-------------|-------|
-| **Pipeline overview page** | At-a-glance status of all 6 pipelines: last run time, success/fail, record counts | Low | `sync_runs` table | Traffic-light indicators (green/yellow/red) per pipeline. Yellow = ran with errors, red = failed or overdue. |
-| **Run history per pipeline** | See when each pipeline ran, how long it took, what it did | Low | `sync_runs` table | Paginated list of runs with timestamp, duration, status, summary counts. Filter by pipeline type. |
-| **Run detail view** | Click a run to see full breakdown: per-step counts, which records changed | Medium | `sync_runs` + `sync_run_errors` tables | Shows the same data currently in email reports: downloaded X, created Y, updated Z, skipped W. |
-| **Error list with drill-down** | Browse errors across runs, see which member/record failed and why | Medium | `sync_run_errors` table | Errors currently exist as arrays in pipeline stats (knvb_id + message + system). Must persist these. |
-| **Overdue pipeline detection** | Flag pipelines that should have run but haven't | Low | `sync_runs` table + schedule config | Compare last run time against expected schedule. People pipeline expected every 3 hours, teams weekly, etc. |
-| **Authentication** | Protect the dashboard with login | Low | Session/cookie or token | Single operator use case. Simple username/password is sufficient. |
-| **Responsive layout** | Usable on phone when operator is not at desk | Low | CSS | Operator checks sync status from phone. Dashboard must be mobile-friendly. |
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| **Email conversation visibility in CRM** | Industry standard — CRMs display support ticket history on customer records. Users expect complete interaction history. | Medium | FreeScout API provides `/api/conversations?customerEmail=` endpoint. Modern CRMs thread all conversations by customer. |
+| **Customer photos/avatars in helpdesk** | Visual identification speeds up support. Expected in modern helpdesk systems (HelpScout, Zendesk, Intercom all support it). | Low | FreeScout API accepts `photoUrl` parameter on customer create/update. Photo must be web-accessible URL (not file upload). |
+| **Custom field sync for membership data** | Helpdesk agents need context (membership status, end date, etc.). Custom fields are standard for CRM/helpdesk integrations. | Low | FreeScout API supports custom fields via `/api/customers/{id}/customer_fields` endpoint. Date fields use `YYYY-MM-DD` format. |
 
 ## Differentiators
 
-Features that elevate the dashboard from "basic status page" to "operations tool." Not expected in an MVP, but valued.
+Features that set product apart. Not expected, but valued.
 
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|-------------|-------|
-| **Duration trend chart** | Spot performance degradation over time (e.g., Sportlink getting slower) | Medium | Run history data | Line chart of duration per pipeline over last 30 days. Useful for capacity planning. |
-| **Manual trigger button** | Run a pipeline from the dashboard instead of SSH | High | Server-side execution, websocket for progress | Replaces `ssh root@server "scripts/sync.sh people"`. Needs careful security (auth + CSRF). |
-| **Live run progress** | See pipeline steps completing in real-time during a run | High | WebSocket or SSE | Currently pipelines log to stdout. Would need to push step completion events. |
-| **Per-member error history** | "Show me all errors for KNVB123456 across all runs" | Medium | `sync_run_errors` table indexed by knvb_id | Useful for diagnosing persistent member issues (bad email, missing data). |
-| **Database statistics page** | Show record counts from all 4 SQLite databases | Low | Direct SQLite queries | Members: X, Parents: Y, Teams: Z, Commissies: W. Quick health check. |
-| **Comparison: email vs dashboard** | Side-by-side of email report and dashboard view for same run | Low | Existing email HTML + run data | Builds confidence during migration from email to dashboard. |
-| **Email report toggle** | Disable email reports once dashboard is trusted | Low | Config change | Reduces email noise. Keep emails for errors only. |
-| **Run diff view** | Compare two runs: "What changed between today's sync and yesterday's?" | Medium | Two runs from `sync_runs` | Shows delta: new members, removed members, changed fields. |
-| **Log file viewer** | Read log files from the dashboard instead of SSH | Low | File system access | Serve log files (already stored in `logs/cron/`). Syntax highlighting optional. |
-| **Scheduled overview** | Visual timeline of when each pipeline runs (cron schedule visualization) | Low | Static config from `install-cron.sh` | Shows daily/weekly schedule. Helps operator understand timing. |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| **Real-time activity feed in WordPress** | Agents work in WordPress (Rondo Club), not FreeScout. Showing conversations inline = faster context, no tab switching. | Medium-High | Requires storing/caching FreeScout data in WordPress (ACF repeater or REST endpoint). Alternative: client-side fetch on page load (slower, API rate limits). |
+| **Bi-directional photo sync** | Photos from Sportlink → Rondo Club → FreeScout creates single source of truth. Manual photo management across systems is error-prone. | Medium | Existing: Sportlink → Rondo Club (via MemberHeader API). New: Rondo Club → FreeScout (needs WordPress media URL extraction). |
+| **Automated membership status indicators** | "Lid tot" (member until) date in FreeScout shows agents when membership expires. Proactive support (renewal reminders, post-membership inquiries). | Low | Leverages existing `RelationEnd` field from Sportlink CSV export. Maps to FreeScout custom field ID 9. |
+| **Deep-link navigation** | FreeScout customer records link to Sportlink + Rondo Club person pages. Agents jump directly to source systems for full member context. | Low | Already implemented in `prepare-freescout-customers.js` (websites array). Table stakes for multi-system workflows. |
 
 ## Anti-Features
 
-Features to explicitly NOT build. Common mistakes when building internal dashboards.
+Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Real-time auto-refresh** | Pipelines run on cron (4x daily max). No benefit to polling every 5 seconds. Wastes resources. | Manual refresh button + optional 60-second auto-refresh toggle. |
-| **Full log streaming** | Log files can be 50-500KB. Streaming them to the browser is wasteful and complex (WebSocket). | Show structured summary from `sync_runs`. Offer log file download link. |
-| **CRUD for member data** | The dashboard monitors sync; it does not replace WordPress or Sportlink for data management. | Link to WordPress admin and Sportlink for data edits. |
-| **Pipeline configuration UI** | Changing cron schedules, field mappings, or environment variables from the dashboard. Too dangerous. | Configuration stays in `.env`, `config/field-mapping.json`, and `install-cron.sh`. SSH for changes. |
-| **Multi-tenant / multi-club** | This tool serves one club. Adding multi-tenancy adds complexity with zero benefit. | Hardcode to single instance. |
-| **Complex role-based permissions** | One or two operators use this. Building admin/viewer/editor roles is over-engineering. | Single login with full access. Add roles only if more users are added later. |
-| **Notification center in dashboard** | Push notifications, in-app alerts, notification badges. Over-engineered for this use case. | Keep email reports for critical errors. Dashboard is pull-based. |
-| **GraphQL API** | Adds complexity. The dashboard is the only consumer of the data. | Simple REST endpoints or server-rendered pages. |
-| **SPA with client-side routing** | For a simple dashboard with 4-5 pages, a full SPA framework is over-engineering. | Server-rendered pages with minimal JavaScript for interactivity. Or a lightweight framework. |
-| **External monitoring service** | Services like Cronitor/Healthchecks.io cost money and add external dependency for a single-club tool. | Self-hosted dashboard reading from local SQLite. |
+| **Create FreeScout conversations from Rondo Club** | FreeScout is the source of truth for support tickets. Creating conversations from WordPress violates single-responsibility principle and risks data conflicts. | Read-only display of FreeScout conversations in Rondo Club. Support agents create tickets in FreeScout. |
+| **Real-time webhooks for conversation updates** | Polling FreeScout API for every person page load is inefficient. Webhooks add complexity (server endpoints, security, state management) for marginal benefit. | Cache FreeScout conversations in WordPress database (nightly sync or on-demand refresh). Display cached data with timestamp. |
+| **Two-way custom field sync** | FreeScout is not authoritative for membership data. Syncing FreeScout changes back to Sportlink creates data conflicts and overwrites canonical source. | One-way sync: Sportlink → Rondo Club → FreeScout. FreeScout custom fields are read-only displays of upstream data. |
+| **Inline photo editing in FreeScout** | Photos originate from Sportlink. FreeScout editing bypasses source of truth, creates orphaned files, and complicates sync logic. | Display photos from Rondo Club. Updates happen in Sportlink → flow downstream. |
 
 ## Feature Dependencies
 
 ```
-[Data Layer - Must build first]
-  sync_runs table (persist pipeline results)
-  sync_run_errors table (persist per-record errors)
-    |
-    v
-[API Layer]
-  GET /api/pipelines (overview status)
-  GET /api/pipelines/:type/runs (run history)
-  GET /api/runs/:id (run detail with errors)
-  GET /api/errors (cross-pipeline error list)
-    |
-    v
-[Auth Layer]
-  Login page + session management
-    |
-    v
-[UI Layer]
-  Pipeline overview page
-  Run history page (per pipeline)
-  Run detail page
-  Error browser page
-```
-
-### Critical Path
-
-1. **Data capture must come first.** Without a `sync_runs` table, there is nothing to display. Each pipeline already computes stats objects -- they just need to be written to SQLite after the run completes.
-
-2. **Error persistence must come with data capture.** The error arrays in pipeline stats contain knvb_id, message, and system. These must be stored in `sync_run_errors` with a foreign key to `sync_runs`.
-
-3. **API before UI.** The API endpoints are simple SELECT queries against `sync_runs` and `sync_run_errors`. Building these first allows testing with `curl` before any frontend work.
-
-4. **Auth before deployment.** The dashboard exposes operational data. Even simple auth must exist before the dashboard is accessible externally.
-
-## Existing Data Available for Dashboard
-
-### Already Computed by Pipelines (Just Needs Persisting)
-
-Each pipeline already returns a structured `stats` object. Here is what is available per pipeline:
-
-**People pipeline (`sync-people.js`):**
-- `completedAt`, `duration`
-- `downloaded` (member count from Sportlink)
-- `prepared`, `excluded` (Laposta preparation)
-- `synced`, `added`, `updated` (Laposta submission)
-- `rondoClub.total`, `.synced`, `.created`, `.updated`, `.skipped`
-- `photos.downloaded`, `.uploaded`, `.deleted`, `.skipped`
-- `reverseSync.synced`, `.failed`
-- `errors[]` (array with knvb_id/email, message, system)
-- `rondoClub.errors[]`, `photos.errors[]`, `reverseSync.errors[]`
-
-**Teams pipeline (`sync-teams.js`):**
-- `completedAt`, `duration`
-- `download.teamCount`, `.memberCount`
-- `teams.total`, `.synced`, `.created`, `.updated`, `.skipped`
-- `workHistory.total`, `.synced`, `.created`, `.ended`, `.skipped`
-- Errors per step
-
-**Functions pipeline (`sync-functions.js`):**
-- `completedAt`, `duration`
-- `download.total`, `.functionsCount`, `.committeesCount`
-- `commissies.total`, `.synced`, `.created`, `.updated`, `.skipped`, `.deleted`
-- `workHistory.total`, `.synced`, `.created`, `.ended`, `.skipped`
-- Errors per step
-
-**Nikki pipeline (`sync-nikki.js`):**
-- `completedAt`, `duration`
-- `download.count`
-- `rondoClub.updated`, `.skipped`, `.noRondoClubId`, `.errors`
-
-**FreeScout pipeline (`sync-freescout.js`):**
-- `completedAt`, `duration`
-- `total`, `synced`, `created`, `updated`, `skipped`, `deleted`
-- `errors[]`
-
-**Discipline pipeline (`sync-discipline.js`):**
-- `completedAt`, `duration`
-- `download.caseCount`
-- `sync.total`, `.synced`, `.created`, `.updated`, `.skipped`, `.linked`, `.skipped_no_person`
-- Errors per step
-
-### Already Available on Disk
-
-- **Log files** in `logs/cron/sync-{type}-{date}.log` -- one per cron run
-- **Log files** in `logs/sync-{type}-{date}.log` -- one per interactive run
-- **SQLite databases** with record counts and last-sync timestamps
-- **Lock files** `.sync-{type}.lock` -- indicate running syncs
-
-### Not Currently Captured (Must Be Added)
-
-- **Structured run results** -- stats objects are printed to stdout but not persisted to database
-- **Per-run error records** -- error arrays are included in email but not stored queryably
-- **Run start time** -- `startTime` exists in code as `Date.now()` but only used for duration calculation
-- **Pipeline schedule config** -- cron schedule lives in `install-cron.sh` and is not queryable
-
-## Proposed Data Model
-
-### `sync_runs` Table
-
-```sql
-CREATE TABLE sync_runs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  pipeline TEXT NOT NULL,          -- 'people', 'teams', 'functions', 'nikki', 'freescout', 'discipline'
-  started_at TEXT NOT NULL,        -- ISO 8601 UTC
-  completed_at TEXT NOT NULL,      -- ISO 8601 UTC
-  duration_ms INTEGER NOT NULL,    -- milliseconds
-  success INTEGER NOT NULL,        -- 1 = no errors, 0 = had errors
-  stats_json TEXT NOT NULL,        -- Full stats object as JSON
-  log_file TEXT,                   -- Path to log file (relative to project)
-  trigger TEXT DEFAULT 'cron',     -- 'cron', 'manual', 'dashboard'
-  error_count INTEGER DEFAULT 0,   -- Count of errors for quick filtering
-  created INTEGER DEFAULT 0,       -- Quick access: records created
-  updated INTEGER DEFAULT 0,       -- Quick access: records updated
-  skipped INTEGER DEFAULT 0        -- Quick access: records skipped (unchanged)
-);
-
-CREATE INDEX idx_sync_runs_pipeline ON sync_runs(pipeline, started_at DESC);
-CREATE INDEX idx_sync_runs_success ON sync_runs(success, started_at DESC);
-```
-
-### `sync_run_errors` Table
-
-```sql
-CREATE TABLE sync_run_errors (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  run_id INTEGER NOT NULL REFERENCES sync_runs(id),
-  identifier TEXT,                 -- knvb_id, email, team_name, dossier_id, etc.
-  identifier_type TEXT,            -- 'knvb_id', 'email', 'team_name', 'dossier_id', 'system'
-  message TEXT NOT NULL,           -- Error message
-  system TEXT,                     -- 'laposta', 'rondoClub', 'photo-download', 'freescout', etc.
-  step TEXT,                       -- Pipeline step that produced the error
-  created_at TEXT NOT NULL         -- ISO 8601 UTC
-);
-
-CREATE INDEX idx_sync_run_errors_run ON sync_run_errors(run_id);
-CREATE INDEX idx_sync_run_errors_identifier ON sync_run_errors(identifier);
+FreeScout Customer Sync (EXISTING)
+  ├─> Photo URL Sync (NEW)
+  │     └─> Requires: WordPress media URL extraction from person post
+  │
+  ├─> RelationEnd Custom Field (NEW)
+  │     └─> Requires: Sportlink CSV field mapping + FreeScout custom field API
+  │
+  └─> Email Conversation Display (NEW)
+        ├─> Requires: FreeScout conversation fetch by email
+        └─> Decision: Store in WordPress DB vs client-side fetch
+              ├─> WordPress DB: Requires cache table, nightly sync step
+              └─> Client-side: Requires JavaScript widget, CORS/auth handling
 ```
 
 ## MVP Recommendation
 
-For the first version of the dashboard, prioritize features that replace the current email-only workflow.
+Prioritize:
+1. **RelationEnd custom field sync** (Low complexity, high value — immediate agent context)
+2. **Photo URL sync** (Low complexity, visual recognition benefit)
+3. **Email conversation display (cached approach)** (Medium complexity, high impact — agents work in WordPress)
 
-### Phase 1: Data Capture (Foundation -- No UI Yet)
+Defer:
+- **Real-time activity feed**: Requires caching infrastructure decision first (Phase 1 research question: WordPress REST endpoint vs ACF repeater vs custom table)
+- **Advanced conversation threading**: FreeScout handles threading. Rondo Club shows read-only timeline.
 
-1. **Create `sync_runs` and `sync_run_errors` tables** in a new `dashboard.sqlite` database
-2. **Modify each pipeline** to persist its stats object after completion (one INSERT per run)
-3. **Extract errors** from stats objects into `sync_run_errors` rows
-4. **Verify** by running pipelines and inspecting the database
+## Implementation Patterns
 
-This phase has zero UI but is the prerequisite for everything else.
+### Pattern 1: Photo URL Sync
+**What:** Extract WordPress media URL from person post, send to FreeScout `photoUrl` field
+**When:** After photo upload to Rondo Club (`photo_state = 'synced'`)
+**Existing Code:**
+- Photo download: `steps/download-photos-from-api.js` (Sportlink → local disk)
+- Photo state tracking: `lib/rondo-club-db.js` (`photo_state` field)
+- FreeScout customer update: `steps/submit-freescout-sync.js`
 
-### Phase 2: Core Dashboard
+**New Requirements:**
+- Query WordPress REST API for media attachments where `parent = {person_post_id}`
+- Extract `source_url` from media response
+- Include `photoUrl: media.source_url` in FreeScout customer data
+- Handle edge case: Multiple attachments (select featured image or most recent)
 
-5. **Pipeline overview page** -- all 6 pipelines with last-run status, time, counts
-6. **Run history page** -- paginated list per pipeline with filtering
-7. **Run detail page** -- full breakdown for a single run
-8. **Error browser** -- list errors across runs, filter by pipeline/member
-9. **Authentication** -- simple login page
+### Pattern 2: RelationEnd Custom Field
+**What:** Map Sportlink `RelationEnd` date to FreeScout custom field ID 9
+**When:** During FreeScout customer sync (daily)
+**Existing Code:**
+- RelationEnd extraction: `steps/prepare-rondo-club-members.js:173` (stored in ACF `lid-tot` field)
+- Custom field support: `steps/prepare-freescout-customers.js` (customFields object)
+- FreeScout API client: `lib/freescout-client.js`
 
-### Phase 3: Polish
+**New Requirements:**
+- Add `lid_tot: acf['lid-tot']` to customFields object in `prepareCustomer()` function
+- Map to FreeScout custom field ID 9 in submit step
+- Use FreeScout API endpoint: `PUT /api/customers/{id}/customer_fields`
+- Format: `{ customerFields: [{ id: 9, value: "YYYY-MM-DD" }] }`
+- Handle null values (members without end date)
 
-10. **Overdue detection** -- flag pipelines that missed their schedule
-11. **Database statistics** -- record counts from all 4 SQLite databases
-12. **Log file viewer** -- read and display log files from the dashboard
-13. **Duration trend chart** -- performance over time
+### Pattern 3: Conversation Display (Cached Approach)
+**What:** Fetch FreeScout conversations by email, store in WordPress, display on person page
+**When:** Nightly sync (or on-demand refresh button)
+**Architecture Options:**
 
-### Defer to Post-MVP
+#### Option A: ACF Repeater Field
+- **Pros:** Familiar WordPress pattern, no custom tables, REST API support built-in
+- **Cons:** ACF repeaters slow with 100+ conversations, field bloat on person posts
+- **Best For:** Low conversation volume (< 50 per person)
 
-- **Manual trigger button** -- significant security implications, needs careful design
-- **Live run progress** -- requires WebSocket infrastructure
-- **Run diff view** -- nice but not critical for monitoring
-- **Email report toggle** -- keep both channels initially
+#### Option B: Custom WordPress Table
+- **Pros:** Fast queries, independent of person posts, supports pagination
+- **Cons:** Custom schema migration, manual REST endpoint, backup complexity
+- **Best For:** High conversation volume, complex filtering
 
-## UI Wireframe Concepts
+#### Option C: REST Endpoint (No Storage)
+- **Pros:** No caching logic, always fresh data, minimal code
+- **Cons:** FreeScout API latency on every page load, rate limit risk, no offline access
+- **Best For:** Low traffic, small member base (< 500 people)
 
-### Pipeline Overview Page
+**Recommendation:** Start with Option C (REST endpoint, no storage) for MVP. Migrate to Option B if FreeScout API becomes bottleneck.
 
-```
-+------------------------------------------------------------------+
-|  Rondo Sync Dashboard                          [Refresh] [Logout] |
-+------------------------------------------------------------------+
-|                                                                    |
-|  PIPELINE STATUS                                                   |
-|                                                                    |
-|  [GREEN] People     Last run: 14:03 (2m 34s)  1069 ok, 0 errors  |
-|  [GREEN] Functions  Last run: 13:32 (8m 12s)  47 ok, 0 errors    |
-|  [YELLOW] Nikki     Last run: 07:01 (1m 05s)  892 ok, 3 errors   |
-|  [GREEN] FreeScout  Last run: 08:02 (45s)     502 ok, 0 errors   |
-|  [GREEN] Teams      Last run: Sun 06:04 (3m)  38 ok, 0 errors    |
-|  [RED]   Discipline Last run: 6 days ago       OVERDUE            |
-|                                                                    |
-+------------------------------------------------------------------+
-```
+**API Flow:**
+1. WordPress REST endpoint: `GET /wp-json/rondo/v1/person/{id}/freescout-conversations`
+2. Extract email from person ACF fields
+3. Call FreeScout API: `GET /api/conversations?customerEmail={email}&embed=threads`
+4. Parse response: Extract `id`, `subject`, `status`, `created_at`, thread preview
+5. Return JSON to frontend
+6. Display in React/Vue widget on person edit page
 
-### Run Detail Page
+## Conversation Display UX Patterns
 
-```
-+------------------------------------------------------------------+
-|  People Sync - Run #1247                                          |
-|  2026-02-08 14:03:21 - Duration: 2m 34s - SUCCESS                |
-+------------------------------------------------------------------+
-|                                                                    |
-|  SPORTLINK DOWNLOAD                                               |
-|  Members downloaded: 1069                                         |
-|                                                                    |
-|  LAPOSTA SYNC                                                     |
-|  Prepared: 1142 (73 excluded as duplicates)                       |
-|  Synced: 12 (2 added, 10 updated)                                |
-|                                                                    |
-|  RONDO CLUB SYNC                                                  |
-|  Synced: 8/1069 (0 created, 8 updated, 1061 skipped)             |
-|                                                                    |
-|  PHOTO SYNC                                                       |
-|  No photo changes                                                 |
-|                                                                    |
-|  [View Log File]  [View Email Report]                             |
-+------------------------------------------------------------------+
-```
+Based on industry research, effective activity timeline displays follow these principles:
+
+### Progressive Disclosure
+- **Initial View:** Show 5 most recent conversations (subject, status, date)
+- **Expand:** Click conversation to show thread preview
+- **Deep Link:** "View in FreeScout" button to full conversation
+
+### Visual Hierarchy
+- **Status Indicators:** Color-coded badges (Active = green, Closed = gray, Pending = yellow)
+- **Timestamps:** Relative time ("2 days ago") for recent, absolute dates for old
+- **Avatars:** FreeScout agent photo + customer photo (if available)
+
+### Whitespace & Spacing
+- **Card-based Layout:** Each conversation in separate card with subtle border
+- **Spacing:** 16px vertical gap between conversations
+- **No Clutter:** Hide metadata (mailbox, folder, tags) unless relevant
+
+### Micro-interactions
+- **Hover States:** Card elevates on hover (box-shadow)
+- **Loading States:** Skeleton loader while fetching from FreeScout API
+- **Error States:** "Could not load conversations" with retry button
+
+**Reference Implementations:**
+- [Figma Activity Feed Components](https://www.untitledui.com/components/activity-feeds) (design patterns)
+- [UX Flows for Activity Feeds](https://pageflows.com/web/screens/activity-feed/) (interaction patterns)
+
+## Data Freshness Considerations
+
+| Approach | Freshness | API Load | Complexity |
+|----------|-----------|----------|------------|
+| **Real-time fetch** | Always current | High (every page load) | Low (single API call) |
+| **Cached (nightly)** | 0-24 hours stale | Low (daily batch) | Medium (cache invalidation logic) |
+| **Hybrid (cache + refresh button)** | User-controlled | Low (on-demand spikes) | High (state management) |
+
+**For this project:** Start with real-time fetch (MVP). The Rondo Club member base is small (< 1000 people), and WordPress person pages are low-traffic admin views, not public pages. FreeScout API rate limits are unlikely to be hit.
+
+**Migration Path:** If FreeScout API becomes bottleneck, add caching layer:
+1. Create `freescout_conversations` table in `rondo-sync.sqlite`
+2. Add nightly sync step: `scripts/sync.sh freescout-conversations`
+3. Update WordPress REST endpoint to query local cache
+4. Add `Last synced: 2 hours ago` timestamp to UI
 
 ## Sources
 
-**Pipeline Monitoring Best Practices:**
-- [Data Pipeline Monitoring: Best Practices for Full Observability - Prefect](https://www.prefect.io/blog/data-pipeline-monitoring-best-practices) -- Consistency, timeliness, validity metrics; at-a-glance workflow status
-- [10 Best Data Pipeline Monitoring Tools in 2026 - Integrate.io](https://www.integrate.io/blog/data-pipeline-monitoring-tools/) -- Tool comparison and feature expectations
-- [The right metrics to monitor cloud data pipelines - Google Cloud](https://cloud.google.com/blog/products/management-tools/the-right-metrics-to-monitor-cloud-data-pipelines) -- Core metrics: throughput, latency, error rate, freshness
+**FreeScout API Documentation:**
+- [FreeScout API Reference](https://api-docs.freescout.net/) — Conversations endpoint, customer fields, photoUrl parameter (HIGH confidence)
 
-**Cron Job Monitoring Patterns:**
-- [10 Best Cron Job Monitoring Tools in 2026 - Better Stack](https://betterstack.com/community/comparisons/cronjob-monitoring-tools/) -- Feature comparison across monitoring tools
-- [Cronitor - Cron Job Monitoring](https://cronitor.io/cron-job-monitoring) -- Heartbeat monitoring, performance dashboards, alerting patterns
-- [Healthchecks.io](https://healthchecks.io) -- Event logs, overdue detection, status badges
+**Helpdesk/CRM Integration Best Practices:**
+- [CRM Integration Guide 2026 - Shopify](https://www.shopify.com/blog/crm-integration) (MEDIUM confidence)
+- [Email Integration Best Practices - Smartlead](https://www.smartlead.ai/blog/email-integration) (MEDIUM confidence)
+- [CRM Help Desk Integration - Deskpro](https://www.deskpro.com/product/crm) (MEDIUM confidence)
 
-**Dashboard UI Patterns:**
-- [How to monitor pipeline runs - Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/data-factory/monitor-pipeline-runs) -- Gantt views, error drill-down, run history filtering
-- [Visually monitor Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually) -- Hierarchical navigation: dashboard -> pipeline -> activity level
-- [ETL Monitoring Dashboard - Retool](https://retool.com/templates/etl-monitoring-dashboard) -- Template for ETL monitoring UI
-- [ETL Monitoring Dashboard - Metabase](https://www.metabase.com/dashboards/etl-monitoring-dashboard) -- Dashboard design for ETL monitoring
+**WordPress/ACF Patterns:**
+- [ACF WP REST API Integration](https://www.advancedcustomfields.com/resources/wp-rest-api-integration/) (HIGH confidence)
+- [How to Fetch API Data in WordPress - ACF](https://www.advancedcustomfields.com/blog/wordpress-fetch-data-from-api/) (HIGH confidence)
+- [ACF Repeater Field Guide - WPLake](https://wplake.org/blog/how-to-use-and-display-the-acf-repeater-field/) (MEDIUM confidence)
 
-**Error Drill-Down Patterns:**
-- [Data Pipeline Monitoring: Key Concepts - Pantomath](https://www.pantomath.com/guide-data-observability/data-pipeline-monitoring) -- Health dashboards with drill-down
-- [Data Pipeline Monitoring - 5 Strategies - Monte Carlo Data](https://www.montecarlodata.com/blog-data-pipeline-monitoring/) -- Data health dashboards with aggregate-to-detail navigation
+**UI/UX Design Patterns:**
+- [CRM UX Design Best Practices - Design Studio](https://www.designstudiouiux.com/blog/crm-ux-design-best-practices/) (MEDIUM confidence)
+- [Activity Feed Components - Untitled UI](https://www.untitledui.com/components/activity-feeds) (HIGH confidence)
+- [UX Flows for Activity Feeds - Pageflows](https://pageflows.com/web/screens/activity-feed/) (HIGH confidence)
 
-**Existing System Analysis (HIGH confidence):**
-- Direct code review of `pipelines/sync-people.js`, `sync-teams.js`, `sync-functions.js`, `sync-nikki.js`, `sync-freescout.js`, `sync-discipline.js` -- all stats objects documented above are verified from source code
-- Direct review of `lib/logger.js`, `scripts/sync.sh`, `scripts/send-email.js` -- current reporting mechanism verified
-- Direct review of `docs/database-schema.md`, `docs/sync-architecture.md`, `docs/operations.md` -- current operational patterns verified
+**Sportlink API:**
+- [Sportlink Club.Dataservice PHP Wrapper - GitHub](https://github.com/PendoNL/php-club-dataservice) (MEDIUM confidence — no official RelationEnd docs found, field confirmed in project config/sportlink-fields.json)

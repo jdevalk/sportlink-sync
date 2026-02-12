@@ -1,652 +1,676 @@
-# Architecture: Web Dashboard for Rondo Sync
+# Architecture Patterns: FreeScout Integration Enhancements
 
-**Domain:** Adding a web dashboard to an existing Node.js CLI sync tool
-**Researched:** 2026-02-08
-**Confidence:** HIGH (patterns verified against existing codebase, technology choices based on current docs)
+**Domain:** FreeScout ↔ Rondo Club Integration
+**Researched:** 2026-02-12
 
 ## Executive Summary
 
-The existing rondo-sync architecture is a CLI-driven ETL pipeline using cron scheduling, with SQLite state databases and text-based log output. Adding a web dashboard requires three fundamental changes: (1) capturing structured run data during pipeline execution, (2) serving that data through a web server, and (3) keeping the web server and cron-driven CLI processes from conflicting on database access.
+This architecture document defines how three new features integrate into the existing rondo-sync architecture: (1) FreeScout email conversations as Rondo Club activities, (2) photo sync from Rondo Club to FreeScout customer avatars, and (3) RelationEnd field mapping to FreeScout custom field. All features follow established patterns while adding minimal new components.
 
-The good news: the existing codebase is architecturally well-suited for this addition. Every pipeline already collects structured `stats` objects with per-step counts and errors. The logger already writes to both stdout and file simultaneously. SQLite with WAL mode supports concurrent read/write from multiple processes. The module/CLI hybrid pattern means pipelines can be invoked programmatically by a web server without shelling out.
+**Key finding:** All three features fit cleanly into existing pipeline steps with minimal new infrastructure. The conversation sync requires the most new code (new step + Rondo Club API endpoint), while photo and RelationEnd are minor enhancements to existing steps.
 
-The recommended approach is a **thin instrumentation layer** that captures the stats objects pipelines already produce, stores them in a new `dashboard.sqlite` database, and serves them through a lightweight Fastify web server. This avoids rewriting pipelines and keeps the existing cron+CLI flow intact.
+## Feature 1: FreeScout Conversations → Rondo Club Activities
 
-For multi-club readiness, the architecture should use a **database-per-club** isolation model (each club gets its own set of SQLite files and .env config), which maps naturally to the existing pattern of per-domain SQLite databases.
-
-## Current Architecture (As-Is)
-
-### System Overview
+### Data Flow
 
 ```
- cron (crontab)
-   |
-   v
- sync.sh {pipeline}          <-- bash wrapper: flock locking, .env loading, log routing
-   |
-   v
- pipelines/sync-{type}.js    <-- Node.js orchestrator: calls steps, collects stats
-   |
-   +---> steps/download-*    <-- data extraction (Playwright browser automation)
-   +---> steps/prepare-*     <-- data transformation
-   +---> steps/submit-*      <-- data submission (REST APIs)
-   |
-   v
- printSummary(stats)          <-- text output to logger
-   |
-   v
- send-email.js                <-- reads log file, sends via Postmark
-```
-
-### Key Characteristics
-
-| Aspect | Current State |
-|--------|---------------|
-| **Invocation** | Cron calls bash wrapper, which calls Node.js |
-| **Locking** | Per-pipeline flock in sync.sh |
-| **Output** | Unstructured text to stdout + log file |
-| **Stats** | Structured JS objects built in-memory, then formatted as text |
-| **Error records** | Collected in `stats.*.errors[]` arrays with member-level detail |
-| **Run history** | Only `sportlink_runs` table in laposta.sqlite (raw download data) |
-| **Databases** | 4 SQLite files, all in `data/` directory |
-| **Configuration** | Single `.env` file per installation |
-
-### The Stats Object Opportunity
-
-Every pipeline already builds a structured stats object during execution. For example, `sync-people.js` produces:
-
-```javascript
-stats = {
-  completedAt: '2026-02-08 14:00:00',
-  duration: '2m 30s',
-  downloaded: 1069,
-  prepared: 1050,
-  excluded: 19,
-  synced: 45,
-  added: 2,
-  updated: 43,
-  errors: [{ knvb_id: 'KNVB123', message: '...', system: 'laposta' }],
-  rondoClub: { total: 1069, synced: 45, created: 2, updated: 43, skipped: 1024, errors: [] },
-  photos: { downloaded: 3, uploaded: 2, deleted: 1, skipped: 0, errors: [] },
-  reverseSync: { synced: 0, failed: 0, errors: [], results: [] }
-}
-```
-
-This is the **single most important architectural insight**: the structured data the dashboard needs is already computed by every pipeline. It is currently serialized to text and thrown away. The dashboard architecture's primary job is to intercept and persist this data.
-
-## Proposed Architecture (To-Be)
-
-### High-Level Component View
-
-```
- cron (crontab)           operator browser
-   |                          |
-   v                          v
- sync.sh {pipeline}      Fastify web server (port 3000)
-   |                          |
-   v                          |
- pipelines/sync-{type}.js     |
-   |                          |
-   +---> run-tracker.js  <----+    <-- NEW: persists stats, serves history
-   |         |                |
-   |         v                |
-   |    dashboard.sqlite <----+    <-- NEW: run history + error records
-   |
-   +---> steps/*  (unchanged)
-   |
-   +---> data/*.sqlite  (unchanged, existing sync state DBs)
+FreeScout conversations API → download step → SQLite tracking → submit step → Rondo Club REST API → Activities display
 ```
 
 ### New Components
 
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| **Run Tracker** | Captures pipeline stats into dashboard.sqlite | `lib/run-tracker.js` |
-| **Dashboard DB** | Stores run history, step results, errors | `data/dashboard.sqlite` |
-| **Web Server** | Serves dashboard UI and API | `server/index.js` |
-| **API Routes** | REST endpoints for run data | `server/routes/` |
-| **UI Templates** | Server-rendered dashboard views | `server/views/` |
+| Component | Type | Purpose |
+|-----------|------|---------|
+| `steps/download-conversations-from-freescout.js` | Download step | Fetch conversations by customer from FreeScout API |
+| `lib/freescout-db.js` (enhancement) | DB layer | Add conversation tracking table + functions |
+| `steps/sync-conversations-to-rondo-club.js` | Submit step | POST conversations as activities to Rondo Club |
+| Rondo Club API: `/rondo/v1/people/{id}/activities` | WordPress endpoint | Accept activity submissions (NOT in rondo-sync, but required) |
 
 ### Modified Components
 
-| Component | Change | Why |
-|-----------|--------|-----|
-| **Each pipeline** | Add 3-4 lines to persist stats via run-tracker | Minimal change to capture data |
-| **Logger** | Optional: emit structured events alongside text | Enables real-time dashboard updates |
-| **sync.sh** | No changes needed | Pipelines handle their own tracking |
+| Component | Modification | Rationale |
+|-----------|--------------|-----------|
+| `pipelines/sync-freescout.js` | Add conversation sync step after ID sync | Logical ordering: customers first, then conversations |
+| `lib/freescout-db.js` | New table: `freescout_conversations` | Track sync state with hash-based change detection |
 
-### Components NOT Modified
+### Architecture Pattern: Activity Submission
 
-| Component | Why Unchanged |
-|-----------|---------------|
-| **steps/** | Steps return results to pipelines; tracking happens at pipeline level |
-| **lib/*-db.js** | Existing sync state databases remain independent |
-| **lib/*-client.js** | API clients are unaffected |
-| **config/** | Field mappings are sync-specific, not dashboard-relevant |
-| **tools/** | Maintenance scripts remain CLI-only |
+**Data structure for Rondo Club activities:**
+```json
+{
+  "activity_type": "freescout_email",
+  "activity_date": "2026-02-12T14:30:00Z",
+  "activity_title": "Email: Subject from FreeScout",
+  "activity_content": "Email thread content (last N messages)",
+  "activity_meta": {
+    "freescout_conversation_id": 123,
+    "freescout_conversation_number": 456,
+    "freescout_customer_id": 789,
+    "freescout_url": "https://support.example.org/conversation/456"
+  }
+}
+```
 
-## Integration Points
+**Endpoint contract (Rondo Club side, not in rondo-sync):**
+```
+POST /wp-json/rondo/v1/people/{rondo_club_id}/activities
+Authorization: Basic {credentials}
+Content-Type: application/json
 
-### 1. Run Tracker (lib/run-tracker.js)
+Body: {activity_type, activity_date, activity_title, activity_content, activity_meta}
+Response: {success: true, activity_id: 123}
+```
 
-The run tracker is the central integration point. It provides a simple API for pipelines to record their execution.
+### Hash-Based Change Detection
 
-**Pattern: Wrap existing pipeline return values.**
-
-Each pipeline already returns `{ success, stats }`. The run tracker intercepts this result and persists it:
+Following existing pattern in `freescout-db.js`:
 
 ```javascript
-// lib/run-tracker.js
-const Database = require('better-sqlite3');
+function computeConversationHash(conversationId, data) {
+  const payload = stableStringify({
+    conversation_id: conversationId,
+    data: {
+      subject: data.subject,
+      status: data.status,
+      threads: data.threads.map(t => ({
+        id: t.id,
+        body: t.body,
+        created_at: t.createdAt
+      }))
+    }
+  });
+  return computeHash(payload);
+}
+```
 
-function createRunTracker(dbPath) {
-  const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');  // Critical for concurrent access
-  initSchema(db);
+### Conversations Table Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS freescout_conversations (
+  id INTEGER PRIMARY KEY,
+  conversation_id INTEGER NOT NULL UNIQUE,
+  customer_id INTEGER NOT NULL,
+  knvb_id TEXT NOT NULL,
+  rondo_club_id INTEGER,
+  subject TEXT NOT NULL,
+  status TEXT NOT NULL,
+  data_json TEXT NOT NULL,
+  source_hash TEXT NOT NULL,
+  last_synced_at TEXT,
+  last_synced_hash TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_freescout_conversations_customer
+  ON freescout_conversations (customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_freescout_conversations_sync
+  ON freescout_conversations (source_hash, last_synced_hash);
+```
+
+### API Integration Points
+
+**FreeScout API (download):**
+```javascript
+// Get all conversations for a customer
+const response = await freescoutRequest(
+  `/api/conversations?customerId=${customerId}&embed=threads`,
+  'GET',
+  null,
+  { logger, verbose }
+);
+
+const conversations = response.body._embedded?.conversations || [];
+```
+
+**Rondo Club API (submit):**
+```javascript
+// Submit activity to person record
+await rondoClubRequest(
+  `/rondo/v1/people/${rondoClubId}/activities`,
+  'POST',
+  {
+    activity_type: 'freescout_email',
+    activity_date: conversation.updatedAt,
+    activity_title: `Email: ${conversation.subject}`,
+    activity_content: formatThreadsAsContent(conversation.threads),
+    activity_meta: {
+      freescout_conversation_id: conversation.id,
+      freescout_conversation_number: conversation.number,
+      freescout_customer_id: conversation.customer.id,
+      freescout_url: `${FREESCOUT_URL}/conversation/${conversation.number}`
+    }
+  },
+  { logger, verbose }
+);
+```
+
+### Build Order
+
+1. **Phase 1: Database layer** — Add conversation tracking table and functions to `lib/freescout-db.js`
+2. **Phase 2: Download step** — Implement `steps/download-conversations-from-freescout.js`
+3. **Phase 3: Submit step** — Implement `steps/sync-conversations-to-rondo-club.js`
+4. **Phase 4: Pipeline integration** — Wire steps into `pipelines/sync-freescout.js`
+5. **Phase 5: Testing** — Verify with real FreeScout data (requires Rondo Club API endpoint first)
+
+**Critical dependency:** Rondo Club must implement `/rondo/v1/people/{id}/activities` endpoint BEFORE Phase 5.
+
+---
+
+## Feature 2: Rondo Club Photos → FreeScout Customer Avatars
+
+### Data Flow
+
+```
+Rondo Club featured image → prepare step → submit step → FreeScout customer photoUrl field
+```
+
+### Modified Components Only (No New Components)
+
+| Component | Modification | Rationale |
+|-----------|--------------|-----------|
+| `steps/prepare-freescout-customers.js` | Fetch photo URL from Rondo Club WordPress media API | Already has `getPhotoUrl()` stub returning null |
+| `steps/submit-freescout-sync.js` | Include `photoUrl` in customer payload | FreeScout API already supports this field |
+
+### Architecture Pattern: Photo URL Fetch
+
+**Current code (lines 61-73 in prepare-freescout-customers.js):**
+```javascript
+function getPhotoUrl(member) {
+  // Only include photo URL if photo_state is 'synced'
+  if (member.photo_state !== 'synced') {
+    return null;
+  }
+
+  // TODO: Construct Rondo Club photo URL
+  // The photo is attached to the person post in WordPress
+  return null; // Currently returns null
+}
+```
+
+**Enhanced implementation:**
+```javascript
+async function getPhotoUrl(member, options) {
+  if (member.photo_state !== 'synced') {
+    return null;
+  }
+
+  if (!member.rondo_club_id) {
+    return null;
+  }
+
+  try {
+    // Fetch person post to get featured_media ID
+    const personResponse = await rondoClubRequest(
+      `wp/v2/people/${member.rondo_club_id}`,
+      'GET',
+      null,
+      options
+    );
+
+    const featuredMediaId = personResponse.body.featured_media;
+    if (!featuredMediaId) {
+      return null;
+    }
+
+    // Fetch media object to get source_url
+    const mediaResponse = await rondoClubRequest(
+      `wp/v2/media/${featuredMediaId}`,
+      'GET',
+      null,
+      options
+    );
+
+    return mediaResponse.body.source_url || null;
+  } catch (error) {
+    // Log error but don't fail preparation
+    options.logger?.verbose(`Photo URL fetch failed for ${member.knvb_id}: ${error.message}`);
+    return null;
+  }
+}
+```
+
+**Optimization:** Batch fetch all featured media IDs in single pass, then fetch media objects for those that exist. This reduces N+1 queries.
+
+**Alternative approach (simpler, no API calls):**
+If Rondo Club exposes photo URL in person ACF field, read directly from `rondo_club_members.data_json`:
+
+```javascript
+function getPhotoUrl(member) {
+  if (member.photo_state !== 'synced') {
+    return null;
+  }
+
+  const data = member.data || {};
+  const acf = data.acf || {};
+
+  // Assuming Rondo Club stores photo URL in ACF field 'photo_url'
+  return acf.photo_url || null;
+}
+```
+
+**Recommended:** Use ACF field approach if Rondo Club can provide this. Otherwise, use WordPress media API.
+
+### Submit Step Enhancement
+
+**Current payload (submit-freescout-sync.js lines 116-119):**
+```javascript
+const payload = {
+  firstName: customer.data.firstName,
+  lastName: customer.data.lastName,
+  emails: [{ value: customer.email, type: 'home' }]
+};
+```
+
+**Enhanced payload:**
+```javascript
+const payload = {
+  firstName: customer.data.firstName,
+  lastName: customer.data.lastName,
+  emails: [{ value: customer.email, type: 'home' }]
+};
+
+// Add photo URL if available
+if (customer.data.photoUrl) {
+  payload.photoUrl = customer.data.photoUrl;
+}
+```
+
+### Build Order
+
+1. **Phase 1: Decide approach** — ACF field vs WordPress media API (coordinate with Rondo Club)
+2. **Phase 2: Modify prepare step** — Implement `getPhotoUrl()` based on chosen approach
+3. **Phase 3: Modify submit step** — Add `photoUrl` to customer payload
+4. **Phase 4: Testing** — Verify photos appear in FreeScout customer profiles
+
+**No new files required.** Pure enhancement to existing steps.
+
+---
+
+## Feature 3: Sportlink RelationEnd → FreeScout Custom Field
+
+### Data Flow
+
+```
+Sportlink RelationEnd field → prepare step → submit step → FreeScout custom field ID 9
+```
+
+### Modified Components Only (No New Components)
+
+| Component | Modification | Rationale |
+|-----------|--------------|-----------|
+| `steps/prepare-freescout-customers.js` | Extract RelationEnd from member data | Already extracts other Sportlink fields |
+| `steps/submit-freescout-sync.js` | Add field ID 9 to custom fields payload | Already sends custom fields array |
+
+### Architecture Pattern: Custom Field Mapping
+
+**Current custom field IDs (submit-freescout-sync.js lines 18-26):**
+```javascript
+function getCustomFieldIds() {
+  return {
+    union_teams: parseInt(process.env.FREESCOUT_FIELD_UNION_TEAMS || '1', 10),
+    public_person_id: parseInt(process.env.FREESCOUT_FIELD_PUBLIC_PERSON_ID || '4', 10),
+    member_since: parseInt(process.env.FREESCOUT_FIELD_MEMBER_SINCE || '5', 10),
+    nikki_saldo: parseInt(process.env.FREESCOUT_FIELD_NIKKI_SALDO || '7', 10),
+    nikki_status: parseInt(process.env.FREESCOUT_FIELD_NIKKI_STATUS || '8', 10)
+  };
+}
+```
+
+**Enhanced with RelationEnd:**
+```javascript
+function getCustomFieldIds() {
+  return {
+    union_teams: parseInt(process.env.FREESCOUT_FIELD_UNION_TEAMS || '1', 10),
+    public_person_id: parseInt(process.env.FREESCOUT_FIELD_PUBLIC_PERSON_ID || '4', 10),
+    member_since: parseInt(process.env.FREESCOUT_FIELD_MEMBER_SINCE || '5', 10),
+    nikki_saldo: parseInt(process.env.FREESCOUT_FIELD_NIKKI_SALDO || '7', 10),
+    nikki_status: parseInt(process.env.FREESCOUT_FIELD_NIKKI_STATUS || '8', 10),
+    relation_end: parseInt(process.env.FREESCOUT_FIELD_RELATION_END || '9', 10)
+  };
+}
+```
+
+**Current custom fields payload (submit-freescout-sync.js lines 33-42):**
+```javascript
+function buildCustomFieldsPayload(customFields) {
+  const fieldIds = getCustomFieldIds();
+  return [
+    { id: fieldIds.union_teams, value: customFields.union_teams || '' },
+    { id: fieldIds.public_person_id, value: customFields.public_person_id || '' },
+    { id: fieldIds.member_since, value: customFields.member_since || '' },
+    { id: fieldIds.nikki_saldo, value: customFields.nikki_saldo !== null ? String(customFields.nikki_saldo) : '' },
+    { id: fieldIds.nikki_status, value: customFields.nikki_status || '' }
+  ];
+}
+```
+
+**Enhanced with RelationEnd:**
+```javascript
+function buildCustomFieldsPayload(customFields) {
+  const fieldIds = getCustomFieldIds();
+  return [
+    { id: fieldIds.union_teams, value: customFields.union_teams || '' },
+    { id: fieldIds.public_person_id, value: customFields.public_person_id || '' },
+    { id: fieldIds.member_since, value: customFields.member_since || '' },
+    { id: fieldIds.nikki_saldo, value: customFields.nikki_saldo !== null ? String(customFields.nikki_saldo) : '' },
+    { id: fieldIds.nikki_status, value: customFields.nikki_status || '' },
+    { id: fieldIds.relation_end, value: customFields.relation_end || '' }
+  ];
+}
+```
+
+### Data Extraction
+
+**Location:** `steps/prepare-freescout-customers.js`, function `prepareCustomer()`
+
+**Current member_since extraction (line 225):**
+```javascript
+customFields: {
+  union_teams: unionTeams,
+  public_person_id: member.knvb_id,
+  member_since: acf['lid-sinds'] || null,
+  nikki_saldo: nikkiData.saldo,
+  nikki_status: nikkiData.status
+}
+```
+
+**Enhanced with RelationEnd:**
+```javascript
+customFields: {
+  union_teams: unionTeams,
+  public_person_id: member.knvb_id,
+  member_since: acf['lid-sinds'] || null,
+  nikki_saldo: nikkiData.saldo,
+  nikki_status: nikkiData.status,
+  relation_end: acf['relation-end'] || null  // Assuming Rondo Club stores this in ACF
+}
+```
+
+**Data source verification needed:** Where does RelationEnd live in the sync flow?
+
+From code inspection (steps/prepare-rondo-club-members.js line 173):
+```javascript
+const relationEnd = (sportlinkMember.RelationEnd || '').trim() || null;
+```
+
+This suggests RelationEnd is available in Sportlink download data. Verify if it's synced to Rondo Club ACF fields.
+
+**If NOT in Rondo Club ACF:** Read from `rondo_club_members.data_json` directly (it contains full Sportlink data).
+
+**Implementation:**
+```javascript
+function prepareCustomer(member, freescoutDb, rondoClubDb, nikkiDb) {
+  const data = member.data || {};
+  const acf = data.acf || {};
+
+  // Extract RelationEnd from ACF if available, otherwise from raw Sportlink data
+  let relationEnd = acf['relation-end'] || null;
+
+  // Fallback: Check raw Sportlink data if not in ACF
+  if (!relationEnd && data.sportlink && data.sportlink.RelationEnd) {
+    relationEnd = data.sportlink.RelationEnd;
+  }
+
+  // ... rest of function
 
   return {
-    startRun(pipeline, trigger) {
-      // Insert run record, return run ID
-    },
-    recordStepResult(runId, stepName, result) {
-      // Insert step-level stats
-    },
-    completeRun(runId, stats) {
-      // Update run with final stats + errors
-    },
-    getRecentRuns(pipeline, limit) {
-      // Query for dashboard display
+    // ... existing fields
+    customFields: {
+      union_teams: unionTeams,
+      public_person_id: member.knvb_id,
+      member_since: acf['lid-sinds'] || null,
+      nikki_saldo: nikkiData.saldo,
+      nikki_status: nikkiData.status,
+      relation_end: relationEnd
     }
   };
 }
 ```
 
-**Integration into pipelines is minimal** -- approximately 3-4 lines per pipeline:
+### Environment Variable
 
-```javascript
-// Before (current):
-async function runPeopleSync(options = {}) {
-  const stats = { /* ... */ };
-  // ... all existing pipeline logic ...
-  return { success, stats };
-}
-
-// After (with tracking):
-async function runPeopleSync(options = {}) {
-  const tracker = getRunTracker();  // singleton
-  const runId = tracker.startRun('people', options.trigger || 'cron');
-  const stats = { /* ... */ };
-  // ... all existing pipeline logic unchanged ...
-  tracker.completeRun(runId, stats);
-  return { success, stats };
-}
-```
-
-### 2. Dashboard Database (data/dashboard.sqlite)
-
-A new database dedicated to dashboard data. Separated from sync databases to avoid any interference with sync operations.
-
-**Schema:**
-
-```sql
--- Pipeline runs
-CREATE TABLE runs (
-  id INTEGER PRIMARY KEY,
-  pipeline TEXT NOT NULL,           -- 'people', 'teams', 'functions', etc.
-  trigger TEXT NOT NULL,            -- 'cron', 'manual', 'web'
-  status TEXT NOT NULL DEFAULT 'running',  -- 'running', 'completed', 'failed'
-  started_at TEXT NOT NULL,
-  completed_at TEXT,
-  duration_ms INTEGER,
-  stats_json TEXT,                  -- Full stats object as JSON
-  success INTEGER,                  -- 1 = success, 0 = failure
-  error_message TEXT                -- Top-level error if fatal
-);
-
-CREATE INDEX idx_runs_pipeline ON runs(pipeline, started_at DESC);
-CREATE INDEX idx_runs_status ON runs(status);
-
--- Per-step results within a run
-CREATE TABLE run_steps (
-  id INTEGER PRIMARY KEY,
-  run_id INTEGER NOT NULL REFERENCES runs(id),
-  step_name TEXT NOT NULL,          -- 'download', 'prepare', 'submit-laposta', etc.
-  status TEXT NOT NULL,             -- 'completed', 'failed', 'skipped'
-  started_at TEXT,
-  completed_at TEXT,
-  duration_ms INTEGER,
-  stats_json TEXT,                  -- Step-specific stats
-  UNIQUE(run_id, step_name)
-);
-
--- Individual errors from a run (member-level detail)
-CREATE TABLE run_errors (
-  id INTEGER PRIMARY KEY,
-  run_id INTEGER NOT NULL REFERENCES runs(id),
-  step_name TEXT,
-  identifier TEXT,                  -- knvb_id, email, or 'system'
-  system TEXT,                      -- 'laposta', 'rondoClub', 'photo-upload', etc.
-  message TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
-CREATE INDEX idx_run_errors_run ON run_errors(run_id);
-CREATE INDEX idx_run_errors_identifier ON run_errors(identifier);
-```
-
-**Why a separate database:**
-- Sync databases (`rondo-sync.sqlite`, `laposta-sync.sqlite`, etc.) are critical to sync correctness. Dashboard data is read-heavy, append-only, and non-critical. Mixing them would add risk with no benefit.
-- Separate database file means the dashboard can be backed up, migrated, or reset independently.
-- Different access patterns: sync DBs are write-heavy during pipeline runs; dashboard DB is read-heavy from the web server.
-
-### 3. Web Server (server/index.js)
-
-A Fastify web server running as a long-lived process alongside the cron-triggered pipelines.
-
-**Why Fastify over Express:**
-- Built-in JSON schema validation (useful for API responses)
-- Better performance for the read-heavy dashboard workload (2-3x Express throughput)
-- First-class plugin system for clean separation of routes, static files, auth
-- Active development with TypeScript support
-- Existing project uses no web framework, so no migration cost -- this is a greenfield addition
-
-**Server responsibilities:**
-- Serve dashboard UI (server-rendered HTML)
-- Provide REST API for run history, error details, pipeline status
-- Read from dashboard.sqlite (read-only, never writes to sync databases)
-- Optionally trigger pipeline runs via the existing module API
-
-**Server does NOT:**
-- Write to sync databases (rondo-sync.sqlite, laposta-sync.sqlite, etc.)
-- Replace cron scheduling
-- Modify pipeline behavior
-- Require running on the same process as pipelines
-
-### 4. SQLite Concurrent Access Strategy
-
-The most critical technical concern: cron-triggered pipelines write to SQLite databases while the web server reads from them.
-
-**Solution: WAL (Write-Ahead Logging) mode.**
-
-SQLite in WAL mode allows:
-- Multiple concurrent readers
-- One writer at a time (with readers not blocked by the writer)
-- This matches our access pattern exactly: pipelines write, web server reads
-
-**Implementation:**
-
-```javascript
-// All database opens should set WAL mode
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('busy_timeout = 5000');  // Wait up to 5s for locks
-```
-
-**Current state:** The existing codebase does NOT set WAL mode on any database. The default journal mode (DELETE) is fine for single-process access, but adding a web server reader requires WAL mode.
-
-**Migration:** WAL mode is set per-database and persists across connections. A one-time `PRAGMA journal_mode = WAL` on each database file converts it. This is backward-compatible -- existing CLI scripts will work fine with WAL mode databases.
-
-**Checkpoint management:** When the web server has a long-running read connection, WAL checkpoint (reclaiming disk space) can be delayed. The web server should periodically run `db.pragma('wal_checkpoint(PASSIVE)')` to prevent WAL file growth.
-
-### 5. Process Architecture
-
-**Recommended: Two separate processes.**
-
-```
-Process 1: Fastify web server (long-running, managed by PM2 or systemd)
-  - Reads dashboard.sqlite
-  - Reads sync databases (read-only, for member counts and stats)
-  - Serves HTTP on port 3000
-
-Process 2: Cron-triggered pipeline runs (short-lived, managed by crontab)
-  - Writes to sync databases
-  - Writes to dashboard.sqlite (run tracking)
-  - Exits when pipeline completes
-```
-
-**Why two processes instead of one:**
-- The web server must be always running; pipelines run periodically and exit
-- Cron is battle-tested for scheduling; no need to replace it with in-process cron
-- Process isolation means a pipeline crash cannot take down the dashboard
-- Memory: Playwright (used by download steps) consumes significant memory; keeping it isolated from the web server prevents memory pressure
-
-**Why NOT embed the web server in pipelines:**
-- Pipelines are short-lived (run for 1-5 minutes, then exit)
-- A web server needs to be always-on
-- Pipelines use Playwright which consumes ~200-400MB RAM; the web server should stay lightweight
-
-**Process management for the web server:**
-
-Use PM2 or systemd to keep the Fastify server running:
-
+Add to `.env.example` and documentation:
 ```bash
-# PM2 (simplest, already familiar Node.js tooling)
-pm2 start server/index.js --name rondo-dashboard
-pm2 save
-pm2 startup
-
-# Or systemd (more robust, OS-level)
-# /etc/systemd/system/rondo-dashboard.service
+FREESCOUT_FIELD_RELATION_END=9  # FreeScout custom field ID for "Lid tot"
 ```
 
-Since the server only runs as a single instance on a single machine, PM2 with `instances: 1` is sufficient. No need for cluster mode.
+### Build Order
 
-## Data Flow
+1. **Phase 1: Verify data source** — Confirm where RelationEnd lives in `rondo_club_members.data_json`
+2. **Phase 2: Modify prepare step** — Extract RelationEnd and add to customFields
+3. **Phase 3: Modify submit step** — Add field ID 9 to custom fields payload
+4. **Phase 4: Environment config** — Add `FREESCOUT_FIELD_RELATION_END=9` to `.env`
+5. **Phase 5: Testing** — Verify RelationEnd appears in FreeScout customer profiles
 
-### Pipeline Run Data Flow
+**No new files required.** Pure enhancement to existing steps.
 
-```
-1. Cron triggers sync.sh people
-2. sync.sh calls node pipelines/sync-people.js
-3. Pipeline starts:
-   a. run-tracker.startRun('people', 'cron') --> inserts into dashboard.sqlite
-   b. Step 1: Download --> stats.downloaded = 1069
-   c. Step 2: Prepare  --> stats.prepared = 1050
-   d. Step 3: Submit   --> stats.synced = 45, stats.errors = [...]
-   e. Step 4-7: ...    --> more stats populated
-   f. run-tracker.completeRun(runId, stats) --> updates dashboard.sqlite
-4. Pipeline exits
-5. send-email.js sends log file report (unchanged)
-```
+---
 
-### Dashboard View Data Flow
+## Integration Summary
+
+### Component Dependency Graph
 
 ```
-1. Operator opens browser to http://server:3000
-2. Fastify serves dashboard HTML (server-rendered)
-3. Page shows:
-   a. Last run per pipeline (from runs table)
-   b. Success/failure status
-   c. Key stats (members synced, errors count)
-4. Operator clicks a run for detail:
-   a. API call: GET /api/runs/{id}
-   b. Returns full stats_json + errors
-5. Operator clicks an error:
-   a. Shows member identifier, system, message
-   b. Optionally links to member in sync DB for context
+┌─────────────────────────────────────────────────────────────┐
+│ pipelines/sync-freescout.js                                 │
+│                                                              │
+│  1. prepare-freescout-customers.js (MODIFIED)               │
+│     - Extract photo URL (Feature 2)                         │
+│     - Extract RelationEnd (Feature 3)                       │
+│                                                              │
+│  2. submit-freescout-sync.js (MODIFIED)                     │
+│     - Send photoUrl field (Feature 2)                       │
+│     - Send relation_end custom field (Feature 3)            │
+│                                                              │
+│  3. sync-freescout-ids-to-rondo-club.js (EXISTING)          │
+│                                                              │
+│  4. download-conversations-from-freescout.js (NEW)          │
+│     - Fetch conversations by customer from FreeScout        │
+│     - Track in freescout_conversations table                │
+│                                                              │
+│  5. sync-conversations-to-rondo-club.js (NEW)               │
+│     - POST activities to Rondo Club                         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ lib/freescout-db.js (MODIFIED)                              │
+│                                                              │
+│  - ADD: freescout_conversations table                       │
+│  - ADD: computeConversationHash()                           │
+│  - ADD: upsertConversations()                               │
+│  - ADD: getConversationsNeedingSync()                       │
+│  - ADD: updateConversationSyncState()                       │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ External Dependencies (Rondo Club WordPress)                │
+│                                                              │
+│  - POST /wp-json/rondo/v1/people/{id}/activities            │
+│    (Required for Feature 1)                                 │
+│                                                              │
+│  - GET /wp-json/wp/v2/people/{id}                           │
+│    (Existing, used for photo URL in Feature 2)              │
+│                                                              │
+│  - GET /wp-json/wp/v2/media/{id}                            │
+│    (Existing, used for photo URL in Feature 2)              │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Real-Time Updates (Phase 2 Enhancement)
+### File Impact Analysis
 
-For real-time dashboard updates during a running pipeline:
+| File | Change Type | Feature | Lines Changed (est.) |
+|------|-------------|---------|---------------------|
+| `steps/prepare-freescout-customers.js` | Modified | 2, 3 | +30 |
+| `steps/submit-freescout-sync.js` | Modified | 2, 3 | +10 |
+| `lib/freescout-db.js` | Modified | 1 | +150 |
+| `steps/download-conversations-from-freescout.js` | New | 1 | +200 |
+| `steps/sync-conversations-to-rondo-club.js` | New | 1 | +180 |
+| `pipelines/sync-freescout.js` | Modified | 1 | +40 |
+| `.env.example` | Modified | 3 | +1 |
 
-**Option A: Polling (simplest).**
-Dashboard polls `GET /api/runs?status=running` every 5 seconds. Sufficient for a single-operator internal tool.
+**Total:** 2 new files, 5 modified files, ~610 lines of new code.
 
-**Option B: Server-Sent Events (SSE).**
-Pipeline writes progress to dashboard.sqlite. Web server watches for changes and pushes via SSE. More complex but provides true real-time feel.
+### Risk Assessment
 
-**Recommendation:** Start with polling. SSE is a Phase 2 enhancement if the operator wants to watch runs in real-time.
+| Feature | Complexity | Risk | Mitigation |
+|---------|-----------|------|------------|
+| Conversations → Activities | Medium | Rondo Club API endpoint doesn't exist yet | Build steps 1-4 first, test with mock; coordinate with Rondo Club team |
+| Photos → FreeScout | Low | WordPress media API N+1 queries | Use ACF field approach if available; otherwise batch fetch |
+| RelationEnd → Custom Field | Low | Data location unclear | Verify in rondo_club_members.data_json first; fallback to multiple sources |
 
-## Multi-Club Architecture
+---
 
-### Current: Single Club
+## Recommended Build Order (Cross-Feature)
+
+**Phase 1: Low-hanging fruit (Features 2 & 3)**
+1. Verify RelationEnd data location in `rondo_club_members.data_json`
+2. Implement Feature 3 (RelationEnd field mapping)
+3. Test Feature 3 with real data
+4. Coordinate with Rondo Club team on photo URL approach (ACF vs media API)
+5. Implement Feature 2 (photo sync)
+6. Test Feature 2 with real data
+
+**Phase 2: Activities integration (Feature 1)**
+1. Coordinate with Rondo Club team on activities endpoint design
+2. Add conversation tracking table to `lib/freescout-db.js`
+3. Implement download step (`download-conversations-from-freescout.js`)
+4. Implement submit step (`sync-conversations-to-rondo-club.js`)
+5. Wire into pipeline (`sync-freescout.js`)
+6. Test with mock Rondo Club endpoint
+7. Test with real Rondo Club endpoint once available
+
+**Rationale:** Features 2 and 3 are independent, low-risk enhancements that can ship immediately. Feature 1 requires cross-repo coordination and new infrastructure.
+
+---
+
+## Pipeline Execution Flow (After Integration)
 
 ```
-/home/sportlink/
-  .env                    <-- single club credentials
-  data/
-    rondo-sync.sqlite     <-- single club state
-    laposta-sync.sqlite
-    nikki-sync.sqlite
-    freescout-sync.sqlite
-  logs/
-  pipelines/
-  steps/
-  lib/
+sync-freescout.js execution:
+
+1. prepare-freescout-customers.js
+   ├─ Extract member data from rondo_club_members
+   ├─ Fetch photo URLs (NEW - Feature 2)
+   ├─ Extract RelationEnd (NEW - Feature 3)
+   └─ Build customer objects with customFields
+
+2. submit-freescout-sync.js
+   ├─ Upsert customers to freescout_customers table
+   ├─ Sync to FreeScout API (with photoUrl - NEW)
+   ├─ Update custom fields (with relation_end - NEW)
+   └─ Handle conflicts/errors
+
+3. sync-freescout-ids-to-rondo-club.js
+   └─ Write freescout_id back to Rondo Club ACF
+
+4. download-conversations-from-freescout.js (NEW - Feature 1)
+   ├─ For each tracked customer with freescout_id:
+   │  └─ GET /api/conversations?customerId={id}&embed=threads
+   ├─ Upsert to freescout_conversations table
+   └─ Mark conversations needing sync (hash changed)
+
+5. sync-conversations-to-rondo-club.js (NEW - Feature 1)
+   ├─ For each conversation needing sync:
+   │  ├─ Format as activity payload
+   │  ├─ POST /rondo/v1/people/{id}/activities
+   │  └─ Update sync state in freescout_conversations
+   └─ Track errors
 ```
 
-### Multi-Club: Database-Per-Club Model
+**Execution time impact:** +30-60 seconds (conversation download/sync for ~300 customers with ~10 conversations each).
 
-The recommended approach is **database-per-club** isolation, which maps naturally to the existing architecture:
+---
 
-```
-/home/sportlink/
-  clubs/
-    club-abc/
-      .env                    <-- club ABC credentials
-      data/
-        rondo-sync.sqlite     <-- club ABC state
-        laposta-sync.sqlite
-        nikki-sync.sqlite
-        freescout-sync.sqlite
-        dashboard.sqlite
-      logs/
-      photos/
-    club-xyz/
-      .env                    <-- club XYZ credentials
-      data/
-        rondo-sync.sqlite     <-- club XYZ state
-        ...
-  server/                     <-- shared web server
-  pipelines/                  <-- shared pipeline code
-  steps/                      <-- shared step code
-  lib/                        <-- shared libraries
-  config/                     <-- shared field mappings (or per-club overrides)
-```
+## Data Storage Impact
 
-**Why database-per-club:**
-- **Complete isolation:** One club's data cannot leak to another's
-- **Natural fit:** The existing code already uses `process.cwd()` to locate databases (see `DEFAULT_DB_PATH` in `rondo-club-db.js` and `laposta-db.js`). Changing the working directory per club already gives data isolation.
-- **Independent operations:** One club can be synced, reset, or migrated without affecting others
-- **Simple backup:** `cp -r clubs/club-abc/data/ backup/` backs up one club
-- **No schema changes:** All existing database schemas work as-is
+### freescout-sync.sqlite Size Estimate
 
-**Implementation steps for multi-club:**
+**Current:**
+- `freescout_customers`: ~300 rows × ~2KB = 600KB
 
-1. **Club config registry:** A JSON file or simple table mapping club slugs to their data directories and .env paths
-2. **Cron per club:** Each club gets its own crontab entries with a club identifier
-3. **sync.sh accepts club:** `sync.sh --club abc people` sets the working directory before invoking the pipeline
-4. **Web server reads all clubs:** Dashboard aggregates runs across clubs, filterable by club
-5. **Environment isolation:** Each pipeline invocation loads the club-specific .env
+**After Feature 1:**
+- `freescout_conversations`: ~300 customers × ~10 conversations × ~5KB = 15MB
 
-**Critical consideration:** The existing `server-check.js` uses hostname validation (`os.hostname() === 'srv888452'`) to prevent local runs. Multi-club does not change this -- all clubs still run on the same production server.
+**Total estimated:** ~16MB (manageable for SQLite).
 
-### Multi-Club Readiness Without Building Multi-Club
+**Retention policy recommendation:** Keep conversations for last 90 days only. Implement cleanup in download step:
 
-The single-club architecture should be structured so that multi-club is an additive change, not a rewrite:
+```javascript
+function cleanupOldConversations(db) {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 90);
 
-1. **Database paths as parameters:** Pass database paths rather than hardcoding. The existing `openDb(dbPath)` pattern already supports this.
-2. **Club context object:** Create a config object with `{ slug, dataDir, envPath }` that can default to the current single-club setup.
-3. **No global state:** The existing code mostly avoids global state (good), but `process.env` is effectively global. Multi-club requires either separate processes per club (simplest) or env-swapping per request.
+  const stmt = db.prepare(`
+    DELETE FROM freescout_conversations
+    WHERE created_at < ?
+  `);
 
-**Recommendation:** For now, design the dashboard database schema with a `club_slug` column on the `runs` table. This is free (one column) and means the dashboard is multi-club ready from day one, even if only one club exists.
-
-Updated schema:
-
-```sql
-CREATE TABLE runs (
-  id INTEGER PRIMARY KEY,
-  club_slug TEXT NOT NULL DEFAULT 'default',  -- Multi-club ready
-  pipeline TEXT NOT NULL,
-  -- ... rest unchanged
-);
-
-CREATE INDEX idx_runs_club ON runs(club_slug, pipeline, started_at DESC);
+  stmt.run(cutoffDate.toISOString());
+}
 ```
 
-## UI Approach
+---
 
-### Recommendation: Server-Rendered HTML with HTMX
+## Testing Strategy
 
-For an internal operator dashboard viewed by 1-2 people, a full React/Vue SPA is overkill. Server-rendered HTML with HTMX provides:
+### Feature 1: Conversations → Activities
 
-- **No build step:** No webpack, no bundling, no transpiling. HTML templates rendered by Fastify.
-- **Minimal JavaScript:** HTMX is 14KB gzipped. The dashboard needs no client-side state management.
-- **Fast development:** HTML templates are simpler than React components for CRUD-style views.
-- **Team fit:** The existing codebase is pure Node.js with no frontend build toolchain. Adding one for a dashboard would be a disproportionate complexity increase.
+**Unit tests:**
+- `computeConversationHash()` produces stable hashes
+- `upsertConversations()` handles duplicates correctly
+- `getConversationsNeedingSync()` returns only changed conversations
+- Activity payload formatting includes all required fields
 
-**Technology stack for the UI:**
+**Integration tests:**
+- Download step fetches conversations from real FreeScout
+- Submit step posts to mock Rondo Club endpoint
+- Full pipeline with dry-run flag
+- Full pipeline with real endpoints
 
-| Component | Technology | Why |
-|-----------|-----------|-----|
-| **Server** | Fastify | Fast, plugin-based, JSON schema support |
-| **Templating** | @fastify/view + EJS or Nunjucks | Server-side rendering, no build step |
-| **Interactivity** | HTMX | Partial page updates without full reloads |
-| **Styling** | Simple CSS or Pico CSS | Classless/minimal CSS framework, no build |
-| **Static files** | @fastify/static | Serve CSS, HTMX lib |
+### Feature 2: Photos → FreeScout
 
-### Dashboard Views
+**Unit tests:**
+- `getPhotoUrl()` returns null for non-synced photos
+- `getPhotoUrl()` fetches URL from WordPress media API
+- Customer payload includes photoUrl when available
 
-**1. Overview page (/):**
-- Table of all pipelines with last run status, time, duration
-- Color-coded: green (success), red (errors), yellow (running)
-- Error count badges per pipeline
+**Integration tests:**
+- Prepare step with real Rondo Club data
+- Submit step with real FreeScout API
+- Verify photos appear in FreeScout customer profiles
 
-**2. Pipeline detail (/pipelines/{name}):**
-- Run history table (paginated, most recent first)
-- Stats chart (members synced over time -- simple bar chart)
-- Current schedule (from cron)
+### Feature 3: RelationEnd → Custom Field
 
-**3. Run detail (/runs/{id}):**
-- Full stats breakdown by step
-- Error list with member identifiers
-- Log file content (if available)
-- Duration per step
+**Unit tests:**
+- RelationEnd extracted from correct data source
+- Custom field payload includes field ID 9
+- Empty RelationEnd sends empty string (not null)
 
-**4. Errors view (/errors):**
-- All errors across recent runs
-- Filterable by pipeline, system, member
-- Recurring error detection (same member failing across runs)
+**Integration tests:**
+- Prepare step with real member data
+- Submit step with real FreeScout API
+- Verify RelationEnd appears in FreeScout custom field
 
-## Suggested Build Order
+---
 
-Build in phases that each deliver usable value:
+## Open Questions
 
-### Phase 1: Run Tracking Foundation
+1. **Rondo Club activities endpoint:** What is the exact API contract? What ACF fields store activities?
+2. **Photo URL source:** Does Rondo Club expose photo URL in ACF field, or must we use WordPress media API?
+3. **RelationEnd in Rondo Club:** Is this field synced to ACF, or only in raw Sportlink data?
+4. **Conversation retention:** Should we keep all conversations, or implement 90-day retention?
+5. **Activity deduplication:** How does Rondo Club handle duplicate activity submissions?
+6. **Photo dimensions:** Does FreeScout have size requirements for photoUrl images?
 
-**Goal:** Capture structured run data without any UI.
-
-1. Create `data/dashboard.sqlite` with schema
-2. Build `lib/run-tracker.js`
-3. Integrate into one pipeline (people) as proof of concept
-4. Verify data is captured correctly
-
-**Value:** Historical run data starts accumulating. Can be queried with `sqlite3` CLI.
-
-**Risk:** Low. Adds 3-4 lines to one pipeline file.
-
-### Phase 2: Web Server + API
-
-**Goal:** Serve run data via HTTP.
-
-1. Set up Fastify server in `server/`
-2. Build API routes: `GET /api/runs`, `GET /api/runs/:id`, `GET /api/errors`
-3. Add PM2 config for process management
-4. Configure WAL mode on all databases
-
-**Value:** Run data accessible via HTTP, scriptable.
-
-**Risk:** Low-medium. WAL mode migration needs testing on production.
-
-### Phase 3: Dashboard UI
-
-**Goal:** Visual dashboard for operators.
-
-1. Add HTMX and templates
-2. Build overview page
-3. Build run detail page
-4. Build error browser
-
-**Value:** Operators can see sync status without SSH + reading log files.
-
-**Risk:** Low. Purely additive, no existing code changes.
-
-### Phase 4: All Pipelines Instrumented
-
-**Goal:** All 8 pipelines tracked.
-
-1. Add run-tracker to remaining 7 pipelines
-2. Ensure consistent stats structure across pipelines
-3. Add per-step tracking (not just final stats)
-
-**Value:** Complete visibility into all sync operations.
-
-**Risk:** Low. Same pattern repeated 7 times.
-
-### Phase 5: Multi-Club Readiness
-
-**Goal:** Architecture supports multiple clubs.
-
-1. Add club context to run-tracker
-2. Club config registry
-3. Modify sync.sh for --club flag
-4. Dashboard club filter
-
-**Value:** Can onboard second club.
-
-**Risk:** Medium. Requires careful env/database isolation testing.
-
-## Anti-Patterns to Avoid
-
-### 1. Do NOT embed the web server inside pipelines
-
-Pipelines are short-lived processes that exit after completion. Embedding a web server would mean the server dies every time a pipeline finishes, or the pipeline would need to be kept alive artificially.
-
-### 2. Do NOT parse log files for structured data
-
-The existing log files are human-readable text. Parsing them to extract stats (regex on "Members synced: 45/1069") is fragile and loses the rich structure already available in the stats objects. Capture the stats objects directly.
-
-### 3. Do NOT share database connections between web server and pipelines
-
-Each process should open its own database connection. SQLite handles multi-process access through file-level locking. Sharing connections (via IPC, shared memory, etc.) adds complexity with no benefit.
-
-### 4. Do NOT replace cron with in-process scheduling
-
-The existing cron setup is battle-tested and well-documented. The flock-based locking in sync.sh prevents overlapping runs. Replacing this with `node-cron` or `fastify-cron` would lose the flock isolation and introduce new failure modes.
-
-### 5. Do NOT read sync databases from the web server for real-time member data
-
-The dashboard should read from `dashboard.sqlite` for run history and errors. Reading `rondo-sync.sqlite` for member counts or status is acceptable (read-only), but the web server should NEVER write to sync databases.
-
-### 6. Do NOT add authentication before the dashboard has value
-
-The server runs on an internal IP (`46.202.155.16`). Adding auth is important but should not gate the initial build. Use IP-based access control first (bind to localhost + reverse proxy, or firewall rules), add auth in a later phase.
-
-## Technology Decisions
-
-### New Dependencies Needed
-
-| Package | Purpose | Version | Confidence |
-|---------|---------|---------|------------|
-| `fastify` | Web server | ^5.x | HIGH |
-| `@fastify/static` | Serve CSS/JS assets | ^8.x | HIGH |
-| `@fastify/view` | Server-side templates | ^10.x | HIGH |
-| `ejs` or `nunjucks` | Template engine | latest | HIGH |
-| `htmx.org` | Client-side interactivity | ^2.x | HIGH (vendored, not npm) |
-
-### No New Dependencies Needed For
-
-| Capability | Already Available |
-|-----------|------------------|
-| SQLite access | `better-sqlite3` (already in package.json) |
-| Environment loading | `varlock` (already in package.json) |
-| HTTP client (for API tests) | Node.js built-in `http` |
-| Process management | PM2 (installed globally on server) |
-
-## Confidence Assessment
-
-| Area | Confidence | Reasoning |
-|------|------------|-----------|
-| Stats capture approach | HIGH | Verified: every pipeline already builds structured stats objects |
-| SQLite concurrent access | HIGH | WAL mode is well-documented for this exact multi-process pattern |
-| Fastify for web server | HIGH | Well-established, no competing concerns with existing stack |
-| HTMX for dashboard UI | HIGH | Appropriate for internal single-operator CRUD dashboard |
-| Multi-club database-per-club | MEDIUM | Pattern is sound, but env isolation needs careful implementation |
-| PM2 for process management | MEDIUM | Standard approach, but needs testing alongside existing cron |
-| Real-time SSE updates | LOW | Not researched in depth, deferred to later phase |
+---
 
 ## Sources
 
-- Existing codebase analysis: `pipelines/sync-people.js`, `pipelines/sync-all.js`, `lib/logger.js`, `lib/rondo-club-db.js`, `lib/laposta-db.js`, `scripts/sync.sh`, `lib/server-check.js`
-- Existing documentation: `docs/database-schema.md`, `docs/sync-architecture.md`
-- [better-sqlite3 concurrency documentation](https://wchargin.com/better-sqlite3/performance.html) -- WAL mode and checkpoint management
-- [SQLite WAL mode documentation](https://sqlite.org/wal.html) -- concurrent read/write guarantees
-- [Fastify official site](https://fastify.dev/) -- framework capabilities and plugin ecosystem
-- [HTMX vs React comparison](https://dualite.dev/blog/htmx-vs-react) -- framework choice rationale
-- [HTMX production comparison](https://medium.com/@the_atomic_architect/htmx-vs-react-6-months-production-cdf0468206b5) -- real-world admin dashboard rebuild
-- [Fastify vs Express comparison](https://betterstack.com/community/guides/scaling-nodejs/fastify-express/) -- performance and features
-- [Multi-tenant architecture guide](https://dev.to/rampa2510/guide-to-building-multi-tenant-architecture-in-nodejs-40og) -- database-per-tenant pattern
-- [PM2 with cron jobs](https://greenydev.com/blog/pm2-cron-job-multiple-instances/) -- coexistence patterns
-- [SQLite concurrent access patterns](https://blog.skypilot.co/abusing-sqlite-to-handle-concurrency/) -- multi-process strategies
-- [better-sqlite3 multiprocess access](https://github.com/WiseLibs/better-sqlite3/issues/250) -- known considerations
+- [FreeScout REST API Documentation](https://api-docs.freescout.net/)
+- [FreeScout API & Webhooks Module](https://freescout.net/module/api-webhooks/)
+- [FreeScout Customer Avatars](https://freescout.shop/downloads/freescout-module-avatars/)
+- Existing codebase: `lib/freescout-client.js`, `lib/freescout-db.js`, `steps/prepare-freescout-customers.js`, `steps/submit-freescout-sync.js`
