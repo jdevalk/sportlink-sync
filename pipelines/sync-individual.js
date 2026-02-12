@@ -381,6 +381,14 @@ async function syncIndividual(knvbId, options = {}) {
           updateData = applyResolutions(prepared.data, resolution.resolutions);
         }
 
+        // Preserve existing addresses if Sportlink has no address data
+        // This prevents individual sync from clearing addresses when Sportlink data is incomplete
+        if (updateData.acf.addresses && updateData.acf.addresses.length === 0 &&
+            existingData.acf && existingData.acf.addresses && existingData.acf.addresses.length > 0) {
+          log('Preserving existing addresses (Sportlink has no address data)');
+          updateData.acf.addresses = existingData.acf.addresses;
+        }
+
         await rondoClubRequest(`wp/v2/people/${rondoClubId}`, 'PUT', updateData, { verbose });
         updateSyncState(rondoClubDb, knvbId, prepared.source_hash, rondoClubId);
 
