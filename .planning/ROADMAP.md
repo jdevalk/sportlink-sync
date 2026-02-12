@@ -68,7 +68,7 @@
 **Plans:** 1 plan
 
 Plans:
-- [ ] 44-01-PLAN.md — Add RelationEnd date normalization and FreeScout field mapping
+- [x] 44-01-PLAN.md — Add RelationEnd date normalization and FreeScout field mapping — completed 2026-02-12
 
 #### Phase 45: Photo URL Sync to FreeScout
 
@@ -119,10 +119,10 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 44. RelationEnd Field Mapping | v3.3 | 0/1 | Planned | - |
+| 44. RelationEnd Field Mapping | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
 | 45. Photo URL Sync | v3.3 | 0/TBD | Not started | - |
 | 46. Conversations as Activities | v3.3 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-08*
-*Last updated: 2026-02-12 after v3.3 milestone started*
+*Last updated: 2026-02-12 after phase 44 completed*
