@@ -122,4 +122,4 @@ After functional changes, update:
 
 ## Tech Stack
 
-Node.js 18+, Playwright (Chromium), better-sqlite3, otplib (TOTP), postmark, varlock (env loading).
+Node.js 18+, Playwright (Chromium), better-sqlite3, otplib (TOTP), postmark, dotenv (env loading).

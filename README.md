@@ -102,7 +102,7 @@ See [Installation Guide](docs/installation.md) for full setup instructions.
 
 ## Tech Stack
 
-Node.js 18+ · Playwright · better-sqlite3 · otplib · Postmark · varlock
+Node.js 18+ · Playwright · better-sqlite3 · otplib · Postmark · dotenv
 
 ## License
 
