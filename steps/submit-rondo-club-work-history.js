@@ -10,7 +10,8 @@ const {
   getMemberWorkHistory,
   updateWorkHistorySyncState,
   deleteWorkHistory,
-  getTeamMemberRole
+  getTeamMemberRole,
+  resolveTeamForMember
 } = require('../lib/rondo-club-db');
 
 /**
@@ -24,15 +25,23 @@ function isValidTeamName(teamName) {
 }
 
 /**
- * Look up team rondo_club_id by team code.
- * SearchMembers returns team codes (e.g. "JO17-1") which match the TeamCode
- * field from the teams download.
- * @param {string} teamCode - Team code to look up
- * @param {Map} teamMap - Map<team_code, rondo_club_id>
+ * Look up team rondo_club_id by team code or name.
+ * First tries the teamMap (team_code/team_name), then falls back to
+ * sportlink_team_members for ambiguous codes.
+ * @param {string} teamCode - Team code or name to look up
+ * @param {Map} teamMap - Map<team_code/team_name, rondo_club_id>
+ * @param {Object} [db] - Database for fallback lookup
+ * @param {string} [knvbId] - Member KNVB ID for fallback lookup
  * @returns {number|undefined} - Rondo Club ID or undefined if not found
  */
-function lookupTeamRondoClubId(teamCode, teamMap) {
-  return teamMap.get(teamCode);
+function lookupTeamRondoClubId(teamCode, teamMap, db, knvbId) {
+  const result = teamMap.get(teamCode);
+  if (result) return result;
+  // Fallback: use sportlink_team_members to resolve ambiguous codes
+  if (db && knvbId) {
+    return resolveTeamForMember(db, knvbId, teamCode) || undefined;
+  }
+  return undefined;
 }
 
 /**
@@ -219,7 +228,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
 
   // Handle added teams
   for (const teamName of changes.added) {
-    const teamStadionId = lookupTeamRondoClubId(teamName, teamMap);
+    const teamStadionId = lookupTeamRondoClubId(teamName, teamMap, db, knvb_id);
     if (!teamStadionId) {
       logVerbose(`Warning: Team "${teamName}" not found in Rondo Club, skipping`);
       continue;
@@ -250,7 +259,7 @@ async function syncWorkHistoryForMember(member, currentTeams, db, teamMap, optio
   if (force) {
     const trackedHistory = getMemberWorkHistory(db, knvb_id);
     for (const teamName of changes.unchanged) {
-      const teamStadionId = lookupTeamRondoClubId(teamName, teamMap);
+      const teamStadionId = lookupTeamRondoClubId(teamName, teamMap, db, knvb_id);
       if (!teamStadionId) {
         logVerbose(`Warning: Team "${teamName}" not found in Rondo Club, skipping`);
         continue;
