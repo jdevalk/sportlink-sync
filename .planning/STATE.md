@@ -2,23 +2,31 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-11)
+See: .planning/PROJECT.md (updated 2026-02-12)
 
-**Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention
-**Current focus:** v3.3 FreeScout Integration
+**Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention — now bidirectionally, with web-based monitoring.
+
+**Current focus:** v3.3 FreeScout Integration — Phase 44 (RelationEnd Field Mapping)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-12 — Milestone v3.3 started
+Phase: 44 of 46 (RelationEnd Field Mapping)
+Plan: Ready to plan
+Status: Ready to plan
+Last activity: 2026-02-12 — v3.3 roadmap created
+
+Progress: [████████████████████████████████████████████░░] 93% (43/46 phases)
 
 ## Accumulated Context
 
 ### Decisions
 
 Full decision log in PROJECT.md Key Decisions table.
+
+Recent decisions affecting current work:
+- Phase 41-43: rondoClub camelCase / rondo_club_id snake_case — JavaScript conventions for code, SQL conventions for DB columns
+- Phase 40: Dry-run-by-default import tool — Safe-by-default; --import flag required to execute
+- Phase 34-38: Error-only email alerts — Dashboard is source of truth, emails only for action needed
 
 ### Pending Todos
 
@@ -36,6 +44,8 @@ Full decision log in PROJECT.md Key Decisions table.
 - INFRA-04 partial: web server runs as root (no sportlink user on server) — accepted for now
 - Phase 39 (Multi-Club Readiness) deferred until second club onboards
 
+**v3.3 specific:** None — Research completed, Rondo Club Activities API confirmed to exist
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
@@ -46,5 +56,5 @@ Full decision log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed quick task 25: Replace varlock with dotenv for .env loading
-Resume file: Run /gsd:new-milestone when ready
+Stopped at: v3.3 roadmap and state files created
+Resume file: None — ready to plan Phase 44 with `/gsd:plan-phase 44`

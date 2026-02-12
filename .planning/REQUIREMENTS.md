@@ -44,22 +44,22 @@ None deferred — all three features scoped for v3.3.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIELD-01 | — | Pending |
-| FIELD-02 | — | Pending |
-| PHOTO-01 | — | Pending |
-| PHOTO-02 | — | Pending |
-| PHOTO-03 | — | Pending |
-| CONV-01 | — | Pending |
-| CONV-02 | — | Pending |
-| CONV-03 | — | Pending |
-| CONV-04 | — | Pending |
-| CONV-05 | — | Pending |
+| FIELD-01 | Phase 44 | Pending |
+| FIELD-02 | Phase 44 | Pending |
+| PHOTO-01 | Phase 45 | Pending |
+| PHOTO-02 | Phase 45 | Pending |
+| PHOTO-03 | Phase 45 | Pending |
+| CONV-01 | Phase 46 | Pending |
+| CONV-02 | Phase 46 | Pending |
+| CONV-03 | Phase 46 | Pending |
+| CONV-04 | Phase 46 | Pending |
+| CONV-05 | Phase 46 | Pending |
 
 **Coverage:**
 - v3.3 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-12*
-*Last updated: 2026-02-12 after initial definition*
+*Last updated: 2026-02-12 after roadmap creation*
