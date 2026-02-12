@@ -87,7 +87,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 45-01-PLAN.md — Implement photo URL fetching from Rondo Club API and FreeScout payload inclusion
+- [x] 45-01-PLAN.md — Implement photo URL fetching from Rondo Club API and FreeScout payload inclusion — completed 2026-02-12
 
 #### Phase 46: FreeScout Conversations as Activities
 
@@ -120,9 +120,9 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 44. RelationEnd Field Mapping | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
-| 45. Photo URL Sync | v3.3 | 0/1 | Planned | - |
+| 45. Photo URL Sync | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
 | 46. Conversations as Activities | v3.3 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-08*
-*Last updated: 2026-02-12 after phase 44 completed*
+*Last updated: 2026-02-12 after phase 45 completed*
