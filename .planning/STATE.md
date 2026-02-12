@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention — now bidirectionally, with web-based monitoring.
 
-**Current focus:** v3.3 FreeScout Integration — Phase 45 (Photo URL Sync to FreeScout)
+**Current focus:** v3.3 FreeScout Integration — Phase 46 (FreeScout Conversations as Activities)
 
 ## Current Position
 
-Phase: 45 of 46 (Photo URL Sync to FreeScout)
+Phase: 46 of 46 (FreeScout Conversations as Activities)
 Plan: 1 of 1 complete
 Status: Phase complete
-Last activity: 2026-02-12 — Completed 45-01-PLAN.md (Photo URL sync to FreeScout)
+Last activity: 2026-02-12 — Completed 46-01-PLAN.md (FreeScout conversations download and activity preparation)
 
-Progress: [██████████████████████████████████████████████░] 98% (45/46 phases)
+Progress: [██████████████████████████████████████████████████] 100% (46/46 phases)
 
 ## Accumulated Context
 
@@ -31,6 +31,10 @@ Recent decisions affecting current work:
 - [Phase 44-01]: FREESCOUT_FIELD_RELATION_END env var with default 9 for field ID mapping
 - [Phase 45-01]: Photo URLs fetched via WordPress REST API ?_embed parameter with graceful degradation
 - [Phase 45-01]: Null photoUrl values omitted from FreeScout payloads using conditional spread
+- [Phase 46-01]: Separate SQLite database (freescout-conversations.sqlite) for conversation tracking
+- [Phase 46-01]: Incremental sync via createdSince parameter with last_download_at metadata tracking
+- [Phase 46-01]: Per-customer error handling in download step - errors don't fail entire sync
+- [Phase 46-01]: Activity payload with HTML escaped subject and FreeScout link, date/time from ISO 8601
 
 ### Pending Todos
 
@@ -59,6 +63,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-12T19:40:12Z
-Stopped at: Completed 45-01-PLAN.md
-Resume file: None — Phase 45 complete, ready for Phase 46 or milestone review
+Last session: 2026-02-12T20:13:00Z
+Stopped at: Completed 46-01-PLAN.md
+Resume file: None — Phase 46 complete, all phases in v3.3 milestone complete
