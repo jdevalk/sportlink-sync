@@ -23,11 +23,7 @@ Full decision log in PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-9 pending (see /gsd:check-todos for full list):
-- fetch-invoice-addresses-from-sportlink
-- review-deleted-member-handling
-- document-and-simplify-adding-sync-targets
-- detect-stale-parent-email-addresses
+2 pending (see /gsd:check-todos for full list):
 - improve-freescout-integration-with-rondo-club
 - build-interface-for-syncing-individuals-to-club
 
