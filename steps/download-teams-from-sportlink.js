@@ -219,6 +219,94 @@ async function runTeamDownload(options = {}) {
 
       }
 
+      // Step 2b: Deduplicate teams by team_code
+      // The API can return multiple registrations for the same logical team
+      // (e.g. "AWC" code "1" and "AWC 1" code "1"). Group by team_code and keep one canonical entry.
+      const codeGroups = new Map();
+      for (const team of teamRecords) {
+        if (!team.team_code) continue;
+        if (!codeGroups.has(team.team_code)) {
+          codeGroups.set(team.team_code, []);
+        }
+        codeGroups.get(team.team_code).push(team);
+      }
+
+      const sportlinkIdRemap = new Map(); // old sportlink_id -> canonical sportlink_id
+      const deduplicatedTeams = [];
+      const teamsWithoutCode = teamRecords.filter(t => !t.team_code);
+
+      for (const [code, group] of codeGroups) {
+        if (group.length === 1) {
+          deduplicatedTeams.push(group[0]);
+          continue;
+        }
+
+        // Pick canonical entry: prefer union over club, prefer numbered names (e.g. "AWC 1" over "AWC")
+        group.sort((a, b) => {
+          // Prefer union source
+          if (a.source === 'union' && b.source !== 'union') return -1;
+          if (b.source === 'union' && a.source !== 'union') return 1;
+          // Prefer names that contain the code number (more specific)
+          const aHasNumber = /\d/.test(a.team_name);
+          const bHasNumber = /\d/.test(b.team_name);
+          if (aHasNumber && !bHasNumber) return -1;
+          if (bHasNumber && !aHasNumber) return 1;
+          // Prefer longer names (more specific)
+          return b.team_name.length - a.team_name.length;
+        });
+
+        const canonical = group[0];
+        const variants = group.slice(1);
+
+        // Collect all variant names (including canonical name itself won't be duplicated in lookup)
+        const nameVariants = variants.map(v => v.team_name);
+        canonical.name_variants = JSON.stringify(nameVariants);
+
+        // Build remap for member sportlink_team_ids
+        for (const variant of variants) {
+          sportlinkIdRemap.set(variant.sportlink_id, canonical.sportlink_id);
+          logVerbose(`Dedup: "${variant.team_name}" (${variant.sportlink_id}) → "${canonical.team_name}" (${canonical.sportlink_id})`);
+        }
+
+        deduplicatedTeams.push(canonical);
+      }
+
+      // Add teams without codes (no dedup possible)
+      deduplicatedTeams.push(...teamsWithoutCode);
+
+      if (sportlinkIdRemap.size > 0) {
+        logVerbose(`Deduplicated ${sportlinkIdRemap.size} duplicate team entries across ${codeGroups.size} team codes`);
+
+        // Remap allMembers sportlink_team_id through the dedup remap
+        for (const member of allMembers) {
+          const remapped = sportlinkIdRemap.get(member.sportlink_team_id);
+          if (remapped) {
+            member.sportlink_team_id = remapped;
+          }
+        }
+
+        // Deduplicate allMembers by (sportlink_team_id, sportlink_person_id) keeping first occurrence
+        const seen = new Set();
+        const deduplicatedMembers = [];
+        for (const member of allMembers) {
+          const key = `${member.sportlink_team_id}:${member.sportlink_person_id}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            deduplicatedMembers.push(member);
+          }
+        }
+        const removedMembers = allMembers.length - deduplicatedMembers.length;
+        if (removedMembers > 0) {
+          logVerbose(`Removed ${removedMembers} duplicate member entries after team dedup`);
+        }
+        allMembers.length = 0;
+        allMembers.push(...deduplicatedMembers);
+      }
+
+      // Replace teamRecords with deduplicated version
+      teamRecords.length = 0;
+      teamRecords.push(...deduplicatedTeams);
+
       // Step 3: Store to database
       const db = openDb();
       try {
@@ -227,6 +315,10 @@ async function runTeamDownload(options = {}) {
 
         // Remove source field before storing (it was only needed for API routing)
         const dbTeamRecords = teamRecords.map(({ source, ...rest }) => rest);
+        // Ensure name_variants defaults to null if not set
+        for (const record of dbTeamRecords) {
+          if (!record.name_variants) record.name_variants = null;
+        }
 
         // Upsert teams with metadata
         if (dbTeamRecords.length > 0) {

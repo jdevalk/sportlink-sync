@@ -376,11 +376,22 @@ async function runSync(options = {}) {
       const members = Array.isArray(sportlinkData.Members) ? sportlinkData.Members : [];
       logVerbose(`Found ${members.length} Sportlink members`);
 
-      // Load team mapping: team_code -> rondo_club_id
-      // SearchMembers returns team codes (e.g. "JO17-1") which match TeamCode from the teams download
+      // Load team mapping: team_code/team_name/name_variants -> rondo_club_id
+      // SearchMembers returns a mix of team codes (e.g. "JO17-1") and full team names (e.g. "AWC")
       const teams = getAllTeams(rondoClubDb);
-      const teamMap = new Map(teams.filter(t => t.team_code).map(t => [t.team_code, t.rondo_club_id]));
-      logVerbose(`Loaded ${teams.length} teams from Rondo Club (${teamMap.size} with team codes)`);
+      const teamMap = new Map();
+      for (const t of teams) {
+        if (t.team_code) teamMap.set(t.team_code, t.rondo_club_id);
+        if (t.team_name) teamMap.set(t.team_name, t.rondo_club_id);
+        // Add variant names from deduplication
+        if (t.name_variants) {
+          try {
+            const variants = JSON.parse(t.name_variants);
+            for (const v of variants) teamMap.set(v, t.rondo_club_id);
+          } catch { /* ignore invalid JSON */ }
+        }
+      }
+      logVerbose(`Loaded ${teams.length} teams from Rondo Club (${teamMap.size} lookup entries)`);
 
       // Build work history records for all members
       const workHistoryRecords = [];
