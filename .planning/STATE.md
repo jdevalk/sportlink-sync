@@ -5,15 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention
-**Current focus:** Planning next milestone
+**Current focus:** v3.3 FreeScout Integration
 
 ## Current Position
 
-Phase: 43 of 43 — all milestones through v3.2 complete
-Status: Between milestones
-Last activity: 2026-02-12 - Completed quick task 25: Replace varlock with dotenv for .env loading
-
-Progress: [████████████████████████████████████████████] 100% (v3.2 shipped)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-12 — Milestone v3.3 started
 
 ## Accumulated Context
 

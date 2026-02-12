@@ -8,6 +8,15 @@ A sync system with web dashboard that synchronizes member data bidirectionally b
 
 Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention — now bidirectionally, with web-based monitoring.
 
+## Current Milestone: v3.3 FreeScout Integration
+
+**Goal:** Deepen the FreeScout ↔ Rondo Club integration with email activity visibility, photo sync, and additional field mapping.
+
+**Target features:**
+- FreeScout email conversations appear as activities on Rondo Club person records
+- Member photos from Rondo Club display as FreeScout customer avatars
+- Sportlink RelationEnd date syncs to FreeScout "Lid tot" custom field (ID 9)
+
 ## Current State (v3.2 Shipped)
 
 **Shipped:** 2026-02-11
@@ -87,7 +96,9 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 
 ### Active
 
-(None — next milestone not yet planned)
+- [ ] FreeScout email conversations visible as activities on Rondo Club person records
+- [ ] Member photos from Rondo Club sync to FreeScout as customer avatars
+- [ ] Sportlink RelationEnd syncs to FreeScout "Lid tot" custom field (ID 9)
 
 ### Out of Scope
 
@@ -162,4 +173,4 @@ Full bidirectional sync pipeline operational with web monitoring dashboard:
 | rondoClub camelCase / rondo_club_id snake_case | JavaScript conventions for code, SQL conventions for DB columns | ✓ Good |
 
 ---
-*Last updated: 2026-02-11 after v3.2 milestone*
+*Last updated: 2026-02-12 after v3.3 milestone started*
