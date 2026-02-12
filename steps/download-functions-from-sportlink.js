@@ -376,7 +376,7 @@ async function fetchMemberGeneralData(page, knvbId, logger) {
   // Map to flat SearchMembers-style object
   const person = personData?.Person || {};
   const comm = communicationData?.Communication || {};
-  const addr = addressesData?.Address || {};
+  const addr = Array.isArray(addressesData?.Address) ? addressesData.Address[0] || {} : addressesData?.Address || {};
   const parent = parentalInfoData || {};
 
   return {
