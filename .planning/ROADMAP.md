@@ -84,10 +84,10 @@ Plans:
 3. Customers without photos in Rondo Club are skipped (no broken image URLs in FreeScout)
 4. Photo sync uses hash-based change detection (unchanged photos not re-uploaded)
 
-**Plans:** TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 45-01: TBD
+- [ ] 45-01-PLAN.md — Implement photo URL fetching from Rondo Club API and FreeScout payload inclusion
 
 #### Phase 46: FreeScout Conversations as Activities
 
@@ -120,7 +120,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 44. RelationEnd Field Mapping | v3.3 | 1/1 | ✓ Complete | 2026-02-12 |
-| 45. Photo URL Sync | v3.3 | 0/TBD | Not started | - |
+| 45. Photo URL Sync | v3.3 | 0/1 | Planned | - |
 | 46. Conversations as Activities | v3.3 | 0/TBD | Not started | - |
 
 ---
