@@ -1,0 +1,65 @@
+# Requirements: Rondo Sync
+
+**Defined:** 2026-02-12
+**Core Value:** Keep downstream systems (Laposta, Rondo Club) automatically in sync with Sportlink member data without manual intervention
+
+## v3.3 Requirements
+
+Requirements for v3.3 FreeScout Integration milestone. Each maps to roadmap phases.
+
+### FreeScout Field Mapping
+
+- [ ] **FIELD-01**: Sportlink RelationEnd date syncs to FreeScout "Lid tot" custom field (ID 9) during customer sync
+- [ ] **FIELD-02**: Date format is normalized to YYYY-MM-DD before sending to FreeScout API
+
+### FreeScout Photo Sync
+
+- [ ] **PHOTO-01**: Member photo URL from Rondo Club is set as FreeScout customer `photoUrl` during sync
+- [ ] **PHOTO-02**: Photo changes are tracked with hash to avoid redundant API updates
+- [ ] **PHOTO-03**: Customers without photos in Rondo Club are skipped (no empty/broken URLs sent)
+
+### FreeScout Conversations as Activities
+
+- [ ] **CONV-01**: FreeScout conversations are fetched via API for each customer with a known FreeScout ID
+- [ ] **CONV-02**: Conversations are created as email activities on the corresponding Rondo Club person record
+- [ ] **CONV-03**: Conversation tracking prevents duplicate activities (each conversation synced only once)
+- [ ] **CONV-04**: Incremental sync only fetches conversations newer than last sync timestamp
+- [ ] **CONV-05**: Pagination is handled correctly (FreeScout defaults to 50/page)
+
+## Future Requirements
+
+None deferred — all three features scoped for v3.3.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Two-way conversation sync (create FreeScout conversations from Rondo Club) | Read-only display is standard; FreeScout is the authoring tool |
+| Conversation content caching in SQLite | Activities API is the source of truth; no local storage needed |
+| FreeScout file attachment sync | Adds complexity; conversation subject/status is sufficient for activity display |
+| Photo file upload to FreeScout | FreeScout `photoUrl` accepts URLs; no need for multipart upload |
+| Real-time conversation updates | Batch sync on schedule is sufficient (matches existing pipeline pattern) |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FIELD-01 | — | Pending |
+| FIELD-02 | — | Pending |
+| PHOTO-01 | — | Pending |
+| PHOTO-02 | — | Pending |
+| PHOTO-03 | — | Pending |
+| CONV-01 | — | Pending |
+| CONV-02 | — | Pending |
+| CONV-03 | — | Pending |
+| CONV-04 | — | Pending |
+| CONV-05 | — | Pending |
+
+**Coverage:**
+- v3.3 requirements: 10 total
+- Mapped to phases: 0
+- Unmapped: 10 ⚠️
+
+---
+*Requirements defined: 2026-02-12*
+*Last updated: 2026-02-12 after initial definition*
