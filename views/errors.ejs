@@ -41,8 +41,8 @@
     <% } %>
   </p>
   <% if (totalErrors > 0) { %>
-    <form method="POST" action="/api/logs/clear" onsubmit="return confirm('Clear all logs? This deletes all runs, steps, and errors.')">
-      <button type="submit" class="btn-danger">Clear logs</button>
+    <form method="POST" action="/api/errors/clear" onsubmit="return confirm('Clear all errors?')">
+      <button type="submit" class="btn-danger">Clear errors</button>
     </form>
   <% } %>
 </div>
