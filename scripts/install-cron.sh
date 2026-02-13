@@ -8,10 +8,11 @@ PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 echo "Rondo Sync - Cron Installation"
 echo "==============================="
 echo ""
-echo "This will set up eight sync schedules:"
+echo "This will set up nine sync schedules:"
 echo "  - People sync:            4x daily (members, parents, photos)"
 echo "  - Nikki sync:             daily at 7:00 AM"
 echo "  - FreeScout sync:         daily at 8:00 AM"
+echo "  - FreeScout conversations: daily at 9:00 AM"
 echo "  - Team sync:              weekly on Sunday at 6:00 AM"
 echo "  - Functions sync (recent):4x daily, 30 min before each people sync"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
@@ -115,6 +116,9 @@ CRON_ENTRIES="
 # FreeScout sync: daily at 8:00 AM
 0 8 * * * $PROJECT_DIR/scripts/sync.sh freescout
 
+# FreeScout conversations sync: daily at 9:00 AM (after customer sync)
+0 9 * * * $PROJECT_DIR/scripts/sync.sh conversations
+
 # Team sync: weekly on Sunday at 6:00 AM
 0 6 * * 0 $PROJECT_DIR/scripts/sync.sh teams
 
@@ -140,6 +144,7 @@ echo "Scheduled jobs:"
 echo "  - People sync:            4x daily at 8am, 11am, 2pm, 5pm (members, parents, photos)"
 echo "  - Nikki sync:             daily at 7:00 AM (nikki contributions)"
 echo "  - FreeScout sync:         daily at 8:00 AM (customer sync)"
+echo "  - FreeScout conversations: daily at 9:00 AM (after customer sync)"
 echo "  - Team sync:              weekly on Sunday at 6:00 AM"
 echo "  - Functions sync (recent):4x daily, 30 min before each people sync"
 echo "  - Functions sync (full):  weekly on Sunday at 1:00 AM (all members)"
